@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -13,6 +14,8 @@
         fprintf(stderr, "CL Error %d: %s\n", err, str); \
         exit(1); \
     }
+
+#define EPSILON 0.0001
 
 #define USEGPU 1
 #define DATA_SIZE 1024
@@ -41,110 +44,111 @@ int main(int argc, char** argv)
     FILE *kernelFile;
     char *kernelSource;
     size_t kernelLength;
+    size_t lengthRead;
 
-    // Fill input set with random float values
+    /* Fill input set with random float values */
     int i;
     unsigned int count = DATA_SIZE;
     for (i = 0; i < count; i++)
         input[i] = rand() / (float)RAND_MAX;
 
-    // Retrieve an OpenCL platform
+    /* Retrieve an OpenCL platform */
     err = clGetPlatformIDs(1, &platform_id, NULL);
     CHKERR(err, "Failed to get a platform!");
 
-    // Connect to a compute device
+    /* Connect to a compute device */
     err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
     CHKERR(err, "Failed to create a device group!");
 
-    // Create a compute context
+    /* Create a compute context */
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
 
-    // Create a command queue
+    /* Create a command queue */
     commands = clCreateCommandQueue(context, device_id, 0, &err);
     CHKERR(err, "Failed to create a command queue!");
 
-    // Load kernel source
+    /* Load kernel source */
     kernelFile = fopen("samplecl_kernel.cl", "r");
     fseek(kernelFile, 0, SEEK_END);
     kernelLength = (size_t) ftell(kernelFile);
     kernelSource = (char *) malloc(sizeof(char)*kernelLength);
     rewind(kernelFile);
-    fread((void *) kernelSource, kernelLength, 1, kernelFile);
+    lengthRead = fread((void *) kernelSource, kernelLength, 1, kernelFile);
     fclose(kernelFile);
 
-    // Create the compute program from the source buffer
+    /* Create the compute program from the source buffer */
     program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &err);
     CHKERR(err, "Failed to create a compute program!");
 
-    // Free kernel source
+    /* Free kernel source */
     free(kernelSource);
 
-    // Build the program executable
+    /* Build the program executable */
     err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
     if (err == CL_BUILD_PROGRAM_FAILURE)                                                                                                                                       
     {
-        char *log;
+        char *buildLog;
         size_t logLen;
         err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLen);
-        log = (char *) malloc(sizeof(char)*logLen);
-        err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) log, NULL);
-        fprintf(stderr, "CL Error %d: Failed to build program! Log:\n%s", err, log);
-        free(log);
+        buildLog = (char *) malloc(sizeof(char)*logLen);
+        err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) buildLog, NULL);
+        fprintf(stderr, "CL Error %d: Failed to build program! Log:\n%s", err, buildLog);
+        free(buildLog);
         exit(1);
     }
     CHKERR(err, "Failed to build program!");
 
-    // Create the compute kernel in the program we wish to run
+    /* Create the compute kernel in the program we wish to run */
     kernel = clCreateKernel(program, "copy", &err);
     CHKERR(err, "Failed to create a compute kernel!");
 
-    // Create the input and output arrays in device memory for our calculation
+    /* Create the input and output arrays in device memory for our calculation */
     dev_input = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*count, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
     dev_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float)*count, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
 
-    // Write our data set into the input array in device memory
+    /* Write our data set into the input array in device memory */
     err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(float)*count, input, 0, NULL, NULL);
     CHKERR(err, "Failed to write to source array!");
 
-    // Set the arguments to our compute kernel
+    /* Set the arguments to our compute kernel */
     err = 0;
     err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &dev_input);
     err |= clSetKernelArg(kernel, 1, sizeof(cl_mem), &dev_output);
     err |= clSetKernelArg(kernel, 2, sizeof(unsigned int), &count);
     CHKERR(err, "Failed to set kernel arguments!");
 
-    // Get the maximum work group size for executing the kernel on the device
+    /* Get the maximum work group size for executing the kernel on the device */
     err = clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
     CHKERR(err, "Failed to retrieve kernel work group info!");
 
-    // Execute the kernel over the entire range of our 1d input data set
-    // using the maximum number of work group items for this device
+    /* Execute the kernel over the entire range of our 1d input data set */
+    /* using the maximum number of work group items for this device */
     global_size = count;
     err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
     CHKERR(err, "Failed to execute kernel!");
 
-    // Wait for the command commands to get serviced before reading back results
+    /* Wait for the command commands to get serviced before reading back results */
     clFinish(commands);
 
-    // Read back the results from the device to verify the output
+    /* Read back the results from the device to verify the output */
     err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(float)*count, output, 0, NULL, NULL);
     CHKERR(err, "Failed to read output array!");
 
-    // Validate our results
+    /* Validate our results */
     correct = 0;
     for (i = 0; i < count; i++)
     {
-        if (output[i] == input[i])
+        if (fabs(output[i] - input[i]) < EPSILON)
             correct++;
     }
 
-    // Print a brief summary detailing the results
+    /* Print a brief summary detailing the results */
     printf("Computed '%d/%d' correct values!\n", correct, count);
 
-    // Shutdown and cleanup
+    /* Shutdown and cleanup */
     clReleaseMemObject(dev_input);
     clReleaseMemObject(dev_output);
     clReleaseProgram(program);
