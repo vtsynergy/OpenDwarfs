@@ -28,6 +28,10 @@ exec_local =
 #include swat/Makefile.mk
 #endif
 
+if build_nw
+include rodinia-nw/Makefile.mk
+endif
+
 if build_samplecl
 include samplecl/Makefile.mk
 endif
