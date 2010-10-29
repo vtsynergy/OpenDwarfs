@@ -32,6 +32,10 @@ if build_nw
 include rodinia-nw/Makefile.mk
 endif
 
+if build_srad
+include rodinia-srad/Makefile.mk
+endif
+
 if build_samplecl
 include samplecl/Makefile.mk
 endif
