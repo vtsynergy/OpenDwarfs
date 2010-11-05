@@ -36,6 +36,10 @@ if build_srad
 include rodinia-srad/Makefile.mk
 endif
 
+if build_lud
+include rodinia-lud/Makefile.mk
+endif
+
 if build_samplecl
 include samplecl/Makefile.mk
 endif
