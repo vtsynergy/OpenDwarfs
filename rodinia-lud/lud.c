@@ -112,7 +112,7 @@ main ( int argc, char *argv[] )
   errcode = clGetPlatformIDs(1, &clPlatform, NULL);
   CHECKERR(errcode);
 
-  errcode = clGetDeviceIDs(NULL, CL_DEVICE_TYPE_GPU, 1, &clDevice, NULL);
+  errcode = clGetDeviceIDs(clPlatform, CL_DEVICE_TYPE_GPU, 1, &clDevice, NULL);
   CHECKERR(errcode);
 
   clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
