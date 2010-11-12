@@ -102,8 +102,8 @@ AC_LANG_POP([C++])
 #	AC_HELP_STRING([--with-apps],[Applications to build (gem,matmult,mattran,swat)]),
 #	[app_list=$withval],[app_list=gem,matmult,mattran,swat])
 AC_ARG_WITH([apps],
-	AC_HELP_STRING([--with-apps],[Applications to build (nw,srad,lud,samplecl)]),
-	[app_list=$withval],[app_list=nw,srad,lud,samplecl])
+	AC_HELP_STRING([--with-apps],[Applications to build (nw,srad,lud,samplecl,crc,cfd)]),
+	[app_list=$withval],[app_list=nw,srad,lud,samplecl,crc,cfd])
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
 #build_gem=false
@@ -114,6 +114,8 @@ build_nw=false
 build_srad=false
 build_lud=false
 build_samplecl=false
+build_crc=false
+build_cfd=false
 
 selected_apps=""
 for app in ${app_names}; do
@@ -142,6 +144,14 @@ for app in ${app_names}; do
 #		   selected_apps="$selected_apps swat"
 #		fi
 #		;;
+     cfd)
+        build_cfd=true
+        selected_apps="$selected_apps cfd"
+        ;;
+     crc)
+        build_crc=true
+        selected_apps="$selected_apps crc"
+        ;;
      nw)
         build_nw=true
         selected_apps="$selected_apps nw"
@@ -173,6 +183,8 @@ AM_CONDITIONAL([build_nw], [$build_nw])
 AM_CONDITIONAL([build_srad], [$build_srad])
 AM_CONDITIONAL([build_lud], [$build_lud])
 AM_CONDITIONAL([build_samplecl], [$build_samplecl])
+AM_CONDITIONAL([build_crc], [$build_crc])
+AM_CONDITIONAL([build_cfd], [$build_cfd])
 
 # Final output
 AC_OUTPUT(Makefile)

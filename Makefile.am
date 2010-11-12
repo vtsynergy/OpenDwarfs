@@ -44,6 +44,14 @@ if build_samplecl
 include samplecl/Makefile.mk
 endif
 
+if build_crc
+include dwarf-crc/Makefile.mk
+endif
+
+if build_cfd
+include dwarf-cfd/Makefile.mk
+endif
+
 all-local: $(all_local)
 
 install-exec-local: $(exec_local)
