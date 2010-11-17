@@ -44,6 +44,10 @@ if build_samplecl
 include samplecl/Makefile.mk
 endif
 
+if build_bsort
+include bitonic-sort/Makefile.mk
+endif
+
 all-local: $(all_local)
 
 install-exec-local: $(exec_local)
