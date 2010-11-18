@@ -40,6 +40,10 @@ if build_lud
 include rodinia-lud/Makefile.mk
 endif
 
+if build_kmeans
+include rodinia-kmeans/Makefile.mk
+endif
+
 if build_samplecl
 include samplecl/Makefile.mk
 endif
