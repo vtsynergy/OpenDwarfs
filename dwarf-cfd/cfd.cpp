@@ -49,7 +49,7 @@ typedef struct{
 	#define block_length 128
 #endif
 
-const char *KernelSourceFile = "CFDKernels.cl";
+const char *KernelSourceFile = "cfd_kernel.cl";
 
 /*
  * Generic functions
@@ -59,7 +59,6 @@ cl_mem alloc(cl_context context, int N)
 {
     int err;
 	cl_mem mem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(T)*N, NULL, &err);
-	//CUDA_SAFE_CALL(cudaMalloc((void**)&t, sizeof(T)*N));
 	CHKERR(err, "Unable to allocate memory");
 	return mem;
 }
@@ -69,7 +68,6 @@ void dealloc(cl_mem array)
 {
     int err = clReleaseMemObject(array);
 	CHKERR(err, "Unable to release memory");
-	//CUDA_SAFE_CALL(cudaFree((void*)array));
 }
 
 
@@ -78,7 +76,6 @@ void copy(cl_command_queue commands, cl_mem dst, cl_mem src, int N)
 {
     int err = clEnqueueCopyBuffer(commands, src, dst, 0, 0, N*sizeof(T), 0, NULL, NULL);
 	CHKERR(err, "Unable to copy memory");
-	//CUDA_SAFE_CALL(cudaMemcpy((void*)dst, (void*)src, N*sizeof(T), cudaMemcpyDeviceToDevice));
 }
 
 template <typename T>
@@ -86,7 +83,6 @@ void upload(cl_command_queue commands, cl_mem dst, T* src, int N)
 {
     int err = clEnqueueWriteBuffer(commands, dst, CL_TRUE, 0, sizeof(T) * N, src, 0, NULL, NULL);
 	CHKERR(err, "Unable to write memory to device");
-	//CUDA_SAFE_CALL(cudaMemcpy((void*)dst, (void*)src, N*sizeof(T), cudaMemcpyHostToDevice));
 }
 
 template <typename T>
@@ -94,11 +90,7 @@ void download(cl_command_queue commands, T* dst, cl_mem src, int N)
 {
     int err = clEnqueueReadBuffer(commands, src, CL_TRUE, 0, sizeof(T)*N, dst, 0, NULL, NULL);
 	CHKERR(err, "Unable to read memory from device");
-//	CUDA_SAFE_CALL(cudaMemcpy((void*)dst, (void*)src, N*sizeof(T), cudaMemcpyDeviceToHost));
 }
-
-
-
 
 long getKernelSize()
 {
@@ -120,6 +112,18 @@ long getKernelSize()
     return size + 1;
 }
 
+void getKernelSource(char* output, long size)
+{
+    FILE* fp;
+
+    fp = fopen(KernelSourceFile, "r");
+    if(!fp)
+        return;
+
+    fread(output, sizeof(char), size - 1, fp);
+    output[size - 1] = 0;
+    fclose(fp);
+}
 
 void dump(cl_command_queue commands, cl_mem variables, int nel, int nelr)
 {
@@ -150,19 +154,6 @@ void dump(cl_command_queue commands, cl_mem variables, int nel, int nelr)
 		for(int i = 0; i < nel; i++) file << h_variables[i + VAR_DENSITY_ENERGY*nelr] << std::endl;
 	}
 	delete[] h_variables;
-}
-
-void getKernelSource(char* output, long size)
-{
-    FILE* fp;
-
-    fp = fopen(KernelSourceFile, "r");
-    if(!fp)
-        return;
-
-    fread(output, sizeof(char), size - 1, fp);
-    output[size - 1] = 0;
-    fclose(fp);
 }
 
 inline void compute_flux_contribution(float* density, float3* momentum, float* density_energy,
@@ -206,7 +197,6 @@ int main(int argc, char** argv)
     cl_kernel kernel_compute_step_factor;
     cl_kernel kernel_time_step;
     cl_kernel kernel_initialize_variables;
-    cl_kernel kernel_test;
 
     cl_mem ff_variable;
     cl_mem ff_fc_momentum_x;
@@ -269,7 +259,10 @@ int main(int argc, char** argv)
 		float3 h_ff_fc_momentum_y;
 		float3 h_ff_fc_momentum_z;
 		float3 h_ff_fc_density_energy;
-		compute_flux_contribution(&h_ff_variable[VAR_DENSITY], &h_ff_momentum, &h_ff_variable[VAR_DENSITY_ENERGY], ff_pressure, &ff_velocity, &h_ff_fc_momentum_x, &h_ff_fc_momentum_y, &h_ff_fc_momentum_z, &h_ff_fc_density_energy);
+		compute_flux_contribution(&h_ff_variable[VAR_DENSITY], &h_ff_momentum,
+			 &h_ff_variable[VAR_DENSITY_ENERGY], ff_pressure, &ff_velocity,
+			 &h_ff_fc_momentum_x, &h_ff_fc_momentum_y, &h_ff_fc_momentum_z,
+			 &h_ff_fc_density_energy);
 
 		// copy far field conditions to the gpu
 		ff_variable = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * NVAR, h_ff_variable, &err);
@@ -281,13 +274,6 @@ int main(int argc, char** argv)
 		ff_fc_momentum_z = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float3), &h_ff_fc_momentum_z, &err);
 		CHKERR(err, "Unable to allocate ff data");
 		ff_fc_density_energy = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float3), &h_ff_fc_density_energy, &err);
-		/*CUDA_SAFE_CALL( cudaMemcpyToSymbol(ff_variable,          h_ff_variable,          NVAR*sizeof(float)) );
-		CUDA_SAFE_CALL( cudaMemcpyToSymbol(ff_fc_momentum_x, &h_ff_fc_momentum_x, sizeof(float3)) );
-		CUDA_SAFE_CALL( cudaMemcpyToSymbol(ff_fc_momentum_y, &h_ff_fc_momentum_y, sizeof(float3)) );
-		CUDA_SAFE_CALL( cudaMemcpyToSymbol(ff_fc_momentum_z, &h_ff_fc_momentum_z, sizeof(float3)) );
-
-		CUDA_SAFE_CALL( cudaMemcpyToSymbol(ff_fc_density_energy, &h_ff_fc_density_energy, sizeof(float3)) );
-		*/
 		CHKERR(err, "Unable to allocate ff data");
 	}
 	int nel;
@@ -354,12 +340,6 @@ int main(int argc, char** argv)
 		delete[] h_normals;
     }
 
-
-
-
-
-
-
     // Get program source.
     long kernelSize = getKernelSize();
     char* kernelSource = new char[kernelSize];
@@ -405,18 +385,6 @@ int main(int argc, char** argv)
 	// Create arrays and set initial conditions
 	cl_mem variables = alloc<cl_float>(context, nelr*NVAR);
 
-	/*global_size = nelr;
-	local_size = 2;
-    std::cout << "CL FINISH -1" << std::endl;
-	cl_mem mem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * 20, NULL, &err);
-    CHKERR(err, "Failed to create test memory!");
-    err = clSetKernelArg(kernel_test, 0, sizeof(cl_mem), &mem);
-    CHKERR(err, "Failed to set kernel arguments!");
-    err = clEnqueueNDRangeKernel(commands, kernel_test, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
-    CHKERR(err, "Failed to execute kernel [kernel_test]!");
-    clFinish(commands);
-    std::cout << "CL FINISH -0.1" << std::endl;*/
-
     err = 0;
     err = clSetKernelArg(kernel_initialize_variables, 0, sizeof(int), &nelr);
     err |= clSetKernelArg(kernel_initialize_variables, 1, sizeof(cl_mem),&variables);
@@ -429,24 +397,19 @@ int main(int argc, char** argv)
     global_size = nelr;
     err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, NULL);
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 0");
-    std::cout << "clFinish 0" << std::endl;
-    //initialize_variables(nelr, variables);
     err = clFinish(commands);
     CHKERR(err, "Failed to execute kernel [kernel_test]!");
-    std::cout << "clFinish 0.001" << std::endl;
 
 
 	cl_mem old_variables = alloc<float>(context, nelr*NVAR);
 	cl_mem fluxes = alloc<float>(context, nelr*NVAR);
 	cl_mem step_factors = alloc<float>(context, nelr);
     clFinish(commands);
-    std::cout << "clFinish 0.01" << std::endl;
 	cl_mem fc_momentum_x = alloc<float>(context, nelr*NDIM);
 	cl_mem fc_momentum_y = alloc<float>(context, nelr*NDIM);
 	cl_mem fc_momentum_z = alloc<float>(context, nelr*NDIM);
 	cl_mem fc_density_energy = alloc<float>(context, nelr*NDIM);
     clFinish(commands);
-    std::cout << "clFinish 0.1" << std::endl;
 
 	// make sure all memory is floatly allocated before we start timing
     err = 0;
@@ -459,8 +422,6 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
     err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, NULL);
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 1");
-	//initialize_variables(nelr, old_variables);
-    std::cout << "clFinish 1" << std::endl;
     clFinish(commands);
 
     err = 0;
@@ -473,7 +434,6 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
     err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, NULL);
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 2");
-	//initialize_variables(nelr, fluxes);
 
     clFinish(commands);
     std::cout << "About to memcopy" << std::endl;
@@ -483,9 +443,7 @@ int main(int argc, char** argv)
         temp[i] = 0;
     step_factors = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(float) * nelr, temp, &err);
     CHKERR(err, "Unable to memset step_factors");
-    //cudaMemset( (void*) step_factors, 0, sizeof(float)*nelr );
 	// make sure CUDA isn't still doing something before we start timing
-	//cudaThreadSynchronize();
 
     clFinish(commands);
 
@@ -496,8 +454,6 @@ int main(int argc, char** argv)
 //	unsigned int timer = 0;
 //	CUT_SAFE_CALL( cutCreateTimer( &timer));
 //	CUT_SAFE_CALL( cutStartTimer( timer));
-
-	std::cout << "Starting... for" << std::endl;
 
 	// Begin iterations
 	for(int i = 0; i < iterations; i++)
@@ -516,10 +472,7 @@ int main(int argc, char** argv)
         CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
         err = clEnqueueNDRangeKernel(commands, kernel_compute_step_factor, 1, NULL, &global_size, NULL, 0, NULL, NULL);
         CHKERR(err, "Failed to execute kernel[kernel_compute_step_factor]!");
-        //clEnqueueBarrier(commands);
-        std::cout << "Step0" << std::endl;
 		clFinish(commands);
-		//compute_step_factor(nelr, variables, areas, step_factors);
 
 		for(int j = 0; j < RK; j++)
         {
@@ -537,8 +490,6 @@ int main(int argc, char** argv)
             err = clEnqueueNDRangeKernel(commands, kernel_compute_flux_contributions, 1, NULL, &global_size, NULL, 0, NULL, NULL);
             CHKERR(err, "Failed to execute kernel [kernel_compute_flux_contributions]!");
 			//compute_flux_contributions(nelr, variables, fc_momentum_x, fc_momentum_y, fc_momentum_z, fc_density_energy);
-			clEnqueueBarrier(commands);
-			std::cout << "Step1" << std::endl;
 			clFinish(commands);
 
             err = 0;
@@ -562,9 +513,6 @@ int main(int argc, char** argv)
             CHKERR(err, "Failed to retrieve kernel_compute_flux work group info!");
             err = clEnqueueNDRangeKernel(commands, kernel_compute_flux, 1, NULL, &global_size, NULL, 0, NULL, NULL);
             CHKERR(err, "Failed to execute kernel [kernel_compute_flux]!");
-			//compute_flux(nelr, elements_surrounding_elements, normals, variables, fc_momentum_x, fc_momentum_y, fc_momentum_z, fc_density_energy, fluxes);
-            clEnqueueBarrier(commands);
-			std::cout << "Step2" << std::endl;
 			clFinish(commands);
 
             err = 0;
@@ -580,16 +528,10 @@ int main(int argc, char** argv)
             CHKERR(err, "Failed to retrieve kernel_time_step work group info!");
             err = clEnqueueNDRangeKernel(commands, kernel_time_step, 1, NULL, &global_size, NULL, 0, NULL, NULL);
             CHKERR(err, "Failed to execute kernel [kernel_time_step]!");
-            clEnqueueBarrier(commands);
-			//time_step(j, nelr, old_variables, variables, step_factors, fluxes);
-			std::cout << "Step3" << std::endl;
 			clFinish(commands);
 		}
-		std::cout << "Iteration" << std::endl;
 	}
 
-    std::cout << "Barrier" << std::endl;
-   // clEnqueueBarrier(commands);
 //	cudaThreadSynchronize();
     clFinish(commands);
     std::cout << "Finished" << std::endl;
