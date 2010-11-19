@@ -15,40 +15,11 @@
         exit(1); \
     }
 
-#define USEGPU 1
+#define USEGPU 0
 #define DATA_SIZE 32768
 #define MIN(a,b) a < b ? a : b
 
-const char *KernelSourceFile = "CRCKernels.cl";
-
-const long getKernelSize()
-{
-    FILE* fp;
-    long size;
-
-    /*Determine the size of the file*/
-    fp = fopen(KernelSourceFile, "r");
-    if(!fp)
-        return 0;
-    fseek(fp, 0, SEEK_END);
-
-    size = ftell(fp);
-    fclose(fp);
-
-    return size;
-}
-
-void getKernelSource(char* output, long size)
-{
-    FILE* fp;
-
-    fp = fopen(KernelSourceFile, "r");
-    if(!fp)
-        return;
-
-    fread(output, 1, size, fp);
-    fclose(fp);
-}
+const char *KernelSourceFile = "crc_kernel.cl";
 
 unsigned char serialCrc(unsigned char h_num[DATA_SIZE], unsigned char crc)
 {
@@ -100,7 +71,7 @@ int main(int argc, char** argv)
     cl_mem dev_input;
     cl_mem dev_table;
     cl_mem dev_output;
-
+	
     //Initialize input
     int i;
     srand(time(NULL));
@@ -125,11 +96,18 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to create a command queue!");
 
     // Get program source.
-    long kernelSize = getKernelSize();
-    char* kernelSource = malloc(kernelSize);
-    getKernelSource(kernelSource, kernelSize);
-
-    // Create the compute program from the source buffer
+	FILE* kernelFile = NULL;
+	kernelFile = fopen(KernelSourceFile, "r");
+	if(!kernelFile)
+		printf("Error reading file.\n"), exit(0);
+	fseek(kernelFile, 0, SEEK_END);
+	size_t kernelLength = (size_t) ftell(kernelFile);
+	char* kernelSource = (char *) malloc(sizeof(char)*kernelLength);
+	rewind(kernelFile);
+	fread((void *) kernelSource, kernelLength, 1, kernelFile);
+	fclose(kernelFile);
+    
+	// Create the compute program from the source buffer
     program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, NULL, &err);
     CHKERR(err, "Failed to create a compute program!");
 
