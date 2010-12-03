@@ -60,6 +60,10 @@ if build_bsort
 include bitonic-sort/Makefile.mk
 endif
 
+if build_oesort
+include oddeven-sort/Makefile.mk
+endif
+
 all-local: $(all_local)
 
 install-exec-local: $(exec_local)
