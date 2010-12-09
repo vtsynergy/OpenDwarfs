@@ -56,6 +56,10 @@ if build_cfd
 include dwarf-cfd/Makefile.mk
 endif
 
+if build_bfs
+include rodinia-bfs/Makefile.mk
+endif
+
 if build_bsort
 include bitonic-sort/Makefile.mk
 endif
