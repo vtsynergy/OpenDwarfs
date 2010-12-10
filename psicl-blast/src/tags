@@ -1,0 +1,3 @@
+hitMatrix_free	hitMatrix.c	/^void hitMatrix_free()$/
+hitMatrix_initialize	hitMatrix.c	/^void hitMatrix_initialize(int4 queryLength, $/
+hitMatrix_reinitialize	hitMatrix.c	/^void hitMatrix_reinitialize(int4 queryLength, $/

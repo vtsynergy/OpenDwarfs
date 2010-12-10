@@ -1,0 +1,4 @@
+#!/bin/bash
+./blast -i ../query/queryr1 -d ../database/swissprot > log1.txt
+./blast -i ../query/queryr2 -d ../database/swissprot > log2.txt
+./blast -i ../query/queryr3 -d ../database/swissprot > log3.txt
