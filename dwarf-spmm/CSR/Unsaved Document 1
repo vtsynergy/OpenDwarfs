@@ -1,0 +1,132 @@
+http://developer.amd.com/zones/OpenCLZone/programming/pages/portingcudatoopencl.aspx
+
+csr = laplacian_5pt<IndexType,ValueType>(512);
+
+printf("Using %d-by-%d matrix with %d nonzero values\n", csr.num_rows, csr.num_cols, csr.num_nonzeros); 
+
+// fill matrix with random values: some matrices have extreme values, 
+    // which makes correctness testing difficult, especially in single precision
+    srand(13);
+    for(IndexType i = 0; i < csr.num_nonzeros; i++){
+        csr.Ax[i] = 1.0 - 2.0 * (rand() / (RAND_MAX + 1.0)); 
+    }
+    
+   
+    // specify a device (e.g. --device=1 ) : default 0
+    set_device(argc, argv);
+    list_devices();
+
+    test_csr_matrix_kernels(csr);
+
+    //maybe do some tests, check driver.cu    
+
+
+    //delete_host_matrix(csr);
+}
+
+
+template <typename IndexType, typename ValueType>
+void test_csr_matrix_kernels(const csr_matrix<IndexType,ValueType>& csr)
+{
+    printf("\n####  Testing CSR Kernels  ####\n");
+
+    // TEST KERNELS
+    test_spmv_kernel(csr, spmv_csr_serial_host<IndexType,ValueType>,   HOST_MEMORY,
+                     csr, spmv_csr_scalar_device<IndexType,ValueType>, DEVICE_MEMORY,
+                     "csr_scalar");
+    
+    test_spmv_kernel(csr, spmv_csr_serial_host<IndexType,ValueType>,       HOST_MEMORY,
+                     csr, spmv_csr_scalar_tex_device<IndexType,ValueType>, DEVICE_MEMORY,
+                     "csr_scalar_tex");
+    
+    test_spmv_kernel(csr, spmv_csr_serial_host<IndexType,ValueType>,   HOST_MEMORY,
+                     csr, spmv_csr_vector_device<IndexType,ValueType>, DEVICE_MEMORY,
+                     "csr_vector");
+        
+    test_spmv_kernel(csr, spmv_csr_serial_host<IndexType,ValueType>,   HOST_MEMORY,
+                     csr, spmv_csr_vector_tex_device<IndexType,ValueType>, DEVICE_MEMORY,
+                     "csr_vector_tex");
+}
+
+// SpMV1 is the reference
+template <typename SparseMatrix1, typename SpMV1,
+          typename SparseMatrix2, typename SpMV2>
+void test_spmv_kernel(const SparseMatrix1 & sm1_host, SpMV1 spmv1, const memory_location loc1,
+                      const SparseMatrix2 & sm2_host, SpMV2 spmv2, const memory_location loc2,
+                      const char * method_name)
+{
+    printf("\ttesting %-26s", method_name);
+    if(loc2 == HOST_MEMORY)
+        printf("[cpu]:");
+    else
+        printf("[gpu]:");
+    
+    compare_spmv_kernels( sm1_host, spmv1, loc1, sm2_host, spmv2, loc2);
+
+    printf("\n");
+}
+
+// Compare two SpMV kernels
+template <typename SparseMatrix1, typename SpMV1,
+          typename SparseMatrix2, typename SpMV2>
+void compare_spmv_kernels(const SparseMatrix1 & sm1_host, SpMV1 spmv1, const memory_location loc1,
+                          const SparseMatrix2 & sm2_host, SpMV2 spmv2, const memory_location loc2)
+{
+    // sanity checking
+    assert(sm1_host.num_rows == sm2_host.num_rows);
+    assert(sm1_host.num_cols == sm2_host.num_cols);
+    assert(sm1_host.num_nonzeros == sm2_host.num_nonzeros);
+
+    typedef typename SparseMatrix1::index_type IndexType;
+    typedef typename SparseMatrix2::value_type ValueType;
+
+    const IndexType num_rows = sm1_host.num_rows;
+    const IndexType num_cols = sm1_host.num_cols;
+
+    // transfer matrices from host to destination location
+    SparseMatrix1 sm1_loc1 = (loc1 == DEVICE_MEMORY) ? copy_matrix_to_device(sm1_host) : sm1_host;
+    SparseMatrix2 sm2_loc2 = (loc2 == DEVICE_MEMORY) ? copy_matrix_to_device(sm2_host) : sm2_host;
+    
+    // initialize host vectors
+    ValueType * x_host = new_host_array<ValueType>(num_cols);
+    ValueType * y_host = new_host_array<ValueType>(num_rows);
+    
+    for(IndexType i = 0; i < num_cols; i++)
+        x_host[i] = rand() / (RAND_MAX + 1.0); 
+    for(IndexType i = 0; i < num_rows; i++)
+        y_host[i] = rand() / (RAND_MAX + 1.0);
+
+    // create vectors in appropriate locations
+    ValueType * x_loc1 = copy_array(x_host, num_cols, HOST_MEMORY, loc1);
+    ValueType * y_loc1 = copy_array(y_host, num_rows, HOST_MEMORY, loc1);
+    ValueType * x_loc2 = copy_array(x_host, num_cols, HOST_MEMORY, loc2);
+    ValueType * y_loc2 = copy_array(y_host, num_rows, HOST_MEMORY, loc2);
+    
+    // compute y = A*x
+    spmv1(sm1_loc1, x_loc1, y_loc1);
+    spmv2(sm2_loc2, x_loc2, y_loc2);
+   
+    // transfer results to host
+    ValueType * y_sm1_result = copy_array(y_loc1, num_rows, loc1, HOST_MEMORY);
+    ValueType * y_sm2_result = copy_array(y_loc2, num_rows, loc2, HOST_MEMORY);
+
+    ValueType max_error = maximum_relative_error(y_sm1_result, y_sm2_result, num_rows);
+    printf(" [max error %9f]", max_error);
+    
+    if ( max_error > 5 * std::sqrt( std::numeric_limits<ValueType>::epsilon() ) )
+        printf(" POSSIBLE FAILURE");
+               
+    // cleanup
+    if (loc1 == DEVICE_MEMORY) delete_device_matrix(sm1_loc1);
+    if (loc2 == DEVICE_MEMORY) delete_device_matrix(sm2_loc2);
+    delete_host_array(x_host);
+    delete_host_array(y_host);
+    delete_array(x_loc1, loc1);
+    delete_array(y_loc1, loc1);
+    delete_array(x_loc2, loc2);
+    delete_array(y_loc2, loc2);
+    delete_host_array(y_sm1_result);
+    delete_host_array(y_sm2_result);
+}
+
+
