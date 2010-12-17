@@ -14,21 +14,9 @@
  *  limitations under the License.
  */
 
-
-
-////////////////////////////////////////////////////////////////////////////////
-//! Defines the following sparse matrix formats
-//
-// DIA - Diagonal
-// ELL - ELLPACK/ITPACK
-// CSR - Compressed Sparse Row
-// CSC - Compressed Sparse Column
-// COO - Coordinate
-// PKT - Packet
-////////////////////////////////////////////////////////////////////////////////
-
 /*
  *  Compressed Sparse Row matrix (aka CRS)
+ * valueType = float, IndexType = unsigned int
  */
 
 typedef struct csr_matrix
@@ -43,7 +31,6 @@ typedef struct csr_matrix
 }
 csr_matrix;
 
-//template <typename T>
 unsigned int * int_new_array(const size_t N) 
 { 
     //dispatch on location
@@ -63,31 +50,25 @@ float * float_new_array(const size_t N)
 
 csr_matrix laplacian_5pt(const unsigned int N)
 {
-   //printf("lap start \n");
 
     csr_matrix csr;
     csr.num_rows = N*N;
     csr.num_cols = N*N;
     csr.num_nonzeros = 5*N*N - 4*N; 
 
-    csr.Ap = int_new_array(csr.num_rows + 1);
-    //csr.Ap = (unsigned int*) malloc (csr.num_rows + 1 * sizeof(unsigned int));
+    csr.Ap = int_new_array(csr.num_rows +1);
 
-    csr.Aj = int_new_array(csr.num_nonzeros);
-    //csr.Aj = (unsigned int*) malloc (csr.num_nonzeros + 1 * sizeof(unsigned int));
+    csr.Aj = int_new_array(csr.num_nonzeros+1);
     
-    csr.Ax = float_new_array(csr.num_nonzeros);
-    //csr.Ax = (float*) malloc (csr.num_nonzeros + 1 * sizeof(float));
+    csr.Ax = float_new_array(csr.num_nonzeros+1);
 
     unsigned int nz = 0;
     unsigned int i = 0;
     unsigned int j = 0;
     unsigned int indx = 0;
-//printf(" before for \n");
+
     for(i = 0; i < N; i++){
-	//printf(" o shit \n");
         for(j = 0; j < N; j++){
-		//printf(" o shit 2 %d - %d \n", i, j);
             indx = N*i + j;
 
             if (i > 0){
@@ -121,7 +102,6 @@ csr_matrix laplacian_5pt(const unsigned int N)
             csr.Ap[indx + 1] = nz;
         }
     }
-//printf(" return \n");
     return csr;
 }
 
