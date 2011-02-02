@@ -12,9 +12,9 @@ bin_PROGRAMS =
 all_local =
 exec_local =
 
-#if build_gem
-#include gem/Makefile.mk
-#endif
+if build_gem
+include gem/Makefile.mk
+endif
 
 #if build_matmult
 #include matmult/Makefile.mk

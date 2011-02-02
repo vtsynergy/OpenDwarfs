@@ -1,0 +1,49 @@
+
+GEM is a package designed to be a sandbox for experimenting with
+biomolecular visualization and electrostatic potential
+computation and representations.  It is open-source (which you now
+probably have) and ideally available for most "scientific platforms"
+(*NIX thingies).
+
+This is the stripped down version with no graphical interface. It takes 
+your molecular coordinates (.pqr) on input and produces the potential 
+around it. 
+
+COMPILE: ./build.sh 
+
+RUN: 
+
+gemnoui Mb.Hhelix.bondi 80 1 0 -dumpVertices phi.out 
+
+This assumes that you have Mb.Hhelix.bondi.pqr (structure + charges + radii) 
+file in the directory you run gemnoui. If you don't have MSMS installed, 
+you will also need Mb.Hhelix.bondi.vert and Mb.Hhelix.bondi.face that you have. 
+These define the molecular surface at which you compute the potential. 
+The input parameters -- 80 1 0 -- are the dielectric constants of water and 
+the molecule and the salt concentration in water. Just keep them as above. 
+
+The potential is dumped into phi.out. If everything worked, this file should 
+look like this: 
+
+X    Y    Z     potential
+-9.128000 24.915001 -1.628000    2.897841
+-9.102000 24.650999 -2.487000    2.902089
+-8.938000 24.643999 -2.007000    2.986913
+-8.842000 26.209999 -2.958000    2.624459
+........................................
+(about 5800 lines here)
+
+Here Mb.Hhelix.bondi is a relatively small structure, the computation takes 
+a few seconds on a 2GHZ PC. If you want something substantial, try the 
+nucleosome: 
+
+gemnoui nucleosome 80 1 0 -dumpVertices phi.out
+
+This will take about 1/2 hour or so. 
+
+
+Notes for initial GPGU work: ignore whatever IF statements related to 
+#define GRANULAR_CUTOFF 1000.0
+#define GRANULAR_CUTOFF2 1000000.0    /* cutoff**2 to reduce computations */
+
+For now, these are set so large as to never be reached for realistic structures. That is you are guaranteed to have "distance < GRANULAR_CUTOFF". 
