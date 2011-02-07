@@ -48,6 +48,10 @@ if build_samplecl
 include samplecl/Makefile.mk
 endif
 
+if build_csr
+include SPMV/Makefile.mk
+endif
+
 if build_crc
 include dwarf-crc/Makefile.mk
 endif
