@@ -7,15 +7,15 @@
 
 bin_PROGRAMS += gemnoui
 
-gemnoui_SOURCES = $(top_srcdir)/n-body-methods/gem/dump_vertices.c $(top_srcdir)/n-body-methods/gem/floating_centers.c \
-	$(top_srcdir)/n-body-methods/gem/radix_sort.c $(top_srcdir)/n-body-methods/gem/read_pqr.c \
-	$(top_srcdir)/n-body-methods/gem/vector_math.c $(top_srcdir)/n-body-methods/gem/write_grid.c \
-	$(top_srcdir)/n-body-methods/gem/extrapolate_bonds.c $(top_srcdir)/n-body-methods/gem/populate_stats.c \
-	$(top_srcdir)/n-body-methods/gem/read_msms.c $(top_srcdir)/n-body-methods/gem/run_msms.c \
-	$(top_srcdir)/n-body-methods/gem/write_avs.c $(top_srcdir)/n-body-methods/gem/write_xyzr.c \
-	$(top_srcdir)/n-body-methods/gem/calculate_potential.cpp $(top_srcdir)/n-body-methods/gem/check_cmdline.cpp \
-	$(top_srcdir)/n-body-methods/gem/estimate_a.cpp $(top_srcdir)/n-body-methods/gem/gem_no_ui.cpp \
-	$(top_srcdir)/n-body-methods/gem/open_pqr_run_msms.cpp
+gemnoui_SOURCES = n-body-methods/gem/dump_vertices.c n-body-methods/gem/floating_centers.c \
+	n-body-methods/gem/radix_sort.c n-body-methods/gem/read_pqr.c \
+	n-body-methods/gem/vector_math.c n-body-methods/gem/write_grid.c \
+	n-body-methods/gem/extrapolate_bonds.c n-body-methods/gem/populate_stats.c \
+	n-body-methods/gem/read_msms.c n-body-methods/gem/run_msms.c \
+	n-body-methods/gem/write_avs.c n-body-methods/gem/write_xyzr.c \
+	n-body-methods/gem/calculate_potential.cpp n-body-methods/gem/check_cmdline.cpp \
+	n-body-methods/gem/estimate_a.cpp n-body-methods/gem/gem_no_ui.cpp \
+	n-body-methods/gem/open_pqr_run_msms.cpp
 
 gemnoui_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/n-body-methods/gem/include \
 	-I$(top_srcdir)/n-body-methods/gem/include/visualize/dialogs -DNO_UI

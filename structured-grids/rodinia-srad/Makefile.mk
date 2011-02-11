@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += srad
 
-srad_SOURCES = $(top_srcdir)/structured-grids/rodinia-srad/srad.c
+srad_SOURCES = structured-grids/rodinia-srad/srad.c
 
 srad_LDFLAGS = -lm
 

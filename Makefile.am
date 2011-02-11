@@ -5,7 +5,7 @@
 # associated documentation.
 #
 
-#AUTOMAKE_OPTIONS = subdir-objects
+AUTOMAKE_OPTIONS = subdir-objects
 
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -Werror
@@ -39,7 +39,7 @@ include samplecl/Makefile.mk
 endif
 
 if build_csr
-include SPMV/Makefile.mk
+include sparse-linear-algebra/SPMV/Makefile.mk
 endif
 
 if build_crc

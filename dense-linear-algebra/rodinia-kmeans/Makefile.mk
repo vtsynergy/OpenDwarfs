@@ -7,12 +7,12 @@
 
 bin_PROGRAMS += kmeans
 
-kmeans_SOURCES = $(top_srcdir)/dense-linear-algebra/rodinia-kmeans/kmeans.c \
-	$(top_srcdir)/dense-linear-algebra/rodinia-kmeans/cluster.c \
-	$(top_srcdir)/dense-linear-algebra/rodinia-kmeans/getopt.c \
-	$(top_srcdir)/dense-linear-algebra/rodinia-kmeans/kmeans_clustering.c \
-	$(top_srcdir)/dense-linear-algebra/rodinia-kmeans/kmeans_opencl.cpp \
-	$(top_srcdir)/dense-linear-algebra/rodinia-kmeans/rmse.c
+kmeans_SOURCES = dense-linear-algebra/rodinia-kmeans/kmeans.c \
+	dense-linear-algebra/rodinia-kmeans/cluster.c \
+	dense-linear-algebra/rodinia-kmeans/getopt.c \
+	dense-linear-algebra/rodinia-kmeans/kmeans_clustering.c \
+	dense-linear-algebra/rodinia-kmeans/kmeans_opencl.cpp \
+	dense-linear-algebra/rodinia-kmeans/rmse.c
 
 all_local += rodinia-kmeans-all-local
 exec_local += rodinia-kmeans-exec-local

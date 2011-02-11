@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += crc 
 
-crc_SOURCES = $(top_srcdir)/combinational-logic/dwarf-crc/crc.c
+crc_SOURCES = combinational-logic/dwarf-crc/crc.c
 
 all_local += dwarf-crc-all-local
 exec_local += dwarf-crc-exec-local
