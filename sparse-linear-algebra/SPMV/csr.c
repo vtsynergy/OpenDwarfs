@@ -1,6 +1,8 @@
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <getopt.h>
+#include <assert.h>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -15,14 +17,24 @@
         exit(1); \
     }
 
-#define USEGPU 1
 #include "common.h"
 #include "common.c"
 #include "sparse_formats.h"
 
+static struct option long_options[] = {
+      /* name, has_arg, flag, val */
+      {"cpu", 0, NULL, 'c'},
+      {"verify", 0, NULL, 'v'},
+      {0,0,0,0}
+};
+
 int main(int argc, char** argv)
 {
     cl_int err;
+
+    int usegpu = 1;
+    int do_verify = 0;
+    int opt, option_index=0;
 
     unsigned int correct;
 
@@ -49,6 +61,33 @@ int main(int argc, char** argv)
     size_t kernelLength;
     size_t lengthRead;
 
+    while ((opt = getopt_long(argc, argv, "::vc::", 
+                            long_options, &option_index)) != -1 ) {
+      switch(opt){
+        //case 'i':
+          //input_file = optarg;
+          //break;
+        case 'v':
+          fprintf(stderr, "verify\n");
+          do_verify = 1;
+          break;
+        case 'c':
+          fprintf(stderr, "using cpu\n");
+          usegpu = 0;
+	  break;
+        case '?':
+          fprintf(stderr, "invalid option\n");
+          break;
+        case ':':
+          fprintf(stderr, "missing argument\n");
+          break;
+        default:
+          fprintf(stderr, "Usage: %s [-v Warning: lots of output] [-c use CPU]\n",
+                  argv[0]);
+          exit(EXIT_FAILURE);
+      }
+  }
+
     /* Fill input set with random float values */
     int i;
 
@@ -56,8 +95,7 @@ int main(int argc, char** argv)
     csr = laplacian_5pt(512);
     int k = 0;
       for(k = 0; k < csr.num_nonzeros; k++){
-         //csr.Ax[k] = 1.0 - 2.0 * (rand() / (RAND_MAX + 1.0));
-	csr.Ax[k] = 4;
+         csr.Ax[k] = 1.0 - 2.0 * (rand() / (RAND_MAX + 1.0));
       }
 
     //The other arrays
@@ -66,12 +104,10 @@ int main(int argc, char** argv)
 
     unsigned int ii;
     for(ii = 0; ii < csr.num_cols; ii++){
-        //x_host[ii] = rand() / (RAND_MAX + 1.0);
-	x_host[ii] = 4;
+        x_host[ii] = rand() / (RAND_MAX + 1.0);
     }
     for(ii = 0; ii < csr.num_rows; ii++){
-        //y_host[ii] = rand() / (RAND_MAX + 2.0);
-	y_host[ii] = 4;
+        y_host[ii] = rand() / (RAND_MAX + 2.0);
     }
 
     /* Retrieve an OpenCL platform */
@@ -79,7 +115,7 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to get a platform!");
 
     /* Connect to a compute device */
-    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
+    err = clGetDeviceIDs(platform_id, usegpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
     CHKERR(err, "Failed to create a device group!");
 
     /* Create a compute context */
@@ -184,19 +220,33 @@ int main(int argc, char** argv)
     stopwatch_stop(&sw);
     printf("Time consumed(ms): %lf Gflops: %f \n", 1000*get_interval_by_sec(&sw), (2.0 * (double) csr.num_nonzeros / get_interval_by_sec(&sw)) / 1e9);
 
-   //for (i = 0; i < 10; i++)
-   //{
-   //   printf("row: %d  output: %f \n", i, output[i]);
-   //}
+   /* Validate our results */
+   if(do_verify){
+       for (i = 0; i < csr.num_rows; i++){
+           printf("row: %d	output: %f \n", i, output[i]);  
+       }
+   }
 
-    /* Validate our results */
-   //for (i = 262133; i < csr.num_rows; i++)
-   //for(i = 27100; i < 27145; i++)
-   //{
-   //    printf("row: %d	output: %f \n", i, output[i]);  
-   //}
-
-   //printf("csr.Ap: %d \n", csr.Ap[262143+1]);
+   int row = 0;
+   float sum = 0;
+   int row_start = 0;
+   int row_end = 0;
+   for(row =0; row < csr.num_rows; row++){     
+        sum = y_host[row];
+        
+        row_start = csr.Ap[row];
+        row_end   = csr.Ap[row+1];
+        
+        unsigned int jj = 0;
+        for (jj = row_start; jj < row_end; jj++){             
+            sum += csr.Ax[jj] * x_host[csr.Aj[jj]];      
+        }
+        y_host[row] = sum;
+    }
+    for (i = 0; i < csr.num_rows; i++){
+        if((fabsf(y_host[i]) - fabsf(output[i])) > .001)
+             printf("Possible error, difference greater then .001 at row %d \n", i);
+    }
 
     /* Print a brief summary detailing the results */
 
