@@ -38,6 +38,10 @@ if build_samplecl
 include samplecl/Makefile.mk
 endif
 
+if build_csr
+include SPMV/Makefile.mk
+endif
+
 if build_crc
 include combinational-logic/dwarf-crc/Makefile.mk
 endif
@@ -56,6 +60,10 @@ endif
 
 if build_oesort
 include graph-traversal/oddeven-sort/Makefile.mk
+endif
+
+if build_tdm
+include dwarf-tdm/Makefile.mk
 endif
 
 all-local: $(all_local)

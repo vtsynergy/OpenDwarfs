@@ -55,20 +55,23 @@ int main(int argc, char** argv)
     csr_matrix csr;
     csr = laplacian_5pt(512);
     int k = 0;
-      for(k = 0; k < csr.num_nonzeros+1; k++){
-         csr.Ax[k] = 1.0 - 2.0 * (rand() / (RAND_MAX + 1.0));
+      for(k = 0; k < csr.num_nonzeros; k++){
+         //csr.Ax[k] = 1.0 - 2.0 * (rand() / (RAND_MAX + 1.0));
+	csr.Ax[k] = 4;
       }
 
     //The other arrays
-    float * x_host = float_new_array(csr.num_cols+1);
-    float * y_host = float_new_array(csr.num_rows+1);
+    float * x_host = float_new_array(csr.num_cols);
+    float * y_host = float_new_array(csr.num_rows);
 
     unsigned int ii;
-    for(ii = 0; ii < csr.num_cols+1; ii++){
-        x_host[ii] = rand() / (RAND_MAX + 1.0);
+    for(ii = 0; ii < csr.num_cols; ii++){
+        //x_host[ii] = rand() / (RAND_MAX + 1.0);
+	x_host[ii] = 4;
     }
-    for(ii = 0; ii < csr.num_rows+1; ii++){
-        y_host[ii] = rand() / (RAND_MAX + 2.0);
+    for(ii = 0; ii < csr.num_rows; ii++){
+        //y_host[ii] = rand() / (RAND_MAX + 2.0);
+	y_host[ii] = 4;
     }
 
     /* Retrieve an OpenCL platform */
@@ -123,30 +126,30 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to create a compute kernel!");
 
     /* Create the input and output arrays in device memory for our calculation */
-    csr_ap = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int)*csr.num_rows+1, NULL, &err);
+    csr_ap = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int)*csr.num_rows+4, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
-    csr_aj = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int)*csr.num_nonzeros+1, NULL, &err);
+    csr_aj = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(unsigned int)*csr.num_nonzeros, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
-    csr_ax = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*csr.num_nonzeros+1, NULL, &err);
+    csr_ax = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*csr.num_nonzeros, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
-    x_loc = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*csr.num_cols+1, NULL, &err);
+    x_loc = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*csr.num_cols, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
-    y_loc = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*csr.num_rows+1, NULL, &err);
+    y_loc = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(float)*csr.num_rows, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
 
     /* beginning of timing point */
     stopwatch_start(&sw); 
    
     /* Write our data set into the input array in device memory */
-    err = clEnqueueWriteBuffer(commands, csr_ap, CL_TRUE, 0, sizeof(unsigned int)*csr.num_rows+1, csr.Ap, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, csr_ap, CL_TRUE, 0, sizeof(unsigned int)*csr.num_rows+4, csr.Ap, 0, NULL, NULL);
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, csr_aj, CL_TRUE, 0, sizeof(unsigned int)*csr.num_nonzeros+1, csr.Aj, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, csr_aj, CL_TRUE, 0, sizeof(unsigned int)*csr.num_nonzeros, csr.Aj, 0, NULL, NULL);
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, csr_ax, CL_TRUE, 0, sizeof(float)*csr.num_nonzeros+1, csr.Ax, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, csr_ax, CL_TRUE, 0, sizeof(float)*csr.num_nonzeros, csr.Ax, 0, NULL, NULL);
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, x_loc, CL_TRUE, 0, sizeof(float)*csr.num_cols+1, x_host, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, x_loc, CL_TRUE, 0, sizeof(float)*csr.num_cols, x_host, 0, NULL, NULL);
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows+1, y_host, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, y_host, 0, NULL, NULL);
     CHKERR(err, "Failed to write to source array!");
 
     /* Set the arguments to our compute kernel */
@@ -171,22 +174,29 @@ int main(int argc, char** argv)
 
     /* Wait for the command commands to get serviced before reading back results */
     clFinish(commands);
-    float output[csr.num_rows+1];
+    float output[csr.num_rows];
     
     /* Read back the results from the device to verify the output */
-    err = clEnqueueReadBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows+1, output, 0, NULL, NULL);
+    err = clEnqueueReadBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, output, 0, NULL, NULL);
     CHKERR(err, "Failed to read output array!");
 
     /* end of timing point */
     stopwatch_stop(&sw);
     printf("Time consumed(ms): %lf Gflops: %f \n", 1000*get_interval_by_sec(&sw), (2.0 * (double) csr.num_nonzeros / get_interval_by_sec(&sw)) / 1e9);
 
+   //for (i = 0; i < 10; i++)
+   //{
+   //   printf("row: %d  output: %f \n", i, output[i]);
+   //}
 
     /* Validate our results */
-    //for (i = 0; i < csr.num_rows; i++)
-    //{
-    //    printf("row: %d	output: %f \n", i, output[i]);  
-    //}
+   //for (i = 262133; i < csr.num_rows; i++)
+   //for(i = 27100; i < 27145; i++)
+   //{
+   //    printf("row: %d	output: %f \n", i, output[i]);  
+   //}
+
+   //printf("csr.Ap: %d \n", csr.Ap[262143+1]);
 
     /* Print a brief summary detailing the results */
 

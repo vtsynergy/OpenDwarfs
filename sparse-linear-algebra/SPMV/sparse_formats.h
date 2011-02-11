@@ -56,11 +56,13 @@ csr_matrix laplacian_5pt(const unsigned int N)
     csr.num_cols = N*N;
     csr.num_nonzeros = 5*N*N - 4*N; 
 
-    csr.Ap = int_new_array(csr.num_rows +1);
+    csr.Ap = int_new_array(csr.num_rows+4);
 
-    csr.Aj = int_new_array(csr.num_nonzeros+1);
+    csr.Aj = int_new_array(csr.num_nonzeros);
     
-    csr.Ax = float_new_array(csr.num_nonzeros+1);
+    csr.Ax = float_new_array(csr.num_nonzeros);
+
+    
 
     unsigned int nz = 0;
     unsigned int i = 0;
