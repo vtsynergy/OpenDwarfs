@@ -1182,3 +1182,4 @@ getopt (argc, argv, optstring)
 
 /* Compile with -DTEST to make an executable for use in testing
    the above definition of `getopt'.  */
+

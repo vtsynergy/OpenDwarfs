@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += crc 
 
-crc_SOURCES = $(top_srcdir)/dwarf-crc/crc.c
+crc_SOURCES = $(top_srcdir)/combinational-logic/dwarf-crc/crc.c
 
 all_local += dwarf-crc-all-local
 exec_local += dwarf-crc-exec-local
 
 dwarf-crc-all-local:
-	cp $(top_srcdir)/dwarf-crc/crc_kernel.cl .
+	cp $(top_srcdir)/combinational-logic/dwarf-crc/crc_kernel.cl .
 
 dwarf-crc-exec-local:
-	cp $(top_srcdir)/dwarf-crc/crc_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/combinational-logic/dwarf-crc/crc_kernel.cl ${DESTDIR}${bindir}

@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += bsort
 
-bsort_SOURCES = $(top_srcdir)/bitonic-sort/main.c
+bsort_SOURCES = $(top_srcdir)/graph-traversal/bitonic-sort/main.c
 
 all_local += bitonic-sort-all-local
 exec_local += bitonic-sort-exec-local
 
 bitonic-sort-all-local:
-	cp $(top_srcdir)/bitonic-sort/bitonicSort.cl .
+	cp $(top_srcdir)/graph-traversal/bitonic-sort/bitonicSort.cl .
 
 bitonic-sort-exec-local:
-	cp $(top_srcdir)/bitonic-sort/bitonicSort.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/graph-traversal/bitonic-sort/bitonicSort.cl ${DESTDIR}${bindir}

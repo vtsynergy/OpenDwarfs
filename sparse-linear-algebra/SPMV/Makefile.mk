@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += csr
 
-csr_SOURCES = $(top_srcdir)/SPMV/csr.c
+csr_SOURCES = $(top_srcdir)/sparse-linear-algebra/SPMV/csr.c
 
 all_local += csr-all-local
 exec_local += csr-exec-local
 
 csr-all-local:
-	cp $(top_srcdir)/SPMV/spmv_csr_kernel.cl .
+	cp $(top_srcdir)/sparse-linear-algebra/SPMV/spmv_csr_kernel.cl .
 
 csr-exec-local:
-	cp $(top_srcdir)/SPMV/spmv_csr_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/sparse-linear-algebra/SPMV/spmv_csr_kernel.cl ${DESTDIR}${bindir}

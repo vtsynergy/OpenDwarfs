@@ -25,6 +25,7 @@ AC_CONFIG_HEADER(config.h)
 # remaining tests behave
 PAC_ARG_STRICT
 
+AM_PROG_CC_C_O
 AM_PROG_MKDIR_P
 AC_PROG_INSTALL
 AC_C_INLINE

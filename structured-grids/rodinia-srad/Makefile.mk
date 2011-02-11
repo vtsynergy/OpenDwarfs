@@ -7,13 +7,15 @@
 
 bin_PROGRAMS += srad
 
-srad_SOURCES = $(top_srcdir)/rodinia-srad/srad.c
+srad_SOURCES = $(top_srcdir)/structured-grids/rodinia-srad/srad.c
+
+srad_LDFLAGS = -lm
 
 all_local += rodinia-srad-all-local
 exec_local += rodinia-srad-exec-local
 
 rodinia-srad-all-local:
-	cp $(top_srcdir)/rodinia-srad/srad_kernel.cl .
+	cp $(top_srcdir)/structured-grids/rodinia-srad/srad_kernel.cl .
 
 rodinia-srad-exec-local:
-	cp $(top_srcdir)/rodinia-srad/srad_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/structured-grids/rodinia-srad/srad_kernel.cl ${DESTDIR}${bindir}

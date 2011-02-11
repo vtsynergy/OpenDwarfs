@@ -5,6 +5,8 @@
 # associated documentation.
 #
 
+#AUTOMAKE_OPTIONS = subdir-objects
+
 ACLOCAL_AMFLAGS = -I m4
 AM_CPPFLAGS = -Werror
 
@@ -13,35 +15,23 @@ all_local =
 exec_local =
 
 if build_gem
-include gem/Makefile.mk
+include n-body-methods/gem/Makefile.mk
 endif
 
-#if build_matmult
-#include matmult/Makefile.mk
-#endif
-
-#if build_mattran
-#include mattran/Makefile.mk
-#endif
-
-#if build_swat
-#include swat/Makefile.mk
-#endif
-
 if build_nw
-include rodinia-nw/Makefile.mk
+include dynamic-programming/rodinia-nw/Makefile.mk
 endif
 
 if build_srad
-include rodinia-srad/Makefile.mk
+include structured-grids/rodinia-srad/Makefile.mk
 endif
 
 if build_lud
-include rodinia-lud/Makefile.mk
+include dense-linear-algebra/rodinia-lud/Makefile.mk
 endif
 
 if build_kmeans
-include rodinia-kmeans/Makefile.mk
+include dense-linear-algebra/rodinia-kmeans/Makefile.mk
 endif
 
 if build_samplecl
@@ -49,23 +39,23 @@ include samplecl/Makefile.mk
 endif
 
 if build_crc
-include dwarf-crc/Makefile.mk
+include combinational-logic/dwarf-crc/Makefile.mk
 endif
 
 if build_cfd
-include dwarf-cfd/Makefile.mk
+include unstructured-grids/dwarf-cfd/Makefile.mk
 endif
 
 if build_bfs
-include rodinia-bfs/Makefile.mk
+include graph-traversal/rodinia-bfs/Makefile.mk
 endif
 
 if build_bsort
-include bitonic-sort/Makefile.mk
+include graph-traversal/bitonic-sort/Makefile.mk
 endif
 
 if build_oesort
-include oddeven-sort/Makefile.mk
+include graph-traversal/oddeven-sort/Makefile.mk
 endif
 
 all-local: $(all_local)

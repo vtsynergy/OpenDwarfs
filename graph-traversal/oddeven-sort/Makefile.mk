@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += oesort
 
-oesort_SOURCES = $(top_srcdir)/oddeven-sort/main2.c
+oesort_SOURCES = $(top_srcdir)/graph-traversal/oddeven-sort/main2.c
 
 all_local += oesort-all-local
 exec_local += oesort-exec-local
 
 oesort-all-local:
-	cp $(top_srcdir)/oddeven-sort/OddEvenSort.cl .
+	cp $(top_srcdir)/graph-traversal/oddeven-sort/OddEvenSort.cl .
 
 oesort-exec-local:
-	cp $(top_srcdir)/oddeven-sort/OddEvenSort.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/graph-traversal/oddeven-sort/OddEvenSort.cl ${DESTDIR}${bindir}
