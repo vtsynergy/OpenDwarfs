@@ -39,7 +39,7 @@ include samplecl/Makefile.mk
 endif
 
 if build_csr
-include SPMV/Makefile.mk
+include sparse-linear-algebra/SPMV/Makefile.mk
 endif
 
 if build_crc
@@ -63,7 +63,7 @@ include graph-traversal/oddeven-sort/Makefile.mk
 endif
 
 if build_tdm
-include dwarf-tdm/Makefile.mk
+include finite-state-machine/dwarf-tdm/Makefile.mk
 endif
 
 all-local: $(all_local)
