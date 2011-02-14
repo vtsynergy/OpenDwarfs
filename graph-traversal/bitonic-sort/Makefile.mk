@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += bsort
 
-bsort_SOURCES = $(top_srcdir)/graph-traversal/bitonic-sort/main.c
+bsort_SOURCES = graph-traversal/bitonic-sort/main.c
 
 all_local += bitonic-sort-all-local
 exec_local += bitonic-sort-exec-local

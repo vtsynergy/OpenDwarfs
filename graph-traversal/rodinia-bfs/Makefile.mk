@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += bfs
 
-bfs_SOURCES = $(top_srcdir)/graph-traversal/rodinia-bfs/bfs.cpp
+bfs_SOURCES = graph-traversal/rodinia-bfs/bfs.cpp
 
 all_local += bfs-all-local
 exec_local += bfs-exec-local

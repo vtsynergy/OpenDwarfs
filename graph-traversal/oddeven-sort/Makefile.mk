@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += oesort
 
-oesort_SOURCES = $(top_srcdir)/graph-traversal/oddeven-sort/main2.c
+oesort_SOURCES = graph-traversal/oddeven-sort/main2.c
 
 all_local += oesort-all-local
 exec_local += oesort-exec-local

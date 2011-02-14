@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += csr
 
-csr_SOURCES = $(top_srcdir)/sparse-linear-algebra/SPMV/csr.c
+csr_SOURCES = sparse-linear-algebra/SPMV/csr.c
 
 all_local += csr-all-local
 exec_local += csr-exec-local

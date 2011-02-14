@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += scl
 
-scl_SOURCES = $(top_srcdir)/samplecl/samplecl.c
+scl_SOURCES = samplecl/samplecl.c
 
 all_local += samplecl-all-local
 exec_local += samplecl-exec-local

@@ -7,7 +7,7 @@
 
 bin_PROGRAMS += needle
 
-needle_SOURCES = $(top_srcdir)/dynamic-programming/rodinia-nw/needle.c
+needle_SOURCES = dynamic-programming/rodinia-nw/needle.c
 
 all_local += rodinia-nw-all-local
 exec_local += rodinia-nw-exec-local
