@@ -579,7 +579,7 @@ void setupGpu()
 
     // Build the program executable
     char options[200];
-    snprintf(options, 200, "-I . -D IMAGE_MAX_WIDTH=%d -D IMAGE_MAX_HEIGHT=%d", MaxImageWidth, MaxImageHeight);
+    snprintf(options, 200, "-I . -D IMAGE_MAX_WIDTH=%lu -D IMAGE_MAX_HEIGHT=%lu", (unsigned long)MaxImageWidth, (unsigned long)MaxImageHeight);
     err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
     if (err == CL_BUILD_PROGRAM_FAILURE)
     {
@@ -825,8 +825,8 @@ void getDeviceVariables(cl_device_id device)
 	err = clGetDeviceInfo(device_id,CL_DEVICE_IMAGE2D_MAX_HEIGHT,sizeof(size_t),&MaxImageHeight, NULL);
     CHKERR(err, "Unable to get image width\n");
 
-    printf("MaxImageWidth: %d\n", MaxImageWidth);
-    printf("MaxImageHeight: %d\n", MaxImageHeight);
+    //printf("MaxImageWidth: %d\n", MaxImageWidth);
+    //printf("MaxImageHeight: %d\n", MaxImageHeight);
 
     //printf( "MinThreads: %d\n", MinThreads );
 	//printf( "MaxThreads: %d\n", MaxThreads );
