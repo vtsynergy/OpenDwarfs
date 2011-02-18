@@ -75,12 +75,6 @@ int main(int argc, char** argv)
           fprintf(stderr, "using cpu\n");
           usegpu = 0;
 	  break;
-        case '?':
-          fprintf(stderr, "invalid option\n");
-          break;
-        case ':':
-          fprintf(stderr, "missing argument\n");
-          break;
         default:
           fprintf(stderr, "Usage: %s [-v Warning: lots of output] [-c use CPU]\n",
                   argv[0]);
