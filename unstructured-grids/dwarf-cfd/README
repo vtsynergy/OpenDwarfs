@@ -1,0 +1,12 @@
+Computational Fluid Dynamics
+============================
+
+Computational Fluid Dynamics(CFD) computes the energy density
+and energy levels for a given model.
+
+Running
+-------
+
+Usage: ./cfd <filepath>
+
+    <filepath> :file containing data 
