@@ -127,9 +127,14 @@ int main(int argc, char** argv)
  *****************************************************************************/
 void BFSGraph(int argc, char ** argv)
 {
+    if(argc != 2)
+    {
+        printf("No input file given.\n");
+        exit(1);
+    }
     printf("Reading File\n");
     //Read in Graph from a file
-    fp = fopen("graph1MW_6.txt", "r");
+    fp = fopen(argv[1], "r");
     if(!fp)
     {
 	printf("Error Reading graph file\n");

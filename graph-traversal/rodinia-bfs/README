@@ -1,0 +1,15 @@
+Breadth-first search
+==================
+
+In Breadth-first search, a graph (comprised of vertices and edges) are read in
+from a file.  From this, a single-source shortest-path algorithm is computed.
+This algorithm currently assumes that each edge weight is one.  However, the
+algorithm should be easily extendable to cover this case.  This particular
+program has been ported from the Rodidnia Benchmark Suite. 
+
+Running
+-------
+
+Usage: ./bfs filename
+
+    filename         :the name of the file from which to read data.
