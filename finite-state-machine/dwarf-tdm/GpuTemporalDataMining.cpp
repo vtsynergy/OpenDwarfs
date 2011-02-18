@@ -118,6 +118,13 @@ void charToSymbol( char c, char& l, int& n )
 
 }
 
+size_t roundup(size_t size)
+{
+	size_t width = size <= MaxImageWidth ? size : MaxImageWidth;
+	size_t height = (size + MaxImageWidth - 1) / MaxImageWidth;
+	return width * height;
+}
+
 void initEpisodeCandidates()
 {
 	if ( symbolSize == ONE_CHAR )
@@ -142,7 +149,7 @@ void initEpisodeCandidates()
 int bindTexture(int offset, cl_mem* texture, cl_mem memory, size_t size, cl_channel_type dataType)
 {
     size_t origin[3];
-    origin[0] = offset;
+    origin[0] = 0;
     origin[1] = 0;
     origin[2] = 0;
     size_t region[3];
@@ -163,29 +170,29 @@ int bindTexture(int offset, cl_mem* texture, cl_mem memory, size_t size, cl_chan
     *texture = clCreateImage2D(context, CL_MEM_READ_ONLY, &format, region[0], region[1], 0, NULL, &err);//region[0], region[1], 0, NULL, &err);
     CHKERR(err, "Unable to create texture!");
 
-    if(size != 0);
-    err = clEnqueueCopyBufferToImage(commands, memory, *texture, 0, origin, region, 0, NULL, NULL);
+    if(size != 0)
+	    err = clEnqueueCopyBufferToImage(commands, memory, *texture, 0, origin, region, 0, NULL, NULL);
     CHKERR(err, "Unable to buffer texture!");
     return CL_SUCCESS;
 }
 
 int unbindTexture(cl_mem* texture, cl_mem memory, size_t size)
 {
-    size_t origin[3];
-    origin[0] = 0;
-    origin[1] = 0;
-    origin[2] = 0;
-    size_t region[3];
-    region[0] = size <= MaxImageWidth ? size : MaxImageWidth;
-    region[1] = (size + MaxImageWidth - 1) / MaxImageWidth;
-    region[2] = 0;
-
-    if(region[0] == 0)
-        region[0] = 1;
-    if(region[1] == 0)
-        region[1] = 1;
-    int err = clEnqueueCopyImageToBuffer(commands, *texture, memory, origin, region, 0, 0, NULL, NULL);
-    CHKERR(err, "Unable to copy image to buffer!");
+//    size_t origin[3];
+//    origin[0] = 0;
+//    origin[1] = 0;
+//    origin[2] = 0;
+//    size_t region[3];
+//    region[0] = size <= MaxImageWidth ? size : MaxImageWidth;
+//    region[1] = (size + MaxImageWidth - 1) / MaxImageWidth;
+//    region[2] = 0;
+//
+//    if(region[0] == 0)
+//        region[0] = 1;
+//    if(region[1] == 0)
+//        region[1] = 1;
+//    int err = clEnqueueCopyImageToBuffer(commands, *texture, memory, origin, region, 0, 0, NULL, NULL);
+//    CHKERR(err, "Unable to copy image to buffer!");
     return clReleaseMemObject(*texture);
 }
 
@@ -619,15 +626,15 @@ void setupGpu()
     //Setup memory
 
 
-    d_events = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, padEventSize * sizeof(UBYTE), (void*)h_events, &err);
+    d_events = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, roundup(padEventSize) * sizeof(UBYTE), (void*)h_events, &err);
     CHKERR(err, "Failed to allocate device memory!");
-    bindTexture(0, &eventTex, d_events, padEventSize, CL_UNSIGNED_INT8);
+    bindTexture(0, &eventTex, d_events, roundup(padEventSize) * sizeof(UBYTE), CL_UNSIGNED_INT8);
 
 	free( h_events );
 
-	d_times = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, padEventSize * sizeof(float), (void*)h_times, &err);
+	d_times = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, roundup(padEventSize) * sizeof(float), (void*)h_times, &err);
     CHKERR(err, "Failed to allocate device memory!");
-    bindTexture(0, &timeTex, d_times, padEventSize * sizeof(float), CL_FLOAT);
+    bindTexture(0, &timeTex, d_times, roundup(padEventSize), CL_FLOAT);
 	free( h_times );
 
 
@@ -947,7 +954,7 @@ runTest( int argc, char** argv)
 
 		//CUDA_SAFE_CALL( cudaUnbindTexture( candidateTex ) );
 		if(level != 1){
-        unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * (level-1) * sizeof(UBYTE) );
+			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * (level-1) * sizeof(UBYTE) );
 		//CUDA_SAFE_CALL( cudaUnbindTexture( intervalTex ) );
 		unbindTexture(&intervalTex, d_episodeIntervals, numCandidates * (level-2) * 2 * sizeof(float));
         }
