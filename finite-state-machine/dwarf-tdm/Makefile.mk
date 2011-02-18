@@ -16,8 +16,10 @@ tdm-all-local:
 	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/GpuTemporalDataMining.cl .
 	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/strncpy.cl .
 	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/strncmp.cl .
+	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/types.h .
 
 tdm-exec-local:
 	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/GpuTemporalDataMining.cl ${DESTDIR}${bindir}
 	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/strncmp.cl ${DESTDIR}${bindir}
 	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/strncpy.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/finite-state-machine/dwarf-tdm/types.h ${DESTDIR}${bindir}
