@@ -215,8 +215,8 @@ int main(int argc, char** argv)
     unsigned char serialCRC = serialCrc(h_num, crc);
 
     // Print a brief summary detailing the results
-    printf("Computed '%X' 1 bits!\n", (int)finalCRC);
-    printf("Correct Result: '%X' 1 bits!\n", serialCRC);
+    printf("GPU Computation: '%X'\n", (int)finalCRC);
+    printf("Serial Computation: '%X'\n", serialCRC);
 
     // Shutdown and cleanup
     clReleaseMemObject(dev_input);
