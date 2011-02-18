@@ -1,0 +1,20 @@
+Temporal Data Mining
+====================
+
+The Temporal Data Mining(TDM) code is a restricted variant of
+association rule data mining.  In this case, temporal data is
+also considered as part of the association process.
+
+Running
+-------
+
+Usage: ./tdm <filepath> <temporal constraints path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic (d)ynamic> <(m)ap and merge or (n)aive or (h)ybrid>
+
+    <filepath>                  :file containing temporal database
+    <temporal constraints path> :path containing temporal constraints  
+    <threads>                   :maximum number of threads to use      
+    <support>                   :culling threshold value                       
+    <(a)bsolute or (r)atio>     :culling threshold type                
+    <(s)tatic or (d)ynamic>     :static or dynamic memory management
+    <(m)ap and merge or (n)aive :algorithm type to use
+        or (h)ybrid>            
