@@ -1,14 +1,13 @@
--base
-  Non-optimized, non-paralleled implementation. It is considered as a baseline implementation to be compared with OpenMP and CUDA implementations. 
+LU Decomposition
+================
 
--common
-  Common functions used in all implementations.
+In LU Decomposition, a matrix is decomposed into a product of two matrices,
+one a lower triangular matrix and the other an uppper triangular matrix.
 
--data
-  Some sample input matrices. 
-  
--omp
-  An paralleled implementation with OpenMP.
+Running
+-------
 
--tools
-  Tools to generate input matrix with random number.
+Usage: ./lud [switches] -i input_file
+
+    -i input_file :file containing the original matrix
+    -v            :verify the computation and print differences, if any
