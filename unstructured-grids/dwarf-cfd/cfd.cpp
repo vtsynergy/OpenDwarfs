@@ -18,7 +18,7 @@
         exit(1); \
     }
 
-#define USEGPU 0
+#define USEGPU 1
 
 typedef struct{
     float x;

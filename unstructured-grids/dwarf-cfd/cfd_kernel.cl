@@ -9,7 +9,7 @@
 #define VAR_DENSITY_ENERGY (VAR_MOMENTUM+NDIM)
 #define NVAR (VAR_DENSITY_ENERGY+1)
 
-extern int printf(constant char *format, ...);
+//extern int printf(constant char *format, ...);
 
 void compute_flux_contribution(__private float* density, __private float3* momentum, __private float* density_energy,
                                     float pressure, __private float3* velocity,

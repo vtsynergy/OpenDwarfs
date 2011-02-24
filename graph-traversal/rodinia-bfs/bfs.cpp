@@ -18,7 +18,7 @@
 //#include <oclUtils.h>
 #include <ctime>
 
-const char* kernelSource1 = "bfs_kernels.cl";
+const char* kernelSource1 = "bfs_kernel.cl";
 const char* kernelSource2 = "kernel2.cl";
 
 unsigned int no_of_nodes;
@@ -105,7 +105,7 @@ static const char* oclLoadProgSource(const char* filename, size_t* out_length)
 	fread(source, 1, length, file);
 	fclose(file);
 	*out_length = length;
-	printf("%s\n", source);
+	//printf("%s\n", source);
 	return source;
 }
 
