@@ -103,8 +103,8 @@ AC_LANG_POP([C++])
 #	AC_HELP_STRING([--with-apps],[Applications to build (gem,matmult,mattran,swat)]),
 #	[app_list=$withval],[app_list=gem,matmult,mattran,swat])
 AC_ARG_WITH([apps],
-	AC_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm)]),
-	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm])
+	AC_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar)]),
+	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar])
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
 build_gem=false
@@ -123,6 +123,7 @@ build_bsort=false
 build_oesort=false
 build_bfs=false
 build_tdm=false
+build_astar=false
 
 selected_apps=""
 for app in ${app_names}; do
@@ -199,6 +200,10 @@ for app in ${app_names}; do
         build_csr=true
         selected_apps="$selected_apps csr"
         ;;
+     astar)
+        build_astar=true
+        selected_apps="$selected_apps astar"
+        ;;
 	 *)
 		AC_MSG_ERROR([unrecognized application $app])
 		;;
@@ -222,6 +227,7 @@ AM_CONDITIONAL([build_bsort], [$build_bsort])
 AM_CONDITIONAL([build_oesort], [$build_oesort])
 AM_CONDITIONAL([build_bfs], [$build_bfs])
 AM_CONDITIONAL([build_tdm], [$build_tdm])
+AM_CONDITIONAL([build_astar], [$build_astar])
 
 # Final output
 AC_OUTPUT(Makefile)

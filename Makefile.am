@@ -66,6 +66,10 @@ if build_tdm
 include finite-state-machine/dwarf-tdm/Makefile.mk
 endif
 
+if build_astar
+include Branch-and-Bound/astar/Makefile.mk
+endif
+
 all-local: $(all_local)
 
 install-exec-local: $(exec_local)
