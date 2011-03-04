@@ -1,15 +1,26 @@
-In srad.h, define either GPU or CPU computation
-Currently, the GPU implementation can only support x-, y-dimensions that can be divided by 16.
+SRAD
+====
 
-Usage:
-srad 128 128 0 31 0 31 0.5 2
+SRAD (Speckle Reducing Anisotropic Diffusion) is a diffusion method for
+ultrasonic and radar imaging applications based on partial differential
+equations (PDEs). It is used to remove locally correlated noise, known as
+speckles, without destroying important image features. 
 
-128 //number of rows in the domain
-128 //number of cols in the domain
-0	//y1 position of the speckle
-31	//y2 position of the speckle
-0	//x1 position of the speckle
-31	//x2 position of the speckle
-0.5	//Lambda value
-2	//number of iterations
+Running
+-------
 
+In srad.h, define either GPU or CPU computation.
+
+Usage: ./srad 128 128 0 31 0 31 0.5 2
+
+    128 //number of rows in the domain
+    128 //number of cols in the domain
+    0	//y1 position of the speckle
+    31	//y2 position of the speckle
+    0	//x1 position of the speckle
+    31	//x2 position of the speckle
+    0.5	//Lambda value
+    2	//number of iterations
+
+Note: Currently, the GPU implementation can only support x-, y-dimensions that can
+      be divided by 16.

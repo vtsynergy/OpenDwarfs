@@ -15,7 +15,7 @@
         exit(1); \
     }
 
-#define USEGPU 0
+#define USEGPU 1
 #define DATA_SIZE 32768
 #define MIN(a,b) a < b ? a : b
 
