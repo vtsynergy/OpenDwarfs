@@ -11,8 +11,8 @@ Packages and libraries needed to build and run the applications.
 
 To build:
 
-    opencl
-    autoconf
+    opencl >= 1.0 (some apps require 1.1)
+    autoconf >= 2.63
     autoheader
     automake
     gcc
