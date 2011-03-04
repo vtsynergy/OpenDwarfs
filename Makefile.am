@@ -67,7 +67,7 @@ include finite-state-machine/dwarf-tdm/Makefile.mk
 endif
 
 if build_astar
-include Branch-and-Bound/astar/Makefile.mk
+include branch-and-bound/astar/Makefile.mk
 endif
 
 all-local: $(all_local)
