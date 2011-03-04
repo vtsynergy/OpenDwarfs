@@ -15,8 +15,22 @@
 #define __NO_STD_VECTOR // Use cl::vector and cl::string and 
 #define __NO_STD_STRING  // not STL versions, more on this later
 #include <CL/cl.h>
-//#include <oclUtils.h>
 #include <ctime>
+
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
+#include <CL/opencl.h>
+#endif
+
+#define CHKERR(err, str) \
+    if (err != CL_SUCCESS) \
+    { \
+        fprintf(stderr, "CL Error %d: %s\n", err, str); \
+        exit(1); \
+    }
+
+#define USEGPU 1
 
 const char* kernelSource1 = "bfs_kernel.cl";
 const char* kernelSource2 = "kernel2.cl";
@@ -25,12 +39,42 @@ unsigned int no_of_nodes;
 unsigned int edge_list_size;
 FILE *fp;
 
+cl_platform_id   platform_id;
+cl_device_id     device_id;
+cl_context       context;
+cl_command_queue commands;
+
 //Structure for Nodes in the graph
 struct Node
 {
 	int starting;     //Index where the edges of the node start
 	int no_of_edges;  //The degree of the node
 };
+
+void initGpu()
+{
+    int err;
+    /////////////////////////////////////////////////////////////
+    // Basic OpenCL Setup
+
+    // Retrieve an OpenCL platform
+    err = clGetPlatformIDs(1, &platform_id, NULL);
+    CHKERR(err, "Failed to get a platform!");
+
+    // Connect to a compute device
+    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
+    CHKERR(err, "Failed to create a device group!");
+	
+
+    // Create a compute context
+    context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
+    CHKERR(err, "Failed to create a compute context!");
+
+    // Create a command queue
+    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    CHKERR(err, "Failed to create a command queue!");
+    /////////////////////////////////////////////////////////////
+}
 
 static cl_context createContext(void)
 {
@@ -95,7 +139,7 @@ static const char* oclLoadProgSource(const char* filename, size_t* out_length)
 	file = fopen(filename, "r");
 	if(!file)
 	{
-		printf("Error when opening file: %s", filename);
+		printf("Error when opening file: %s\n", filename);
 		exit(1);
 	}
 	fseek(file, 0, SEEK_END);
@@ -155,7 +199,7 @@ void BFSGraph(int argc, char ** argv)
     for(unsigned int i = 0; i < no_of_nodes; i++)
     {
 	fscanf(fp, "%d %d", &start, &edgeno);
-	h_graph_nodes[i].starting = start;           //Hmmmm... Seems to me that start and edgeno are undefined...
+	h_graph_nodes[i].starting = start; 
 	h_graph_nodes[i].no_of_edges = edgeno;
 	h_graph_mask[i] = 0;
 	h_updating_graph_mask[i] = 0;
@@ -186,10 +230,11 @@ void BFSGraph(int argc, char ** argv)
 
     printf("Read File\n");
 
+	initGpu();
 
     //Setup OpenCL
     //Create a context to OpenCL
-    cl_context GPUContext = createContext();//clCreateContextFromType(0, CL_DEVICE_TYPE_GPU, NULL, NULL, NULL);
+/*    cl_context GPUContext = createContext();//clCreateContextFromType(0, CL_DEVICE_TYPE_GPU, NULL, NULL, NULL);
     
     //Get the list of GPU devices assocated with the context
     size_t parmDataBytes;
@@ -204,23 +249,24 @@ void BFSGraph(int argc, char ** argv)
     if(err != CL_SUCCESS)
     {
 	    printf("Error creating Command Queue\n");
-    }
+    }*/
 
 
     //Copy the Node list to device memory
-    cl_mem d_graph_nodes = clCreateBuffer(GPUContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+	int err;
+    cl_mem d_graph_nodes = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 	    sizeof(Node) * no_of_nodes, h_graph_nodes, &err);
     //Copy the Edge List to device memory
-    cl_mem d_graph_edges = clCreateBuffer(GPUContext, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+    cl_mem d_graph_edges = clCreateBuffer(context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
 	    sizeof(int) * edge_list_size, h_graph_edges, &err);
     //Copy the Mask to device memory
-    cl_mem d_graph_mask = clCreateBuffer(GPUContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+    cl_mem d_graph_mask = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
 	    sizeof(int) * no_of_nodes, h_graph_mask, &err);
     //Copy the updating graph mask to device memory
-    cl_mem d_updating_graph_mask = clCreateBuffer(GPUContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+    cl_mem d_updating_graph_mask = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
 	    sizeof(int) * no_of_nodes, h_updating_graph_mask, &err);
     //Copy the Visited nodes to device memory
-    cl_mem d_graph_visited = clCreateBuffer(GPUContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+    cl_mem d_graph_visited = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
 	    sizeof(int) * no_of_nodes, h_graph_visited, &err);
     //Allocate memory for the result on host side
     int* h_cost = (int*) malloc(sizeof(int) * no_of_nodes);
@@ -228,10 +274,10 @@ void BFSGraph(int argc, char ** argv)
     	h_cost[i] = -1;
     h_cost[source] = 0;
     //Allocate device memory for result
-    cl_mem d_cost = clCreateBuffer(GPUContext, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+    cl_mem d_cost = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
 	    sizeof(int) * no_of_nodes, h_cost, &err);
     //Make a bool to check if the execution is over
-    cl_mem d_over = clCreateBuffer(GPUContext, CL_MEM_WRITE_ONLY,
+    cl_mem d_over = clCreateBuffer(context, CL_MEM_WRITE_ONLY,
 	    sizeof(int), NULL, &err);
 
     printf("Copied Everything to GPU memory\n");
@@ -241,18 +287,18 @@ void BFSGraph(int argc, char ** argv)
     //const char* cPathAndName = shrFindFilePath(kernelSource1, argv[0]);
     const char* cSourceCL = oclLoadProgSource(kernelSource1, &szKernelLength);
    
-    cl_program kernel1Program = clCreateProgramWithSource(GPUContext, 1, (const char**) &cSourceCL, &szKernelLength, &err);
+    cl_program kernel1Program = clCreateProgramWithSource(context, 1, (const char**) &cSourceCL, &szKernelLength, &err);
     if(err != CL_SUCCESS)
 	printf("ERROR COMPILING KERNEL 1 (%d)\n", err);
 
     // Build the program (OpenCL JIT compilation)
 
-    err = clBuildProgram(kernel1Program, 1, GPUDevices, NULL, NULL, NULL);	
+    err = clBuildProgram(kernel1Program, 0, NULL, NULL, NULL, NULL);	
     if(err != CL_SUCCESS)
     {
 	printf("Error building kernel 1(%d).\n", err);
 	char programLog[1024];
-   	clGetProgramBuildInfo(kernel1Program, GPUDevices[0], CL_PROGRAM_BUILD_LOG, 1024, programLog, 0);
+   	clGetProgramBuildInfo(kernel1Program, device_id, CL_PROGRAM_BUILD_LOG, 1024, programLog, 0);
 	printf("%s\n",programLog);
     }
   
@@ -298,30 +344,37 @@ void BFSGraph(int argc, char ** argv)
 
     int k = 0;
     int stop;
-    size_t WorkSize[1] = {no_of_nodes}; // one dimensional Range
-    size_t localWorkSize[1] = {64};
+	
+	size_t maxThreads[3];
+	err = clGetDeviceInfo(device_id,CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3,&maxThreads, NULL);
+    CHKERR(err, "Error checking for work item sizes\n");
+	
+	maxThreads[0] = no_of_nodes < maxThreads[0] ? no_of_nodes : maxThreads[0];
+	
+    size_t WorkSize[1] = {no_of_nodes + (no_of_nodes%maxThreads[0])}; // one dimensional Range
+    size_t localWorkSize[1] = {maxThreads[0]};
     cl_event syncEvent;
     do
     {
 	stop = 0;
 	//Copy stop to device
-	clEnqueueWriteBuffer(commandQueue, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, NULL);
+	clEnqueueWriteBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, NULL);
 
 	//Run Kernel1 and Kernel2
-	cl_int err = clEnqueueNDRangeKernel(commandQueue, kernel1, 1, NULL,
+	cl_int err = clEnqueueNDRangeKernel(commands, kernel1, 1, NULL,
 		WorkSize, localWorkSize, 0, NULL, NULL);
 
 	if(err != CL_SUCCESS)
 	    printf("Error occurred running kernel1.(%d)\n", err);
 
-	err = clEnqueueNDRangeKernel(commandQueue, kernel2, 1, NULL,
+	err = clEnqueueNDRangeKernel(commands, kernel2, 1, NULL,
 		WorkSize, localWorkSize, 0, NULL, NULL);
 	
 	if(err != CL_SUCCESS)
 	    printf("Error occurred running kernel2.\n");
 	
 	//Copy stop from device
-	clEnqueueReadBuffer(commandQueue, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, NULL);
+	clEnqueueReadBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, NULL);
 	
 	k++;
     }while(stop == 1);
@@ -329,7 +382,7 @@ void BFSGraph(int argc, char ** argv)
     printf("Kernel Executed %d times\n", k);
 
     //copy result form device to host
-    clEnqueueReadBuffer(commandQueue, d_cost, CL_TRUE, 0, sizeof(int)*no_of_nodes, (void*)h_cost, 0, NULL, NULL);
+    clEnqueueReadBuffer(commands, d_cost, CL_TRUE, 0, sizeof(int)*no_of_nodes, (void*)h_cost, 0, NULL, NULL);
 
     //Store the result into a file
     FILE* fpo = fopen("result.txt", "w");
@@ -352,8 +405,8 @@ void BFSGraph(int argc, char ** argv)
     clReleaseKernel(kernel2);
     clReleaseProgram(kernel1Program);
     //clReleaseProgram(kernel2Program);
-    clReleaseCommandQueue(commandQueue);
-    clReleaseContext(GPUContext);
+    clReleaseCommandQueue(commands);
+    clReleaseContext(context);
     clReleaseMemObject(d_graph_nodes);
     clReleaseMemObject(d_graph_edges);
     clReleaseMemObject(d_graph_mask);
