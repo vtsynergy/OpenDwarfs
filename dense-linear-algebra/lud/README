@@ -7,7 +7,9 @@ one a lower triangular matrix and the other an uppper triangular matrix.
 Running
 -------
 
-Usage: ./lud [switches] -i input_file
+Usage: ./lud [switches]
 
     -i input_file :file containing the original matrix
     -v            :verify the computation and print differences, if any
+
+Example: lud -i test/dense-linear-albebra/lud/64.dat 

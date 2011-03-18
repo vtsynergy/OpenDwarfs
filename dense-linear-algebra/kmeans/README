@@ -14,7 +14,7 @@ no data objects move from one sub-cluster to another.
 Running
 -------
 
-Usage: ./kmeans [switches] -i filename
+Usage: kmeans [switches] -i filename
 
     -i filename      :file containing data to be clustered
     -m max_nclusters :maximum number of clusters allowed    [default=5]
@@ -24,3 +24,5 @@ Usage: ./kmeans [switches] -i filename
     -b               :input file is in binary format
     -r               :calculate RMSE                        [default=off]
     -o               :output cluster center coordinates     [default=off]
+
+Example: kmeans -o -i test/dense-linear-algebra/kmeans/100
