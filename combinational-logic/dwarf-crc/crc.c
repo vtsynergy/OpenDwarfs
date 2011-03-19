@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+#include <unistd.h>
+#include <string.h>
 
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
@@ -19,17 +21,28 @@
 #define DATA_SIZE 32768
 #define MIN(a,b) a < b ? a : b
 
+
 const char *KernelSourceFile = "crc_kernel.cl";
 
-unsigned char serialCrc(unsigned char h_num[DATA_SIZE], unsigned char crc)
+void usage()
+{
+	printf("graphCreator [hsivp]\n");
+	printf("h         - print this help message\n");
+	printf("s <seed>  - set the seed for the vertex\n");
+	printf("i <file>  - take input from file instead of randomly generating code\n");
+	printf("v         - verify parallel code with serial implementation of crc\n");
+	printf("p <int>   - change the last 8 bits of the crc polynomial\n");
+}
+
+unsigned char serialCrc(unsigned char* h_num, size_t size, unsigned char crc)
 {
     unsigned int i;
     unsigned char num = h_num[0];
-    for(i = 1; i < DATA_SIZE + 1; i++)
+    for(i = 1; i < size + 1; i++)
     {
         unsigned char crcCalc = h_num[i];
         unsigned int k;
-        if(i == DATA_SIZE)
+        if(i == size)
             crcCalc = 0;
         for(k = 0; k < 8; k++)
         {
@@ -50,11 +63,43 @@ int main(int argc, char** argv)
 {
     cl_int err;
 
-    unsigned char h_num[DATA_SIZE];
-    unsigned char h_answer[DATA_SIZE];
+	unsigned char* h_num;
+    unsigned char* h_answer;
+    unsigned char* data = NULL;
     unsigned char h_table[256];
     unsigned char crc = 0x9B;
     unsigned char finalCRC;
+	unsigned int run_serial = 0;
+	char* file = NULL;	
+    srand(time(NULL));
+		
+	int c;
+	while((c = getopt (argc, argv, "vs:i:p:h")) != -1)
+	{
+		switch(c)
+		{
+			case 'h':
+				usage();
+				exit(0);
+				break;
+			case 'p':
+				crc = atoi(optarg);				
+				break;
+			case 'v':
+				run_serial = 1;
+				break;
+			case 'i':
+				file = malloc(sizeof(*file) * strlen(optarg));
+				strncpy(file, optarg, sizeof(*file) * strlen(optarg));
+				break;
+			case 's':
+				srand(atoi(optarg));
+				break;
+			default:
+				abort();
+		}	
+	}
+    
 
     size_t global_size;
     size_t local_size;
@@ -72,13 +117,36 @@ int main(int argc, char** argv)
     cl_mem dev_table;
     cl_mem dev_output;
 	
+	unsigned int count = DATA_SIZE;
+	
     //Initialize input
-    int i;
-    srand(time(NULL));
-    unsigned int count = DATA_SIZE;
-    for(i = 0; i < count; i++)
-        h_num[i] = rand();
-
+	if(file == NULL)
+	{
+		h_num = malloc(sizeof(*h_num) * DATA_SIZE);
+		h_answer = malloc(sizeof(*h_num) * DATA_SIZE);
+	    int i;
+	    for(i = 0; i < count; i++)
+	        h_num[i] = rand();
+	}
+	else
+	{
+		FILE* fp = fopen(file, "rb");
+		printf("%s\n", file);
+		if(!fp)
+		{
+			printf("Error reading file\n");
+			exit(1);
+		}
+		h_num = malloc(sizeof(*h_num) * DATA_SIZE + 256);
+		h_answer = malloc(sizeof(*h_num) * DATA_SIZE);
+		size_t read = fread(h_num + 256, 1, DATA_SIZE, fp);
+		printf("%d\n", read);
+		size_t pad = 256 - read % 256;
+		count = read + pad;
+		data = h_num;
+		h_num = h_num + pad;
+	}
+	
     // Retrieve an OpenCL platform
     err = clGetPlatformIDs(1, &platform_id, NULL);
     CHKERR(err, "Failed to get a platform!");
@@ -184,12 +252,6 @@ int main(int argc, char** argv)
     err = clEnqueueReadBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256, h_table, 0, NULL, NULL);
     CHKERR(err, "Failed to read output array!");
 
-    //printf("CRC = %X\n", crc);
-    //for(i = 0; i < DATA_SIZE; i++)
-    //{
-    //   printf("%X\n", h_num[i]);
-    //}
-
     // Execute the kernel over the entire range of our 1d input data set
     // using the maximum number of work group items for this device
     global_size = count;
@@ -206,17 +268,21 @@ int main(int argc, char** argv)
 
     // Reduce our results
     finalCRC = 0;
-    for (i = 0; i < count; i++)
+    int i;
+	for (i = 0; i < count; i++)
     {
         finalCRC ^= h_answer[i];
     }
 
-    // Calculate the result if done in serial to verify that we have the correct answer.
-    unsigned char serialCRC = serialCrc(h_num, crc);
-
     // Print a brief summary detailing the results
     printf("GPU Computation: '%X'\n", (int)finalCRC);
-    printf("Serial Computation: '%X'\n", serialCRC);
+    
+	// Calculate the result if done in serial to verify that we have the correct answer.
+	if(run_serial)
+	{
+    	unsigned char serialCRC = serialCrc(h_num, count, crc);
+    	printf("Serial Computation: '%X'\n", serialCRC);
+	}	
 
     // Shutdown and cleanup
     clReleaseMemObject(dev_input);
