@@ -51,7 +51,7 @@ include unstructured-grids/dwarf-cfd/Makefile.mk
 endif
 
 if build_bfs
-include graph-traversal/rodinia-bfs/Makefile.mk
+include graph-traversal/bfs/Makefile.mk
 endif
 
 if build_bsort

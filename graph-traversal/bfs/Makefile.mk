@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += bfs
 
-bfs_SOURCES = graph-traversal/rodinia-bfs/bfs.cpp
+bfs_SOURCES = graph-traversal/bfs/bfs.cpp
 
 all_local += bfs-all-local
 exec_local += bfs-exec-local
 
 bfs-all-local:
-	cp $(top_srcdir)/graph-traversal/rodinia-bfs/bfs_kernel.cl .
+	cp $(top_srcdir)/graph-traversal/bfs/bfs_kernel.cl .
 
 bfs-exec-local:
-	cp $(top_srcdir)/graph-traversal/rodinia-bfs/bfs_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/graph-traversal/bfs/bfs_kernel.cl ${DESTDIR}${bindir}
