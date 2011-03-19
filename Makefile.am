@@ -19,19 +19,19 @@ include n-body-methods/gem/Makefile.mk
 endif
 
 if build_nw
-include dynamic-programming/rodinia-nw/Makefile.mk
+include dynamic-programming/nw/Makefile.mk
 endif
 
 if build_srad
-include structured-grids/rodinia-srad/Makefile.mk
+include structured-grids/srad/Makefile.mk
 endif
 
 if build_lud
-include dense-linear-algebra/rodinia-lud/Makefile.mk
+include dense-linear-algebra/lud/Makefile.mk
 endif
 
 if build_kmeans
-include dense-linear-algebra/rodinia-kmeans/Makefile.mk
+include dense-linear-algebra/kmeans/Makefile.mk
 endif
 
 if build_samplecl
@@ -43,7 +43,7 @@ include sparse-linear-algebra/SPMV/Makefile.mk
 endif
 
 if build_crc
-include combinational-logic/dwarf-crc/Makefile.mk
+include combinational-logic/crc/Makefile.mk
 endif
 
 if build_cfd
@@ -63,7 +63,7 @@ include graph-traversal/oddeven-sort/Makefile.mk
 endif
 
 if build_tdm
-include finite-state-machine/dwarf-tdm/Makefile.mk
+include finite-state-machine/tdm/Makefile.mk
 endif
 
 if build_astar
