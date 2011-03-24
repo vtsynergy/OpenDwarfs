@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += cfd 
 
-cfd_SOURCES = unstructured-grids/dwarf-cfd/cfd.cpp
+cfd_SOURCES = unstructured-grids/cfd/cfd.cpp
 
 all_local += dwarf-cfd-all-local
 exec_local += dwarf-cfd-exec-local
 
 dwarf-cfd-all-local:
-	cp $(top_srcdir)/unstructured-grids/dwarf-cfd/cfd_kernel.cl .
+	cp $(top_srcdir)/unstructured-grids/cfd/cfd_kernel.cl .
 
 dwarf-cfd-exec-local:
-	cp $(top_srcdir)/unstructured-grids/dwarf-cfd/cfd_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/unstructured-grids/cfd/cfd_kernel.cl ${DESTDIR}${bindir}

@@ -47,7 +47,7 @@ include combinational-logic/crc/Makefile.mk
 endif
 
 if build_cfd
-include unstructured-grids/dwarf-cfd/Makefile.mk
+include unstructured-grids/cfd/Makefile.mk
 endif
 
 if build_bfs
