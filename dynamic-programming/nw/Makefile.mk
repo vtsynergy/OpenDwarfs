@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += needle
 
-needle_SOURCES = dynamic-programming/rodinia-nw/needle.c
+needle_SOURCES = dynamic-programming/nw/needle.c
 
-all_local += rodinia-nw-all-local
-exec_local += rodinia-nw-exec-local
+all_local += nw-all-local
+exec_local += nw-exec-local
 
-rodinia-nw-all-local:
-	cp $(top_srcdir)/dynamic-programming/rodinia-nw/needle_kernel.cl .
+nw-all-local:
+	cp $(top_srcdir)/dynamic-programming/nw/needle_kernel.cl .
 
-rodinia-nw-exec-local:
-	cp $(top_srcdir)/dynamic-programming/rodinia-nw/needle_kernel.cl ${DESTDIR}${bindir}
+nw-exec-local:
+	cp $(top_srcdir)/dynamic-programming/nw/needle_kernel.cl ${DESTDIR}${bindir}

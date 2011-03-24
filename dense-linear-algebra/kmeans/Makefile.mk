@@ -7,18 +7,18 @@
 
 bin_PROGRAMS += kmeans
 
-kmeans_SOURCES = dense-linear-algebra/rodinia-kmeans/kmeans.c \
-	dense-linear-algebra/rodinia-kmeans/cluster.c \
-	dense-linear-algebra/rodinia-kmeans/getopt.c \
-	dense-linear-algebra/rodinia-kmeans/kmeans_clustering.c \
-	dense-linear-algebra/rodinia-kmeans/kmeans_opencl.cpp \
-	dense-linear-algebra/rodinia-kmeans/rmse.c
+kmeans_SOURCES = dense-linear-algebra/kmeans/kmeans.c \
+	dense-linear-algebra/kmeans/cluster.c \
+	dense-linear-algebra/kmeans/getopt.c \
+	dense-linear-algebra/kmeans/kmeans_clustering.c \
+	dense-linear-algebra/kmeans/kmeans_opencl.cpp \
+	dense-linear-algebra/kmeans/rmse.c
 
-all_local += rodinia-kmeans-all-local
-exec_local += rodinia-kmeans-exec-local
+all_local += kmeans-all-local
+exec_local += kmeans-exec-local
 
-rodinia-kmeans-all-local:
-	cp $(top_srcdir)/dense-linear-algebra/rodinia-kmeans/kmeans_opencl_kernel.cl .
+kmeans-all-local:
+	cp $(top_srcdir)/dense-linear-algebra/kmeans/kmeans_opencl_kernel.cl .
 
-rodinia-kmeans-exec-local:
-	cp $(top_srcdir)/dense-linear-algebra/rodinia-kmeans/kmeans_opencl_kernel.cl ${DESTDIR}${bindir}
+kmeans-exec-local:
+	cp $(top_srcdir)/dense-linear-algebra/kmeans/kmeans_opencl_kernel.cl ${DESTDIR}${bindir}

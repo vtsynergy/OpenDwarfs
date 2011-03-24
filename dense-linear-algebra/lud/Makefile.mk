@@ -7,13 +7,13 @@
 
 bin_PROGRAMS += lud
 
-lud_SOURCES = dense-linear-algebra/rodinia-lud/lud.c dense-linear-algebra/rodinia-lud/common.c
+lud_SOURCES = dense-linear-algebra/lud/lud.c dense-linear-algebra/lud/common.c
 
-all_local += rodinia-lud-all-local
-exec_local += rodinia-lud-exec-local
+all_local += lud-all-local
+exec_local += lud-exec-local
 
-rodinia-lud-all-local:
-	cp $(top_srcdir)/dense-linear-algebra/rodinia-lud/lud_kernel.cl .
+lud-all-local:
+	cp $(top_srcdir)/dense-linear-algebra/lud/lud_kernel.cl .
 
-rodinia-lud-exec-local:
-	cp $(top_srcdir)/dense-linear-algebra/rodinia-lud/lud_kernel.cl ${DESTDIR}${bindir}
+lud-exec-local:
+	cp $(top_srcdir)/dense-linear-algebra/lud/lud_kernel.cl ${DESTDIR}${bindir}
