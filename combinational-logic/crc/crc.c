@@ -140,7 +140,7 @@ int main(int argc, char** argv)
 		h_num = malloc(sizeof(*h_num) * DATA_SIZE + 256);
 		h_answer = malloc(sizeof(*h_num) * DATA_SIZE);
 		size_t read = fread(h_num + 256, 1, DATA_SIZE, fp);
-		printf("%zd\n", read);
+		printf("%d\n", read);
 		size_t pad = 256 - read % 256;
 		count = read + pad;
 		data = h_num;
