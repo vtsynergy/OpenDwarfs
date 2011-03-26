@@ -24,7 +24,6 @@ enum
 #define MAX_TIMESTAMP_PER_LEVEL 11
 #define MAX_LEVEL 20
 #define EPSILON 0.0000f
-#define IMAGE_MAX_WIDTH 4096
 #define IMAGE_POS(length) ((int2)(length % IMAGE_MAX_WIDTH, length / IMAGE_MAX_WIDTH))
 
 int ffs(int x)
