@@ -11,10 +11,13 @@ distance metric. The new centroids are calculated by taking the mean of all the
 data objects within each sub-cluster respectively. The algorithm iterates until
 no data objects move from one sub-cluster to another. 
 
+Note: This application was ported from the Rodinia Suite
+      (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).
+
 Running
 -------
 
-Usage: kmeans [switches] -i filename
+Usage: kmeans [options] -i <filename>
 
     -i filename      :file containing data to be clustered
     -m max_nclusters :maximum number of clusters allowed    [default=5]

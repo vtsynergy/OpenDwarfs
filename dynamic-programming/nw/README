@@ -10,6 +10,9 @@ at that cell. Thus, the value of each data element depends on the values of its
 northwest-, north- and west-adjacent elements. In the second step, the maximum
 path is traced backward to deduce the optimal alignment.
 
+Note: This application was ported from the Rodinia Suite
+      (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).
+
 Running
 -------
 

@@ -4,10 +4,13 @@ LU Decomposition
 In LU Decomposition, a matrix is decomposed into a product of two matrices,
 one a lower triangular matrix and the other an uppper triangular matrix.
 
+Note: This application was ported from the Rodinia Suite
+      (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).
+
 Running
 -------
 
-Usage: ./lud [switches]
+Usage: lud [options] -i <input_file>
 
     -i input_file :file containing the original matrix
     -v            :verify the computation and print differences, if any
