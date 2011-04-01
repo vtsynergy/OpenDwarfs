@@ -1,0 +1,25 @@
+Needleman-Wunsch
+================
+
+Needleman-Wunsch is a nonlinear global optimization method for DNA sequence
+alignments. The potential pairs of sequences are organized in a 2D matrix. In
+the first step, the algorithm fills the matrix from top left to bottom right,
+step-by-step. The optimum alignment is the pathway through the array with
+maximum score, where the score is the value of the maximum weighted path ending
+at that cell. Thus, the value of each data element depends on the values of its
+northwest-, north- and west-adjacent elements. In the second step, the maximum
+path is traced backward to deduce the optimal alignment.
+
+Note: This application was ported from the Rodinia Suite
+      (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).
+
+Running
+-------
+
+Usage: needle <length of sequences> <penalty value>  
+
+Example: needle 2048 10
+
+Note: This program generate two sequences randomly. Please specify your own
+      sequences for different uses. At the current stage, the program only
+      supports two sequences with the same lengh, which can be divided by 16.

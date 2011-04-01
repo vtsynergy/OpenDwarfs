@@ -1,0 +1,26 @@
+SRAD
+====
+
+SRAD (Speckle Reducing Anisotropic Diffusion) is a diffusion method for
+ultrasonic and radar imaging applications based on partial differential
+equations (PDEs). It is used to remove locally correlated noise, known as
+speckles, without destroying important image features. 
+
+Note: This application was ported from the Rodinia Suite
+      (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).
+
+Running
+-------
+
+In srad.h, define either GPU or CPU computation.
+
+Usage: srad <rows> <columns> <y1 position of speckle> <y2 position of speckle>
+            <x1 position of speckle> <x2 position of speckle> <lambda value>
+            <num iterations>
+
+Example: srad 256 256 0 127 0 127 0.5 2
+
+Note: Currently, the GPU implementation can only support x-, y-dimensions that
+      can be divided by 16.
+      This application is known to have issues on some NVIDIA cards for larger
+      numbers of rows and columns.

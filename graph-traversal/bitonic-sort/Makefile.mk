@@ -13,7 +13,7 @@ all_local += bitonic-sort-all-local
 exec_local += bitonic-sort-exec-local
 
 bitonic-sort-all-local:
-	cp $(top_srcdir)/graph-traversal/bitonic-sort/bitonicSort.cl .
+	cp $(top_srcdir)/graph-traversal/bitonic-sort/sort.cl .
 
 bitonic-sort-exec-local:
-	cp $(top_srcdir)/graph-traversal/bitonic-sort/bitonicSort.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/graph-traversal/bitonic-sort/sort.cl ${DESTDIR}${bindir}
