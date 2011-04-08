@@ -1,4 +1,3 @@
-extern int printf(constant char *format, ...);
 __kernel void sort(
     __global unsigned int *input,
     unsigned int range,
