@@ -337,7 +337,7 @@ int main(int argc, char** argv)
 	computeTables(h_tables, numTables, crc);
 	
 	// Write our data set into the input array in device memory
-	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, tables, 0, NULL, NULL);
+	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, NULL);
 	CHKERR(err, "Failed to write to source array!");
 	
 	//Open file if it exists	
@@ -345,7 +345,7 @@ int main(int argc, char** argv)
 		fp = fopen(file, "rb");
 
 	int readsLeft = getNextChunk(N, fp, h_num, maxSize, &read, NULL);
-	int lastcrc = computeCRC(h_num, N, crc, tables, numTables);
+	int lastcrc = computeCRC(h_num, N, crc, h_tables, numTables);
 	while(readsLeft)
 	{
 		int pad = 0;
@@ -358,7 +358,7 @@ int main(int argc, char** argv)
 		h_num[pad] ^= lastcrc;	
 		
 		//Compute the CRC for this chunk
-		lastcrc = computeCRCGPU(h_num, N, crc, tables, numTables);			
+		lastcrc = computeCRCGPU(h_num, N, crc, h_tables, numTables);			
 	}
 
 	printf("Parallel CRC: '%X'\n", lastcrc);
