@@ -35,6 +35,8 @@ cl_mem dev_input;
 cl_mem dev_table;
 cl_mem dev_output;
 
+int64_t dataTransferTime = 0;
+int64_t kernelExecutionTime = 0;
 
 void usage()
 {
@@ -44,6 +46,23 @@ void usage()
 	printf("i <file>  - take input from file instead of randomly generating code\n");
 	printf("v		 - verify parallel code with serial implementation of crc\n");
 	printf("p <int>   - change the last 8 bits of the crc polynomial\n");
+	printf("n <int>   - change the size of data blocks\n");
+	printf("q <int>   - change the number of times to run the kernel\n");
+	printf("w <int>   - change the maximum data size\n");
+}
+
+void printTimeDiff(struct timeval start, struct timeval end)
+{
+  printf("%ld microseconds\n", ((end.tv_sec * 1000000 + end.tv_usec)
+		  - (start.tv_sec * 1000000 + start.tv_usec)));
+}
+
+int64_t computeTimeDiff(struct timeval start, struct timeval end)
+{
+	int64_t diff = (end.tv_sec * 1000000 + end.tv_usec)
+		  - (start.tv_sec * 1000000 + start.tv_usec);
+	printf("%lu\n", diff);
+	return diff;
 }
 
 unsigned char serialCRC(unsigned char* h_num, size_t size, unsigned char crc)
@@ -135,7 +154,6 @@ void computeTables(unsigned char* tables, int numTables, unsigned char crc)
 	{
 		for(i = 0; i < 256; i++)
 		{
-			unsigned char iter = i;
 			unsigned char val = tables[(level-1)*256 + i];
 			tables[level * 256 + i] = tables[(level-1)*256 + val];
 		}
@@ -144,9 +162,15 @@ void computeTables(unsigned char* tables, int numTables, unsigned char crc)
 
 unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char crc, unsigned char* tables, unsigned long numTables)
 {
+	printf("Running Kernel\n");
+	struct timeval start_time, end_time;
+	gettimeofday(&start_time, NULL);
 	// Write our data set into the input array in device memory
 	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, NULL);
 	CHKERR(err, "Failed to write to source array!");
+	clFinish(commands);
+	gettimeofday(&end_time, NULL);
+	dataTransferTime += computeTimeDiff(start_time, end_time);
 
 	// Set the arguments to our compute kernel
 	err = 0;
@@ -168,15 +192,23 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	
 	// Execute the kernel over the entire range of our 1d input data set
 	// using the maximum number of work group items for this device
-	global_size = N;
-	local_size = MIN(local_size, N);
+	global_size = N + local_size - N%local_size;
+	gettimeofday(&start_time, NULL);
 	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
 	CHKERR(err, "Failed to execute compute kernel!");
+	clFinish(commands);
+	gettimeofday(&end_time, NULL);
+	kernelExecutionTime += computeTimeDiff(start_time, end_time);
 
 	unsigned char* h_answer = malloc(sizeof(*h_answer)*N);
+	
+	gettimeofday(&start_time, NULL);
 	// Read back the results from the device to verify the output
 	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, NULL);
 	CHKERR(err, "Failed to read output array!");
+	clFinish(commands);
+	gettimeofday(&end_time, NULL);
+	dataTransferTime += computeTimeDiff(start_time, end_time);
 
 	unsigned char answer = 0;
 	
@@ -227,6 +259,9 @@ void setupGPU()
 	commands = clCreateCommandQueue(context, device_id, 0, &err);
 	CHKERR(err, "Failed to create a command queue!");
 
+	struct timeval compilation_st, compilation_et;
+	
+	gettimeofday(&compilation_st, NULL);
 	FILE* kernelFile = NULL;
 	kernelFile = fopen(KernelSourceFile, "r");
 	if(!kernelFile)
@@ -263,6 +298,10 @@ void setupGPU()
 	// Create the compute kernel in the program we wish to run
 	kernel_compute = clCreateKernel(program, "compute", &err);
 	CHKERR(err, "Failed to create a compute kernel!");
+	gettimeofday(&compilation_et, NULL);
+
+	printf("Kernel Compilation Time: ");
+	printTimeDiff(compilation_st, compilation_et);
 }
 
 int main(int argc, char** argv)
@@ -273,7 +312,7 @@ int main(int argc, char** argv)
 	unsigned char* h_answer;
 	unsigned char* data = NULL;
 	unsigned char crc = 0x9B;
-	unsigned long N = 1024;
+	unsigned long N = 0;
 	unsigned char finalCRC;
 	unsigned char* h_tables;
 	unsigned int run_serial = 0;
@@ -282,10 +321,12 @@ int main(int argc, char** argv)
 	size_t read = 0;
 	FILE* fp = NULL;
 	unsigned int seed = time(NULL);
+
+	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;
 	srand(seed);
 		
 	int c;
-	while((c = getopt (argc, argv, "vs:i:p:h")) != -1)
+	while((c = getopt (argc, argv, "vn:s:i:p:w:h")) != -1)
 	{
 		switch(c)
 		{
@@ -307,20 +348,29 @@ int main(int argc, char** argv)
 				srand(atoi(optarg));
 				seed = atoi(optarg);
 				break;
+			case 'n':
+				N = atoi(optarg);
+				break;
+			case 'w':
+				maxSize = atoi(optarg);
+				break;
 			default:
 				abort();
 		}	
 	}
+	if(N == 0)	
+		N = maxSize;
 	
 
 	size_t global_size;
 	size_t local_size;
 
 	
+	gettimeofday(&par_st, NULL);	
 	h_num = malloc(sizeof(*h_num) * N);
 
 	setupGPU();
-	
+
 	//Generate Tables for the given size of N
 	int numTables = floor(log(N)/log(2)) + 1;
 	printf("num tables = %d\n", numTables);
@@ -334,18 +384,26 @@ int main(int argc, char** argv)
 	dev_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(char)*N, NULL, &err);
 	CHKERR(err, "Failed to allocate device memory!");
 
+	gettimeofday(&tables_st, NULL);
 	computeTables(h_tables, numTables, crc);
+	gettimeofday(&tables_et, NULL);
+	printf("Time to compute look-up tables: ");
+	printTimeDiff(tables_st, tables_et);
 	
+	gettimeofday(&tables_st, NULL);
 	// Write our data set into the input array in device memory
 	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, NULL);
 	CHKERR(err, "Failed to write to source array!");
+	clFinish(commands);
+	gettimeofday(&tables_et, NULL);
+	dataTransferTime += computeTimeDiff(tables_st, tables_et);
 	
 	//Open file if it exists	
 	if(file != NULL)
 		fp = fopen(file, "rb");
 
 	int readsLeft = getNextChunk(N, fp, h_num, maxSize, &read, NULL);
-	int lastcrc = computeCRC(h_num, N, crc, h_tables, numTables);
+	int lastcrc = computeCRCGPU(h_num, N, crc, h_tables, numTables);
 	while(readsLeft)
 	{
 		int pad = 0;
@@ -366,10 +424,15 @@ int main(int argc, char** argv)
 		fclose(fp);
 	free(h_num);
 	free(h_tables);
+	gettimeofday(&par_et, NULL);	
  
+	printf("Parallel Algorithm Time: ");
+	printTimeDiff(par_st, par_et);
+	
 	// Calculate the result if done in serial to verify that we have the correct answer.
 	if(run_serial)
 	{
+		gettimeofday(&ser_st, NULL);
 		printf("Computing Serial CRC\n");		
 		unsigned int count = maxSize;
 		if(file == NULL)
@@ -397,7 +460,13 @@ int main(int argc, char** argv)
 		free(h_num);
 		if(fp)
 			fclose(fp);
+		gettimeofday(&ser_et, NULL);
+		printf("Serial Algorithm Completion Time: ");
+		printTimeDiff(ser_st, ser_et);
 	}	
+	printf("======================================================\n");
+	printf("Data Transfer Time: %f\n", dataTransferTime / 1000000.0); 
+	printf("Kernel Execution Time: %f\n", kernelExecutionTime / 1000000.0);
 
 	printf("Done\n");
 		
