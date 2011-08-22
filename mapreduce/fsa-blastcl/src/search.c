@@ -15,12 +15,12 @@ extern unsigned char * wordLookupDFA;
 extern struct groupFP *wordLookupDFA_groupsFP;
 TIMERECORD timeRecord;
 //unsigned char querySequenceC[40000];
-cl_uint global_sequenceCount;
+cl_mem global_sequenceCount;
 cl_mem global_numAdditionalTriggerExtensions;
 
 //texture<unsigned char, 1> texSubjectSequences;
 
-struct parameters {
+struct __attribute__ ((aligned (8))) parameters {
 	cl_int 	wordLookupDFA_numCodes;
 	cl_uint	additionalQueryPositionOffset;
 	cl_int	statistics_ungappedNominalDropoff;
@@ -29,7 +29,7 @@ struct parameters {
 	cl_uint	ungappedExtensionsPerThread;
 	cl_uint	ungappedExtAdditionalStartLoc;
 	char 	parameters_wordSize;
-	unsigned char encoding_numCodes;
+	cl_uchar encoding_numCodes;
 	char    parameters_overlap;
 };
 
@@ -337,7 +337,7 @@ void search_protein2hit(struct PSSMatrix PSSMatrix, struct PSSMatrixFP PSSMatrix
 	cl_uint *lastHitFP;
 
     wordLengthMinusOne = parameters_wordSize - 1;
-
+//wordLookupDFA_print();
     while (sequenceCount < numSequences)
     {
     	descriptionLength = sequenceData[sequenceCount].descriptionLength;
@@ -1267,7 +1267,7 @@ void search_protein1hitParallel(struct scoreMatrix *scoreMatrixp,
         errorCode = CL_SUCCESS;
     }
 
-int devID = getDevID("GeForce GTX 480", devices, num_devices);
+int devID = getDevID("AMD Athlon(tm) 64 X2 Dual Core Processor 6000+", devices, num_devices);
 devID = devID == -1 ? 0 : devID;
 
     //create command-queue for the GPU
@@ -1454,6 +1454,7 @@ clFinish(commandQueue);
 			sequenceDataFP[i].sequenceLength = sequenceData[sequenceCount].sequenceLength;
 			sequenceDataFP[i].encodedLength = sequenceData[sequenceCount].encodedLength;
 			sequenceDataFP[i].offset = sequenceData[sequenceCount].sequence - roundStartAddress;
+//printf("boop %x %d %d %d %d %d\n", &sequenceDataFP[i], sequenceDataFP[i].descriptionLength, sequenceDataFP[i].descriptionStart, sequenceDataFP[i].sequenceLength, sequenceDataFP[i].encodedLength, sequenceDataFP[i].offset);
 			
 			//Calculate the longest sequence size aligned by the current thread
 			if (sequenceDataFP[i].sequenceLength > hitMatrix_offsetH[(i % nTotalThreadNum) + 1])
@@ -1518,6 +1519,7 @@ clFinish(commandQueue);
 		clEnqueueWriteBuffer(commandQueue, (cl_mem)sequencesD, CL_TRUE, 0, sizeof(unsigned char) * (nRoundOffset + 2), roundStartAddress, 0, NULL, NULL);
 //		cudaMemcpy(sequencesD, roundStartAddress, sizeof(unsigned char) * (nRoundOffset + 2),
 //				   cudaMemcpyHostToDevice);
+		global_sequenceCount = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &errorCode);
 		clEnqueueWriteBuffer(commandQueue, (cl_mem)global_sequenceCount, CL_TRUE, 0, sizeof(cl_uint), &iniVal, 0, NULL, NULL);
 //		cudaMemcpyToSymbol(global_sequenceCount, &iniVal, sizeof(cl_uint));
 		
@@ -1528,7 +1530,7 @@ clFinish(commandQueue);
 		//all the required data are copied to device, launch the kernel
 
 	clSetKernelArg(search_protein1hitKernel, 0, sizeof(PSSMatrixFPD), PSSMatrixFPD);
-	clSetKernelArg(search_protein1hitKernel, 1, sizeof(matrixBodyD), matrixBodyD);
+	clSetKernelArg(search_protein1hitKernel, 1, sizeof(matrixBodyD), (void *)matrixBodyD);
 	clSetKernelArg(search_protein1hitKernel, 2, sizeof(sequenceDataFPD), sequenceDataFPD);
 	clSetKernelArg(search_protein1hitKernel, 3, sizeof(sequencesD), sequencesD);
 	clSetKernelArg(search_protein1hitKernel, 4, sizeof(parametersD), parametersD);
@@ -1583,6 +1585,7 @@ clFinish(commandQueue);
 		//Add hits to the alignment list
 		for (i = 0; i < nTotalThreadNum; i++)
 		{
+//			printf("id: %d numTriggerExtensions: %d\n", i, blast_numTriggerExtensionsH[i]);
 			if (blast_numTriggerExtensionsH[i] > 0)
 			{
 				ungappedExtensionCur =  ungappedExtension + i * UNGAPEXT_PER_THREAD;
@@ -1752,6 +1755,7 @@ void search_protein2hitParallel(struct scoreMatrix *scoreMatrixp,
 	int nBlockSize = 128;
 	int nTotalThreadNum = nBlockNum * nBlockSize;
 	size_t WorkSize = nTotalThreadNum;
+	size_t SetSize;
 //	dim3 dimGrid(nBlockNum, 1);
 	size_t LocalSize = nBlockSize;
 //	dim3 dimBlock(nBlockSize, 1);
@@ -1847,18 +1851,18 @@ free(kernelSource);
 	groupNum = wordLookupDFA_numGroups;
 
 	global_numAdditionalTriggerExtensions = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &errorCode);
-printf("Kernel Arg 14 Size: %d\n", sizeof(cl_uint));
+//printf("Kernel Arg 14 Size: %d\n", sizeof(cl_uint));
 	//Allocate GPU buffer for PSSMatrix
 	PSSMatrixFPD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(struct PSSMatrixFP), NULL, &errorCode);
-printf("Kernel Arg 0 Size: %d\n", sizeof(struct PSSMatrixFP));
+//printf("Kernel Arg 0 Size: %d\n", sizeof(struct PSSMatrixFP));
 	if (errorCode != CL_SUCCESS) {
             printf("failed to create PSSMatrixFPD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
         }
 //	cudaMalloc((void **)&PSSMatrixFPD, sizeof(struct PSSMatrixFP));
 	matrixBodyD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_short) * (PSSMatrixFP.length + 2) * encoding_numCodes, NULL, &errorCode);
-printf("Kernel Arg 1 Size: %d\n", sizeof(cl_short) * (PSSMatrixFP.length + 2) * encoding_numCodes);
-	if (errorCode != CL_SUCCESS) {
+//printf("Kernel Arg 1 Size: %d\n", sizeof(cl_short) * (PSSMatrixFP.length + 2) * encoding_numCodes);
+	if (errorCode != CL_SUCCESS) {  
             printf("failed to create matrixBodyD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
         }
@@ -1876,13 +1880,15 @@ printf("Kernel Arg 1 Size: %d\n", sizeof(cl_short) * (PSSMatrixFP.length + 2) * 
             printf("failed to write matrixBodyD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
         }
+
+printf("HOST MATRIX %d. %d. \t%d %d %d %d %d %d %d %d %d %d\n", PSSMatrixFP.matrix, encoding_numCodes, (PSSMatrixFP.matrix + encoding_numCodes)[0], (PSSMatrixFP.matrix + encoding_numCodes)[1], (PSSMatrixFP.matrix - encoding_numCodes)[2], (PSSMatrixFP.matrix - encoding_numCodes)[3], (PSSMatrixFP.matrix - encoding_numCodes)[4], (PSSMatrixFP.matrix - encoding_numCodes)[5], (PSSMatrixFP.matrix - encoding_numCodes)[6], (PSSMatrixFP.matrix - encoding_numCodes)[7], (PSSMatrixFP.matrix - encoding_numCodes)[8], (PSSMatrixFP.matrix - encoding_numCodes)[9]);
 //	cudaMemcpy(matrixBodyD, (PSSMatrixFP.matrix - encoding_numCodes), 
 //	sizeof(cl_short) * (PSSMatrixFP.length + 2) * encoding_numCodes,cudaMemcpyHostToDevice);
 
 	//Each thread is for align of one database sequence
 	sequenceDataFP = (struct sequenceDataFP *)global_malloc(numSequences * sizeof(struct sequenceDataFP));
 	sequenceDataFPD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, numSequences * sizeof(struct sequenceDataFP), NULL, &errorCode);
-printf("Kernel Arg 2 Size: %d\n", numSequences * sizeof(struct sequenceDataFP));
+//printf("Kernel Arg 2 Size: %d\n", numSequences * sizeof(struct sequenceDataFP));
 	if (errorCode != CL_SUCCESS) {
             printf("failed to create sequenceDataFPD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
@@ -1892,7 +1898,7 @@ printf("Kernel Arg 2 Size: %d\n", numSequences * sizeof(struct sequenceDataFP));
 	//Allocate buffer for hit matrix offset
 	hitMatrix_offsetH = (cl_uint *)global_malloc((nTotalThreadNum + 1) * sizeof(cl_uint));
 	hitMatrix_offsetD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint) * (nTotalThreadNum +1), NULL, &errorCode);
-printf("Kernel Arg 11 Size: %d\n", sizeof(cl_uint) * (nTotalThreadNum +1));
+//printf("Kernel Arg 11 Size: %d\n", sizeof(cl_uint) * (nTotalThreadNum +1));
 if (errorCode != CL_SUCCESS) {
             printf("failed to create hitMatrix_offsetD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
@@ -1906,7 +1912,7 @@ if (errorCode != CL_SUCCESS) {
 	strParameters.ungappedExtAdditionalStartLoc = strParameters.ungappedExtensionsPerThread * nTotalThreadNum;
 
 	ungappedExtensionsD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(struct ungappedExtension) * nUngappedExtensionNum, NULL, &errorCode);
-printf("Kernel Arg 12 Size: %d\n", sizeof(struct ungappedExtension) * nUngappedExtensionNum);
+//printf("Kernel Arg 12 Size: %d\n", sizeof(struct ungappedExtension) * nUngappedExtensionNum);
 if (errorCode != CL_SUCCESS) {
             printf("failed to create ungappedExtensionsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
@@ -1924,21 +1930,21 @@ if (errorCode != CL_SUCCESS) {
 	blast_numHitsH = (cl_uint *)global_malloc(sizeof(cl_uint) * nTotalThreadNum);
 
 	blast_numUngappedExtensionsD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint) * nTotalThreadNum, NULL, &errorCode);
-printf("Kernel Arg 7 Size: %d\n", sizeof(cl_uint) * nTotalThreadNum);
+//printf("Kernel Arg 7 Size: %d\n", sizeof(cl_uint) * nTotalThreadNum);
 if (errorCode != CL_SUCCESS) {
             printf("failed to create numUngappedExtensionsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
         }
 //	cudaMalloc((void **)&blast_numUngappedExtensionsD, sizeof(cl_uint) * nTotalThreadNum);
 	blast_numTriggerExtensionsD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint) * nTotalThreadNum, NULL, &errorCode);
-printf("Kernel Arg 8 Size: %d\n", sizeof(cl_uint) *nTotalThreadNum);
+//printf("Kernel Arg 8 Size: %d\n", sizeof(cl_uint) *nTotalThreadNum);
 if (errorCode != CL_SUCCESS) {
             printf("failed to create numTriggerExtensionsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
         }
 //	cudaMalloc((void **)&blast_numTriggerExtensionsD, sizeof(cl_uint) * nTotalThreadNum);
 	blast_numHitsD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint) * nTotalThreadNum, NULL, &errorCode);
-printf("Kernel Arg 9 Size: %d\n", sizeof(cl_uint) * nTotalThreadNum);
+//printf("Kernel Arg 9 Size: %d\n", sizeof(cl_uint) * nTotalThreadNum);
 if (errorCode != CL_SUCCESS) {
             printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
             errorCode = CL_SUCCESS;
@@ -1947,12 +1953,20 @@ if (errorCode != CL_SUCCESS) {
 	
 	//Allocate device memory, about 132Mbytes (according to texture limit)
 	sequencesD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(unsigned char) * 132000000, NULL, &errorCode);
-printf("Kernel Arg 3 Size: %d\n", sizeof(unsigned char) * 132000000); 
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
+//printf("Kernel Arg 3 Size: %d\n", sizeof(unsigned char) * 132000000); 
 //	cudaMalloc((void **)&sequencesD, sizeof(unsigned char) * 132000000);
 
 	//Allocate parameters buffer on device
 	parametersD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(struct parameters), NULL, &errorCode);
-printf("Kernel Arg 4 Size: %d\n", sizeof(struct parameters));
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
+//printf("Kernel Arg 4 Size: %d\n", sizeof(struct parameters));
 //	cudaMalloc((void **)&parametersD, sizeof(struct parameters));
 	strParameters.parameters_wordSize = parameters_wordSize;
 	strParameters.encoding_numCodes = encoding_numCodes;
@@ -1969,31 +1983,47 @@ printf("Kernel Arg 4 Size: %d\n", sizeof(struct parameters));
 	wordLookupDFA_size = sizeof(char) * wordNum + 2 * sizeof(cl_short) * wordLookupDFA_numExtPositions;
 	wordLookupDFA_groupD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(struct groupFP) * groupNum, NULL, &errorCode);
 
-printf("Kernel Arg 5 Size: %d\n", sizeof(struct groupFP) * groupNum);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
+//printf("Kernel Arg 5 Size: %d\n", sizeof(struct groupFP) * groupNum);
 //	cudaMalloc((void **)&wordLookupDFA_groupD, sizeof(struct groupFP) * groupNum);
 	wordLookupDFAD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, wordLookupDFA_size, NULL, &errorCode);
-printf("Kernel Arg 6 Size: %d\n", wordLookupDFA_size);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
+//printf("Kernel Arg 6 Size: %d\n", wordLookupDFA_size);
 //	cudaMalloc((void **)&wordLookupDFAD, wordLookupDFA_size);
-
+SetSize=nTotalThreadNum;
 zeroPtr=0;
 	clSetKernelArg(memSet, 0, sizeof(cl_uint), (void *)&zeroPtr);
 	clSetKernelArg(memSet, 1, sizeof(cl_mem), (void *)&blast_numUngappedExtensionsD);
-	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &WorkSize, &LocalSize, 0, NULL, NULL);
+	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &SetSize, &LocalSize, 0, NULL, NULL);
 //clFinish(commandQueue);
 //	cudaMemset(blast_numUngappedExtensionsD, 0, sizeof(cl_uint) * nTotalThreadNum);
 zeroPtr=0;
 	clSetKernelArg(memSet, 0, sizeof(cl_uint), (void *)&zeroPtr);
 	clSetKernelArg(memSet, 1, sizeof(cl_mem), (void *)&blast_numHitsD);
-	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &WorkSize, &LocalSize, 0, NULL, NULL);
+	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &SetSize, &LocalSize, 0, NULL, NULL);
 //clFlush(commandQueue);
 //clFinish(commandQueue);
 //	cudaMemset(blast_numHitsD, 0, sizeof(cl_uint) * nTotalThreadNum);
-	
+	int grr = 0;
+//for (grr; grr < 400; grr++) {
+//printf("chargroups[%d] %d %x, groups[%d] %d %x\n", grr, ((char*)wordLookupDFA_groupsFP)[grr], &((char*)wordLookupDFA_groupsFP)[grr], grr, wordLookupDFA_groupsFP[grr], &wordLookupDFA_groupsFP[grr]);
+//}
 	errorCode = clEnqueueWriteBuffer(commandQueue, (cl_mem)wordLookupDFA_groupD, CL_TRUE, 0, sizeof(struct groupFP) * groupNum, wordLookupDFA_groupsFP, 0, NULL, NULL);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
 //	cudaMemcpy(wordLookupDFA_groupD, wordLookupDFA_groupsFP, sizeof(struct groupFP) * groupNum, cudaMemcpyHostToDevice);
 //	//Use constant memory for the word lookup table group
 //deprecated apparently?	clEnqueueWriteBuffer(commandQueue, (cl_mem)wordLookupDFA_groupsC, CL_TRUE, 0, sizeof(struct groupFP) * groupNum, wordLookupDFA_groupsFP, 0, NULL, NULL);
 //	cudaMemcpyToSymbol(wordLookupDFA_groupsC, wordLookupDFA_groupsFP, sizeof(struct groupFP) * groupNum);
+
 //
 	//Use constant memory to store score matrix
 	int scoreMatrixSize = encoding_numCodes * encoding_numCodes;
@@ -2014,6 +2044,10 @@ zeroPtr=0;
 	free(tempQueryCode);
 
 	errorCode = clEnqueueWriteBuffer(commandQueue, (cl_mem)wordLookupDFAD, CL_TRUE, 0, wordLookupDFA_size, wordLookupDFA, 0, NULL, NULL);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
 //	cudaMemcpy(wordLookupDFAD, wordLookupDFA, wordLookupDFA_size, cudaMemcpyHostToDevice);
 	cl_uint iniVal = nTotalThreadNum;	
 	//get t1
@@ -2072,37 +2106,62 @@ zeroPtr=0;
 		int nElemNum = hitMatrix_offsetH[nTotalThreadNum];
 
 		hitMatrix_furthestD = (void *)clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint) * nElemNum, NULL, &errorCode);
-printf("Kernel Arg 10 Size: %d\n", sizeof(cl_uint) * nElemNum);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
+//printf("Kernel Arg 10 Size: %d\n", sizeof(cl_uint) * nElemNum);
 //		cudaMalloc((void **)&hitMatrix_furthestD, sizeof(cl_uint) * nElemNum);
+printf("testingtesting Local:%d Work:%d ElemNum:%d ThreadNum:%d\n", LocalSize, WorkSize, nElemNum * sizeof(cl_uint), nTotalThreadNum * sizeof(cl_uint));
+SetSize=nElemNum;
 zeroPtr=0;
 	clSetKernelArg(memSet, 0, sizeof(cl_uint), (void *)&zeroPtr);
 	clSetKernelArg(memSet, 1, sizeof(cl_mem), (void *)&hitMatrix_furthestD);
-	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &LocalSize, NULL, 0, NULL, NULL);
+	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &SetSize, NULL, 0, NULL, NULL);
+
 //clFlush(commandQueue);
-//clFinish(commandQueue);
+clFinish(commandQueue);
 //		cudaMemset(hitMatrix_furthestD, 0, sizeof(cl_uint) * nElemNum);
+SetSize=nTotalThreadNum;
 zeroPtr=0;
 	clSetKernelArg(memSet, 0, sizeof(cl_uint), (void *)&zeroPtr);
 	clSetKernelArg(memSet, 1, sizeof(cl_mem), (void *)&blast_numTriggerExtensionsD);
-	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &WorkSize, &LocalSize, 0, NULL, NULL);
+	clEnqueueNDRangeKernel(commandQueue, memSet, 1, NULL, &SetSize, &LocalSize, 0, NULL, NULL);
 
 //clFlush(commandQueue);
-//clFinish(commandQueue);
+clFinish(commandQueue);
 //		cudaMemset(blast_numTriggerExtensionsD, 0, sizeof(cl_uint) * nTotalThreadNum);
 	
 		//Copy data to device
 		errorCode = clEnqueueWriteBuffer(commandQueue, (cl_mem)sequenceDataFPD, CL_TRUE, 0, sizeof(struct sequenceDataFP) * numSequencesRound, sequenceDataFP, 0, NULL, NULL);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to write sequenceDataFPD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
 //		cudaMemcpy(sequenceDataFPD, sequenceDataFP, sizeof(struct sequenceDataFP) * numSequencesRound,
 //				   cudaMemcpyHostToDevice);
 		errorCode = clEnqueueWriteBuffer(commandQueue, (cl_mem)sequencesD, CL_TRUE, 0, sizeof(unsigned char) * (nRoundOffset + 2), roundStartAddress, 0, NULL, NULL);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create sequencesD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
 //		cudaMemcpy(sequencesD, roundStartAddress, sizeof(unsigned char) * (nRoundOffset + 2),
 //				   cudaMemcpyHostToDevice);
 
+		global_sequenceCount = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_uint), NULL, &errorCode);
 		errorCode = clEnqueueWriteBuffer(commandQueue, (cl_mem)global_sequenceCount, CL_TRUE, 0, sizeof(cl_uint), &iniVal, 0, NULL, NULL);		
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create global_sequenceCount buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
 //		cudaMemcpyToSymbol(global_sequenceCount, &iniVal, sizeof(cl_uint));
 
 		numAdditionalTriggerExtensions = 0;
 		errorCode = clEnqueueWriteBuffer(commandQueue, (cl_mem)global_numAdditionalTriggerExtensions, CL_TRUE, 0, sizeof(cl_uint), &numAdditionalTriggerExtensions, 0, NULL, NULL);
+if (errorCode != CL_SUCCESS) {
+            printf("failed to create numHitsD buffer!\n\t%s\n", print_cl_errstring(errorCode));
+            errorCode = CL_SUCCESS;
+        }
 //		cudaMemcpyToSymbol(global_numAdditionalTriggerExtensions, 
 //						   &numAdditionalTriggerExtensions, 
 //						   sizeof(cl_uint)); clReleaseMemObject();
@@ -2110,7 +2169,9 @@ zeroPtr=0;
 		
 		//get t4
 		gettimeofday(&t4, NULL);
-		
+
+printf("UNGAPPED HOST %d\n", sizeof(struct ungappedExtension));		
+
 //ANOTHER KERNEL CALL
 		//all the required data are copied to device, launch the kernel
 		clSetKernelArg(search_protein2hitKernel, 0, sizeof(cl_mem), (void*)&PSSMatrixFPD);
@@ -2128,7 +2189,7 @@ zeroPtr=0;
 		clSetKernelArg(search_protein2hitKernel, 12, sizeof(cl_mem), (void*)&ungappedExtensionsD);
 		clSetKernelArg(search_protein2hitKernel, 13, sizeof(cl_int), (void*)&numSequencesRound);
 		clSetKernelArg(search_protein2hitKernel, 14, sizeof(cl_mem), (void*)&global_numAdditionalTriggerExtensions);
- printf("Sizes: %d %d\n", WorkSize, LocalSize);
+// printf("Sizes: %d %d\n", WorkSize, LocalSize);
 		errorCode = clEnqueueNDRangeKernel(commandQueue, search_protein2hitKernel, 1, NULL, &WorkSize, &LocalSize, 0, NULL, NULL);
 //		search_protein2hitKernel<<<dimGrid, dimBlock>>>(PSSMatrixFPD,
 //													matrixBodyD,
@@ -2316,7 +2377,7 @@ if (errorCode != CL_SUCCESS) {
 
 	for (j = 0; j < nTotalThreadNum; j++)
 	{
-		if (!(j % 100)) printf("blast_numHitsH[%d] = %d\n\tblast_numHits = %d\n", j, blast_numHitsH[j], blast_numHits);
+//		if (!(j % 100)) printf("blast_numHitsH[%d] = %d\n\tblast_numHits = %d\n", j, blast_numHitsH[j], blast_numHits);
 		blast_numUngappedExtensions += blast_numUngappedExtensionsH[j];
 		blast_numHits += blast_numHitsH[j];
 	}

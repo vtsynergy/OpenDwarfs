@@ -446,13 +446,16 @@ void wordLookupDFA_build(struct PSSMatrix PSSMatrix, int4 numCodes, int4 wordLen
         // Next comes the block structure
         currentPosition = (unsigned char*)endExternalPositions;
 
+
         // For each group, point to that block
         groupCount = 0;
         while (groupCount < groupList->numEntries)
         {
+//printf("wLDFAbA[%d]: %d\n", groupCount, ((char *)groupList1)[groupCount]);
             wordLookupDFA_blockAddresses[groupList1[groupCount]] = currentPosition; //Valgrind says this line uses uninitializedd values, and also causes an invalid write 8 bytes before a block of 3200, possibly our lost 376th groupFP?
             groupCount++;
         }
+
 
         // Free the group list
         memSingleBlock_free(groupList);
@@ -514,6 +517,7 @@ void wordLookupDFA_build(struct PSSMatrix PSSMatrix, int4 numCodes, int4 wordLen
 		wordLookupDFA_groups[groupCodeword].nextGroups =
 			wordLookupDFA_groups + ((groupCodeword * numCodes) % numGroups);
 
+//printf("groups[%d] %d\n", groupCodeword, wordLookupDFA_groups[groupCodeword]);
         groupCodeword++;
 	}
 

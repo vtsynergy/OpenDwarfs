@@ -253,9 +253,9 @@ struct PSSMatrixFP PSSMatrixFP_transform(struct PSSMatrix *PSSMatrixptr)
 	struct PSSMatrixFP PSSMatrixFP;
 	int columnCount;
 	int i, j;
-	//int offset;
-	//int2 *FP;
-	//int2 **Orig;
+	int offset;
+	int2 *FP;
+	int2 **Orig;
 
 	PSSMatrixFP.length = PSSMatrixptr->length;
 	PSSMatrixFP.strandLength = PSSMatrixptr->strandLength;
@@ -266,7 +266,7 @@ struct PSSMatrixFP PSSMatrixFP_transform(struct PSSMatrix *PSSMatrixptr)
 	PSSMatrixFP.matrix = (cl_int2 *)global_malloc(sizeof(cl_int2) * (PSSMatrixFP.length + 2) * encoding_numCodes);
 	// Copy matrix from PSSMatrix to PSSMatrixFP
 	columnCount = 0;
-	memcpy((char *)PSSMatrixFP.matrix, (char *)PSSMatrixptr->matrix[-1], sizeof(int2) * encoding_numCodes);
+	memcpy((char *)PSSMatrixFP.matrix, (char *)PSSMatrixptr->matrix[-1], sizeof(int2) * encoding_numCodes); 
 	PSSMatrixFP.matrix += encoding_numCodes;
 	while (columnCount < PSSMatrixFP.length)
 	{
@@ -286,7 +286,9 @@ struct PSSMatrixFP PSSMatrixFP_transform(struct PSSMatrix *PSSMatrixptr)
 	//Copy bestMatchCode from PSSMatrix to PSSMatrixFP
 	memcpy(PSSMatrixFP.bestMatchCodes, PSSMatrixptr->bestMatchCodes, sizeof(unsigned char) * (PSSMatrixFP.length));
 
-/*
+
+	return PSSMatrixFP;
+
 	offset = 0;
 	Orig = PSSMatrixptr->matrix + offset;
 	FP = PSSMatrixFP.matrix + offset * encoding_numCodes;
@@ -305,7 +307,7 @@ struct PSSMatrixFP PSSMatrixFP_transform(struct PSSMatrix *PSSMatrixptr)
 		FP += encoding_numCodes;
 		printf("---------------------------------\n");
 	}
-*/
+
 
 	return PSSMatrixFP;
 }

@@ -428,7 +428,6 @@ void alignments_pruneRegion(struct alignment* alignment, struct ungappedExtensio
 void alignments_addGoodAlignment(int4 highestNominalScore, struct alignment* alignment)
 {
 	struct finalAlignment* goodAlignment;
-
     // Get a new good alignment entry
     goodAlignment = (struct finalAlignment *)memSingleBlock_newEntry(alignments_goodAlignments);
 
@@ -832,7 +831,6 @@ void alignments_findGoodAlignments(struct PSSMatrix PSSMatrix, struct PSSMatrixF
                     // Mark as gapped
                     ungappedExtension->status = ungappedExtension_GAPPED;
                 }
-
                 // If alignment scores above R1 cutoff
                 if (ungappedExtension->nominalScore >= blast_nominalR1cutoff)
                 {
@@ -860,11 +858,9 @@ void alignments_findGoodAlignments(struct PSSMatrix PSSMatrix, struct PSSMatrixF
                 alignments_pruneRegion(alignment, ungappedExtension);
 
                 numExtensions++;
-			}
-
-            ungappedExtension = ungappedExtension->next;
 		}
-
+            ungappedExtension = ungappedExtension->next;
+	}
         // If this alignment contains gapped extensions that could score above cutoff
         if (bestScore >= blast_nominalR1cutoff)
         {

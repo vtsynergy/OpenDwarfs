@@ -11,7 +11,7 @@
 #define TARGET_THREAD 0
 #define UNGAPEXT_PER_THREAD 150
 #define TOTAL_UNGAPPED_EXT 1500000
-struct __attribute__((aligned )) PSSMatrixFP
+struct __attribute__((aligned (8))) PSSMatrixFP
 {
 	int length;
 	int strandLength;
@@ -25,7 +25,7 @@ __global	short* matrix;
 };
 
 
-struct __attribute__((aligned )) sequenceDataFP
+struct __attribute__((aligned (8))) sequenceDataFP
 {
 	uint sequenceLength;
 	uint descriptionStart;
@@ -34,7 +34,7 @@ struct __attribute__((aligned )) sequenceDataFP
     uint offset;
 };
 
-typedef struct __attribute__((aligned )) strTimeRecord {
+typedef struct __attribute__((aligned (8))) strTimeRecord {
 	uint iniTime;
 	uint preProcessTime;
 	uint dataCopyTimeH2D;
@@ -48,13 +48,13 @@ typedef struct __attribute__((aligned )) strTimeRecord {
 	uint totalTime;
 } TIMERECORD;
 
-struct __attribute__((aligned )) coordinate
+struct __attribute__((aligned (8))) coordinate
 {
     int queryOffset;
 	int subjectOffset;
 };
 
-struct __attribute__ ((aligned )) ungappedExtension
+struct __attribute__ ((aligned (8))) ungappedExtension
 {
 	int nominalScore;
 	//Shucai
@@ -70,7 +70,7 @@ struct __attribute__ ((aligned )) ungappedExtension
 
 //__global unsigned char* wordLookupDFA;
 //__constant unsigned char * wordLookupDFA;
-struct __attribute__ ((aligned )) groupFP //for parallelization
+struct __attribute__ ((aligned (8))) groupFP //for parallelization
 {
 	int nextWords;
 	int nextGroups;
@@ -80,7 +80,7 @@ __constant TIMERECORD timeRecord;
 
 //texture<unsigned char, 1> texSubjectSequences;
 
-struct parameters {
+struct __attribute__ ((aligned (8))) parameters {
 	int 	wordLookupDFA_numCodes;
 	uint	additionalQueryPositionOffset;
 	int	statistics_ungappedNominalDropoff;
@@ -110,6 +110,7 @@ struct coordinate ungappedExtension_findProteinSeed(__global struct ungappedExte
 
 __kernel void memSet(uint value, __global uint *mem) {
     mem[get_global_id(0)] = value;
+//if (get_global_id(0) == 0) printf("MEMSET CHECK TID0 ADDRESS: %x %d\n", &mem[0], value);
 }
 
 
@@ -132,6 +133,9 @@ __global struct ungappedExtension* ungappedExtension_twoHitExtendD(__global unsi
 						int tid,
 						__global uint* global_numAdditionalTriggerExtensions)
 {
+//printf("mrower\n");
+//printf("UNGAPPED KERNEL %d\n", sizeof(struct ungappedExtension));
+
 __global	short* queryPosition;
 	__global unsigned char* subjectPosition, *subjectStart, *subjectEnd;
 	int changeSinceBest = 0;
@@ -230,6 +234,7 @@ __global	short* queryPosition;
 
 	if (ungappedExtension_bestScore >= blast_ungappedNominalTrigger)
 	{
+//		printf("bower tid:%d %d %d\n", tid, ungappedExtension_bestScore, blast_ungappedNominalTrigger);
 		int diagonal;
 //		struct ungappedExtension* newUngappedExtension = 0;
 __global struct ungappedExtension* newUngappedExtension = NULL;
@@ -247,6 +252,7 @@ __global struct ungappedExtension* newUngappedExtension = NULL;
 		// Calculate diagonal
 		diagonal = (subjectHit - subject) - queryOffset;
 
+//printf("diagonalu %d\n", diagonal);
 		// Determine offsets from pointers
 		newUngappedExtension->start.subjectOffset = subjectStart - subject;
 		newUngappedExtension->end.subjectOffset = subjectEnd - subject;
@@ -259,6 +265,7 @@ __global struct ungappedExtension* newUngappedExtension = NULL;
 		newUngappedExtension->nominalScore = ungappedExtension_bestScore;
 		newUngappedExtension->status = ungappedExtension_UNGAPPED;
 		newUngappedExtension->sequenceCount = sequenceCount;
+//printf("scores %d %d %d %d\n", sequenceCount, ungappedExtension_bestScore, blast_ungappedNominalTrigger, newUngappedExtension->status);
 		newUngappedExtension->tid = tid;
 
 		//Shucai
@@ -318,7 +325,7 @@ unsigned char currentWord;
 	hitMatrix_Local = hitMatrix_furthestp + hitMatrix_offsetp[tid] + PSSMatrixFP->length;
 	ungappedExtension_extensionsp->start.subjectOffset = 0;
 	ungappedExtension_current = ungappedExtension_extensionsp + tid * UNGAPEXT_PER_THREAD;
-	wordLookupDFA_AddiPositions = (__global unsigned short *)wordLookupDFAFP + parametersFP->additionalQueryPositionOffset;
+	wordLookupDFA_AddiPositions = (__global unsigned short *)((__global char *)wordLookupDFAFP + parametersFP->additionalQueryPositionOffset);
 
 	//Set the PSSMatrix body
 PSSMatrixFP->matrix= matrixBody + parametersFP->encoding_numCodes;//	PSSMatrixFP->matrix = (short *)((int)(matrixBody + parametersFP->encoding_numCodes));
@@ -420,7 +427,7 @@ PSSMatrixFP->matrix= matrixBody + parametersFP->encoding_numCodes;//	PSSMatrixFP
 									tid);
 
 							// Update furthest reached value for the diagonal
-							*lastHitFP = ungappedExtension_subjectEndReachedFP;
+							*lastHitFP = ungappedExtension_subjectEndReachedFP; //VUVE
 						}
 						#endif
 					
@@ -433,7 +440,7 @@ PSSMatrixFP->matrix= matrixBody + parametersFP->encoding_numCodes;//	PSSMatrixFP
 		}
 		//option=======================================================
 		//sequenceCount = atomicAdd(&global_sequenceCount, 1);
-		sequenceCount += get_global_size(0) * get_local_size(0);
+		sequenceCount += get_num_groups(0) * get_local_size(0);
 //		sequenceCount += gridDim * blockDim;
 		//============================================================
 	}
@@ -574,7 +581,7 @@ __global struct ungappedExtension *ungappedExtension_oneHitExtendD(__global unsi
 		newUngappedExtension->seed = ungappedExtension_findProteinSeed(newUngappedExtension, 
 									 PSSMatrixFP, subject, encoding_numCodes);
 
-	//Paul Disabled	for testing - newUngappedExtension->next = NULL;
+	newUngappedExtension->next = NULL;
 		newUngappedExtension->nominalScore = ungappedExtension_bestScore;
 		newUngappedExtension->status = ungappedExtension_UNGAPPED;
 		newUngappedExtension->sequenceCount = sequenceCount;
@@ -694,6 +701,15 @@ __kernel void search_protein2hitKernel(__global struct PSSMatrixFP *PSSMatrixFP,
 
 int tid = get_global_id(0);
 
+if (tid == 0) {
+//printf("GPU ADDRESSES %x %x %x %x %x %x %x %x %x\n\t%x %x %x %x %x %x %x\n", PSSMatrixFP, &PSSMatrixFP[1], matrixBody, sequenceDataFP, sequence, parametersFP, wordLookupDFA_groupsFP, wordLookupDFAFP,
+//blast_numUngappedExtensions, blast_numTriggerExtensions, blast_numHits, hitMatrix_furthestp, hitMatrix_offsetp, ungappedExtension_extensionsp, nTotalSequenceNum, global_numAdditionalTriggerExtensions);
+//int itr = 0;
+//for (; itr < 137072; itr++) {
+//	if (hitMatrix_furthestp[itr] != 0) printf("ANGER!! %x %d\n", &hitMatrix_furthestp[itr], hitMatrix_furthestp[itr]);
+//}
+}
+
 //printf("HELLO from %d!\n", tid);
 //	int tid = get_group_id(0) * get_local_size(0) + get_local_id(0);
 //	int tid = blockIdx * blockDim + threadIdx;
@@ -707,6 +723,7 @@ int tid = get_global_id(0);
 	uint numOfTriggerExtensions = 0;
 	__global ushort *queryOffsets;
 	ushort queryOffset;
+//	printf("tid: %d\t queryOffset %d\n", tid, queryOffset);
 	__global struct ungappedExtension* ungappedExtension_current;
 	__global struct ungappedExtension* ungappedExtension_additional;
 	int diagonal;
@@ -734,11 +751,21 @@ int tid = get_global_id(0);
 	//Set the PSSMatrix body
 	PSSMatrixFP->matrix = matrixBody + parametersFP->encoding_numCodes;
 
+
+int grr = 0;
+while (grr < 1){
+//printf("brawr %d %d\n", tid, nTotalSequenceNum);
+//printf("chargroups[%d] %d %x, groups[%d] %d %x %d\n", grr, ((__global char*)wordLookupDFA_groupsFP)[grr], &((__global char*)wordLookupDFA_groupsFP)[grr], grr, wordLookupDFA_groupsFP[grr].nextWords, &(wordLookupDFA_groupsFP[grr].nextWords), sizeof(int *));
+grr++;
+}
+
 	sequenceCount = tid;
 	while (sequenceCount < nTotalSequenceNum)
 	{
 		subject = address = sequence + sequenceDataFP[sequenceCount].offset;
-		
+	
+//printf("addr %d\n", address);
+	
 		if (sequenceDataFP[sequenceCount].sequenceLength >= parametersFP->parameters_wordSize)
 		{
 			currentGroupFP = wordLookupDFA_groupsFP;
@@ -762,6 +789,14 @@ int tid = get_global_id(0);
 
 			while (address < sequenceEnd)
 			{
+//				printf("tid %d ", tid);
+//				printf("block %d ", currentBlock);
+//				printf("groupFP %d ", currentGroupFP);
+//				printf("word %d ", currentWord);
+//				printf("nextwords %d ", currentGroupFP->nextWords);
+//				printf("diff %d ", &wordLookupDFAFP[currentGroupFP->nextWords]-currentBlock);
+//				printf("seqEnd %d ", sequenceEnd);
+//printf("addr %d\n", address);
 				currentBlock = &wordLookupDFAFP[currentGroupFP->nextWords];
 
 				// If current code is a regular letter
@@ -796,24 +831,40 @@ int tid = get_global_id(0);
 					do
 					{
 						queryOffset = *queryOffsets;
+						
+//	printf("tid: %d\t queryOffset %d\n", tid, queryOffset);
 		
 						#ifndef NO_STAGE2
 						// Calculate the diagonal this hit is on
 						diagonal = subjectOffset - queryOffset;
 
+//printf("diagonal %d %d %d ", diagonal, subjectOffset, queryOffset);
 						// If we have not extended past this point on this diagonal
 						lastHitFP = hitMatrix_Local + diagonal;
+//printf("lastHitFP: %d\n", lastHitFP);
 
-						distance = (int)((address - sequence) - *lastHitFP);
+				//		distance = (int)((address - sequence) - *lastHitFP);
+						distance = (address - sequence) - *lastHitFP;
+//printf("%d ", distance);
+
+if (tid < 167 && tid > 157) {
+//printf ("reached tid:%d hit%x diag:%x dist:%x addr:%x seq:%x last:%x lastp:%x parmA:%d parmO:%d\n", tid, hitMatrix_Local, diagonal, distance, address, sequence, *lastHitFP, lastHitFP, parametersFP->parameters_A, parametersFP->parameters_overlap);
+}
+
 						if (distance >= parametersFP->parameters_A)
-						{
-							*lastHitFP = address - sequence;
+						{	
+							//printf("if");
+							*lastHitFP = address - sequence; //VUVE
+							if (address-sequence > constants_max_short || address-sequence < 0) {
+							//	printf("If Violator Assigned from TID: %d!!\n", tid);
+							}
 						}
 						else if (distance >= parametersFP->parameters_overlap)
 
 						{
+							//printf("else");
 							//Number of extensions for each subject sequence
-							blast_numUngappedExtensions[tid] ++;
+							blast_numUngappedExtensions[tid]++;
 
 							// If only one hit triggered this extension
 							ungappedExtension_twoHitExtendD(sequence, 
@@ -832,11 +883,15 @@ int tid = get_global_id(0);
 									global_numAdditionalTriggerExtensions);
 
 							// Update furthest reached value for the diagonal
-							*lastHitFP = ungappedExtension_subjectEndReachedFP;
+							*lastHitFP = ungappedExtension_subjectEndReachedFP; //VUVE
+							if (ungappedExtension_subjectEndReachedFP > constants_max_short || ungappedExtension_subjectEndReachedFP < 0) {
+							//	printf("Else Violator Assigned from TID: %d!!\n", tid);
+							}
 						}
 						#endif
 					
 						queryOffsets++; blast_numHits[tid]++;
+	//		printf("%d %d %d\n", queryOffsets, blast_numUngappedExtensions[tid], numOfTriggerExtensions);
 					}
 					while((*queryOffsets));
 				}
@@ -850,7 +905,11 @@ int tid = get_global_id(0);
 //		sequenceCount += gridDim * blockDim;
 		//============================================================
 	}
-blast_numTriggerExtensions[tid] = (uint) numOfTriggerExtensions;
+blast_numTriggerExtensions[tid] = (uint) numOfTriggerExtensions; mem_fence(CLK_LOCAL_MEM_FENCE);
+//printf("tid: %d numTriggerExtensions: %d\n", tid, blast_numTriggerExtensions[tid]);
 //	blast_numHits[tid] = tid;
+
+//blast_numTriggerExtensions[tid] = ungappedExtension_extensionsp + tid * parametersFP->ungappedExtensionsPerThread;
+//if (tid == 0) blast_numTriggerExtensions[tid] = sequenceCount;
 	return;
 }
