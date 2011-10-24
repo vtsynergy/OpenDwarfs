@@ -80,7 +80,8 @@
 #include "kmeans.h"
 
 extern double wtime(void);
-
+extern int platform_id;
+extern int device_id; 
 
 
 /*---< usage() >------------------------------------------------------------*/
@@ -94,7 +95,9 @@ void usage(char *argv0) {
 		"    -l nloops        :iteration for each number of clusters [default=1]\n"
 		"    -b               :input file is in binary format\n"
         "    -r               :calculate RMSE                        [default=off]\n"
-		"    -o               :output cluster center coordinates     [default=off]\n";
+		"    -o               :output cluster center coordinates     [default=off]\n  "
+	"  -p               :platform\n   "
+	" -d               :device\n";
     fprintf(stderr, help, argv0);
     exit(-1);
 }
@@ -128,7 +131,7 @@ int setup(int argc, char **argv) {
 		//float	cluster_timing, io_timing;		
 
 		/* obtain command line arguments and change appropriate options */
-		while ( (opt=getopt(argc,argv,"i:t:m:n:l:bro"))!= EOF) {
+		while ( (opt=getopt(argc,argv,"i:t:m:n:l:bro:p:d:"))!= EOF) {
         switch (opt) {
             case 'i': filename=optarg;
                       break;
@@ -137,6 +140,10 @@ int setup(int argc, char **argv) {
             case 't': threshold=atof(optarg);
                       break;
             case 'm': max_nclusters = atoi(optarg);
+                      break;
+            case 'p': platform_id = atoi(optarg);
+                      break;
+            case 'd': device_id = atoi(optarg);
                       break;
             case 'n': min_nclusters = atoi(optarg);
                       break;

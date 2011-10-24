@@ -3,12 +3,8 @@
 #include <stdlib.h>
 #include <getopt.h>
 #include <assert.h>
+#include "../../include/rdtsc.h"
 
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -20,19 +16,21 @@
 #include "common.h"
 #include "common.c"
 #include "sparse_formats.h"
-
+//#define USEGPU 1
 static struct option long_options[] = {
       /* name, has_arg, flag, val */
       {"cpu", 0, NULL, 'c'},
+      {"device", 1, NULL, 'd'},
+      {"platform", 1, NULL, 'p'},
       {"verify", 0, NULL, 'v'},
       {0,0,0,0}
 };
-
+int platform_id=PLATFORM_ID, n_device=DEVICE_ID;
 int main(int argc, char** argv)
 {
-    cl_int err;
-
-    int usegpu = 1;
+    	INI_TIMER
+	cl_int err;
+	int usegpu = USEGPU;
     int do_verify = 0;
     int opt, option_index=0;
 
@@ -41,7 +39,6 @@ int main(int argc, char** argv)
     size_t global_size;
     size_t local_size;
 
-    cl_platform_id platform_id;
     cl_device_id device_id;
     cl_context context;
     cl_command_queue commands;
@@ -61,7 +58,7 @@ int main(int argc, char** argv)
     size_t kernelLength;
     size_t lengthRead;
 
-    while ((opt = getopt_long(argc, argv, "::vc::", 
+    while ((opt = getopt_long(argc, argv, "::vc::p:d:", 
                             long_options, &option_index)) != -1 ) {
       switch(opt){
         //case 'i':
@@ -74,6 +71,12 @@ int main(int argc, char** argv)
         case 'c':
           fprintf(stderr, "using cpu\n");
           usegpu = 0;
+	  break;
+        case 'p':
+	  platform_id = atoi(optarg);
+	  break;
+        case 'd':
+	  n_device = atoi(optarg);
 	  break;
         default:
           fprintf(stderr, "Usage: %s [-v Warning: lots of output] [-c use CPU]\n",
@@ -105,19 +108,14 @@ int main(int argc, char** argv)
     }
 
     /* Retrieve an OpenCL platform */
-    err = clGetPlatformIDs(1, &platform_id, NULL);
-    CHKERR(err, "Failed to get a platform!");
-
-    /* Connect to a compute device */
-    err = clGetDeviceIDs(platform_id, usegpu ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-    CHKERR(err, "Failed to create a device group!");
+    device_id = GetDevice(platform_id, n_device);
 
     /* Create a compute context */
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
 
     /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
@@ -171,17 +169,32 @@ int main(int argc, char** argv)
     stopwatch_start(&sw); 
    
     /* Write our data set into the input array in device memory */
-    err = clEnqueueWriteBuffer(commands, csr_ap, CL_TRUE, 0, sizeof(unsigned int)*csr.num_rows+4, csr.Ap, 0, NULL, NULL);
+    START_TIMER
+	err = clEnqueueWriteBuffer(commands, csr_ap, CL_TRUE, 0, sizeof(unsigned int)*csr.num_rows+4, csr.Ap, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, csr_aj, CL_TRUE, 0, sizeof(unsigned int)*csr.num_nonzeros, csr.Aj, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, csr_aj, CL_TRUE, 0, sizeof(unsigned int)*csr.num_nonzeros, csr.Aj, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, csr_ax, CL_TRUE, 0, sizeof(float)*csr.num_nonzeros, csr.Ax, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, csr_ax, CL_TRUE, 0, sizeof(float)*csr.num_nonzeros, csr.Ax, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, x_loc, CL_TRUE, 0, sizeof(float)*csr.num_cols, x_host, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, x_loc, CL_TRUE, 0, sizeof(float)*csr.num_cols, x_host, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, y_host, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, y_host, 0, NULL, &myEvent);
     CHKERR(err, "Failed to write to source array!");
-
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
     /* Set the arguments to our compute kernel */
     err = 0;
     err = clSetKernelArg(kernel, 0, sizeof(unsigned int), &csr.num_rows);
@@ -199,16 +212,23 @@ int main(int argc, char** argv)
     /* Execute the kernel over the entire range of our 1d input data set */
     /* using the maximum number of work group items for this device */
     global_size = csr.num_rows;
-    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+	START_TIMER
+    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
+    clFinish(commands);
+	END_TIMER
+	COUNT_K
     CHKERR(err, "Failed to execute kernel!");
 
     /* Wait for the command commands to get serviced before reading back results */
-    clFinish(commands);
     float output[csr.num_rows];
     
     /* Read back the results from the device to verify the output */
-    err = clEnqueueReadBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, output, 0, NULL, NULL);
-    CHKERR(err, "Failed to read output array!");
+    	START_TIMER
+	err = clEnqueueReadBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, output, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+    	END_TIMER
+	COUNT_D2H
+	CHKERR(err, "Failed to read output array!");
 
     /* end of timing point */
     stopwatch_stop(&sw);
@@ -254,6 +274,6 @@ int main(int argc, char** argv)
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-
+PRINT_COUNT
     return 0;
 }

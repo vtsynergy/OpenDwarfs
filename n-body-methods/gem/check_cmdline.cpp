@@ -70,7 +70,7 @@ bool check_cmd_line(int argc, char **argv, string *files, bool *flags)
                                   "-projLen", "-triDens",
                                   "-fixA", "-dumpImage", "-comparePhi",
                                   "-dumpVertices", "-probeRad", "-fixColors",
-                                  "-decorMol", "-decorType", "-bg"};
+                                  "-decorMol", "-decorType", "-bg","-p","-d"};
    string currArg;
 
    /* initialize flags */
@@ -119,7 +119,12 @@ bool check_cmd_line(int argc, char **argv, string *files, bool *flags)
                     i += 2;
                  }
                break;
-
+	       case P_ID:
+		    files[P_ID_VAL] = argv[i];
+		    break;
+	       case D_ID:
+		    files[D_ID_VAL] = argv[i];
+	            break;
                case PROJ_SPEC:
                   if (i >= argc)
                      return false;

@@ -13,7 +13,7 @@
 
 
 using namespace std;
-
+extern int platform_id, device_id;
 
 int main (int argc, char **argv)
 {
@@ -45,7 +45,9 @@ int main (int argc, char **argv)
             <<"\t-triDens       <triangles>"<<endl
             <<"\t-probeRad      <radius>"<<endl
             <<"\t-fixA          <electrostatic radius>"<<endl
-            <<"\t-dumpVertices  <fileName>"<<endl;
+            <<"\t-dumpVertices  <fileName>"<<endl
+            <<"\t-p  <platform>"<<endl
+            <<"\t-d  <device>"<<endl;
 
        return 1;
    }
@@ -75,6 +77,16 @@ int main (int argc, char **argv)
       A = atof((char *)options[A_SPEC_VAL].c_str());
    }
 
+   if (flags[P_ID])
+   {
+      platform_id = atoi((char *)options[P_ID_VAL].c_str());
+   }
+   
+   if (flags[D_ID])
+   {
+      device_id = atoi((char *)options[D_ID_VAL].c_str());
+   }
+   
    if (flags[PROJ_SPEC])
    {
       proj_len = atof((char *)options[PROJ_LENGTH_VAL].c_str());

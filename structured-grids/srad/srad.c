@@ -4,26 +4,22 @@
 #include <string.h>
 #include <math.h>
 #include "srad.h"
-
+int  BLOCK_SIZE = 16;
+#include "../../include/rdtsc.h"
+int platform_id = PLATFORM_ID, device_id = DEVICE_ID;
 // includes, project
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
-
 #define CHECKERR(err) \
     if (err != CL_SUCCESS) \
     { \
         fprintf(stderr, "Error: %d\n", err);\
         exit(1); \
     }
-
+//#define USEGPU 1
 void random_matrix(float *I, int rows, int cols);
 void runTest( int argc, char** argv);
 void usage(int argc, char **argv)
 {
-	fprintf(stderr, "Usage: %s <rows> <cols> <y1> <y2> <x1> <x2> <lamda> <no. of iter>\n", argv[0]);
+	fprintf(stderr, "Usage: %s <rows> <cols> <y1> <y2> <x1> <x2> <lamda> <no. of iter> [platform & device]\n", argv[0]);
 	fprintf(stderr, "\t<rows>   - number of rows\n");
 	fprintf(stderr, "\t<cols>    - number of cols\n");
 	fprintf(stderr, "\t<y1> 	 - y1 value of the speckle\n");
@@ -32,6 +28,8 @@ void usage(int argc, char **argv)
 	fprintf(stderr, "\t<x2>       - x2 value of the speckle\n");
 	fprintf(stderr, "\t<lamda>   - lambda (0,1)\n");
 	fprintf(stderr, "\t<no. of iter>   - number of iterations\n");
+	fprintf(stderr, "\t<platform>   - index of platform\n");
+	fprintf(stderr, "\t<device>   - index of device\n");
 	
 	exit(1);
 }
@@ -41,8 +39,9 @@ void usage(int argc, char **argv)
 int
 main( int argc, char** argv) 
 {
-    runTest( argc, argv);
-
+	INI_TIMER
+		runTest( argc, argv);
+	PRINT_COUNT
     return EXIT_SUCCESS;
 }
 
@@ -63,7 +62,6 @@ runTest( int argc, char** argv)
 
 #ifdef GPU
 	
-    cl_platform_id clPlatform;
     cl_device_id clDevice;
     cl_context clContext;
     cl_command_queue clCommands;
@@ -80,17 +78,21 @@ runTest( int argc, char** argv)
     FILE *kernelFile;
     char *kernelSource;
     size_t kernelLength;
-
-    errcode = clGetPlatformIDs(1, &clPlatform, NULL);
-    CHECKERR(errcode);
-
-    errcode = clGetDeviceIDs(clPlatform, CL_DEVICE_TYPE_GPU, 1, &clDevice, NULL);
-    CHECKERR(errcode);
+	if(argc == 11){
+	platform_id=atoi(argv[9]);
+	device_id = atoi(argv[10]);
+	}
+	clDevice = GetDevice(platform_id, device_id);
+    	size_t max_worksize[3];
+errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
+ CHECKERR(errcode);
+        while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
+                BLOCK_SIZE = BLOCK_SIZE/2;
 
     clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
     CHECKERR(errcode);
 
-    clCommands = clCreateCommandQueue(clContext, clDevice, 0, &errcode);
+    clCommands = clCreateCommandQueue(clContext, clDevice, TIMER_ENABLE, &errcode);
     CHECKERR(errcode);
 
     kernelFile = fopen("srad_kernel.cl", "r");
@@ -105,8 +107,9 @@ runTest( int argc, char** argv)
     CHECKERR(errcode);
 
     free(kernelSource);
-
-    errcode = clBuildProgram(clProgram, 1, &clDevice, NULL, NULL, NULL);
+	char arg[50];
+	sprintf(arg,"-D BLOCK_SIZE=%d",BLOCK_SIZE);
+    errcode = clBuildProgram(clProgram, 1, &clDevice, arg, NULL, NULL);
     if (errcode == CL_BUILD_PROGRAM_FAILURE)
     {
         char *log;
@@ -132,7 +135,7 @@ runTest( int argc, char** argv)
     
 	
  
-	if (argc == 9)
+	if (argc == 9 || argc == 11)
 	{
 		rows = atoi(argv[1]);  //number of rows in the domain
 		cols = atoi(argv[2]);  //number of cols in the domain
@@ -146,7 +149,6 @@ runTest( int argc, char** argv)
 		c2   = atoi(argv[6]);  //x2 position of the speckle
 		lambda = atof(argv[7]); //Lambda value
 		niter = atoi(argv[8]); //number of iterations
-		
 	}
     else{
 	usage(argc, argv);
@@ -297,8 +299,12 @@ runTest( int argc, char** argv)
 
 
 	//Copy data from main memory to device memory
-    errcode = clEnqueueWriteBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, NULL);
-    CHECKERR(errcode);
+    	START_TIMER
+	errcode = clEnqueueWriteBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_H2D
+	CHECKERR(errcode);
 
 	//Run kernels
     errcode = clSetKernelArg(clKernel_srad1, 0, sizeof(cl_mem), (void *) &E_C);
@@ -311,8 +317,12 @@ runTest( int argc, char** argv)
     errcode |= clSetKernelArg(clKernel_srad1, 7, sizeof(int), (void *) &rows);
     errcode |= clSetKernelArg(clKernel_srad1, 8, sizeof(float), (void *) &q0sqr);
     CHECKERR(errcode);
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-    CHECKERR(errcode);
+	START_TIMER
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_K
+	CHECKERR(errcode);
     errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
     errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);
     errcode |= clSetKernelArg(clKernel_srad2, 2, sizeof(cl_mem), (void *) &N_C);
@@ -324,12 +334,20 @@ runTest( int argc, char** argv)
     errcode |= clSetKernelArg(clKernel_srad2, 8, sizeof(float), (void *) &lambda);
     errcode |= clSetKernelArg(clKernel_srad2, 9, sizeof(float), (void *) &q0sqr);
     CHECKERR(errcode);
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-    CHECKERR(errcode);
+	START_TIMER
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+    	clFinish(clCommands);
+	END_TIMER
+		COUNT_K
+		CHECKERR(errcode);
 
 	//Copy data from device memory to main memory
-    errcode = clEnqueueReadBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, NULL);
-    CHECKERR(errcode);
+    	START_TIMER
+	errcode = clEnqueueReadBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_D2H
+	CHECKERR(errcode);
 
 #endif   
 }

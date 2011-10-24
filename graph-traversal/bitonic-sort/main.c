@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <unistd.h>
-#include <CL/cl.h>
+#include "../../include/rdtsc.h"
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -13,9 +13,9 @@
 
 
 
-#define USEGPU 1
+//#define USEGPU 1
 #define MAX_VALUE 65536
-
+int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
 int compare(const void * a, const void * b) {
     return ( *(int*) a - *(int*) b);
 }
@@ -24,10 +24,13 @@ void usage() {
     printf("bsort [ns]\n");
     printf("n <number> - number of items to be sorted( must be power of 2\n");
     printf("s <seed>  - set the seed for the random number\n");
+    printf("p <platform>  - set index of platform\n");
+    printf("d <device>  - set index of device\n");
 }
 
 int main(int argc, char** argv) {
-    cl_int err;
+    INI_TIMER
+	cl_int err;
     unsigned int i, j, k;
     int c;
 
@@ -36,13 +39,11 @@ int main(int argc, char** argv) {
     size_t global_size;
     size_t local_size, max_local, i_, j_;
 
-    cl_platform_id platform_id;
     cl_device_id device_id;
     cl_context context;
     cl_command_queue commands;
     cl_program program;
     cl_kernel kernel;
-    cl_event events[2];
 
 
     cl_mem input_mem;
@@ -56,7 +57,7 @@ int main(int argc, char** argv) {
     unsigned int* output;
     unsigned int size = 512;
     int seed = 2010;
-    while ((c = getopt(argc, argv, "h:n:s")) != -1) {
+    while ((c = getopt(argc, argv, "h:n:s:p:d")) != -1) {
         switch (c) {
             case 'h':
                 usage();
@@ -67,6 +68,12 @@ int main(int argc, char** argv) {
                 break;
             case 's':
                 seed = atoi(optarg);
+                break;
+            case 'p':
+                platform_id = atoi(optarg);
+                break;
+            case 'd':
+                n_device = atoi(optarg);
                 break;
             default:
                 abort();
@@ -92,26 +99,21 @@ int main(int argc, char** argv) {
         input [i] = rand() % numValues;
         output[i] = input[i];
     }
+    #ifndef ENABLE_TIMER
     for (i = 0; i < size; i++)
         printf("%u  ", input[i]);
+    #endif
     printf("\nRunning GPU bitonic sort...\n\n");
 
 
+	device_id = GetDevice(platform_id, n_device);
 
-    /* Retrieve an OpenCL platform */
-    err = clGetPlatformIDs(1, &platform_id, NULL);
-    CHKERR(err, "Failed to get a platform!");
-
-    /* Connect to a compute device */
-    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-    CHKERR(err, "Failed to create a device group!");
-
-    /* Create a compute context */
+       /* Create a compute context */
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
 
     /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
@@ -156,8 +158,12 @@ int main(int argc, char** argv) {
 
 
     /* Write our data set into the input array in device memory */
-    err = clEnqueueWriteBuffer(commands, input_mem, CL_TRUE, 0, sizeof (unsigned int) *size, input, 0, NULL, NULL);
-    CHKERR(err, "Failed to write to source array!");
+    	START_TIMER
+	err = clEnqueueWriteBuffer(commands, input_mem, CL_TRUE, 0, sizeof (unsigned int) *size, input, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+    	END_TIMER
+	COUNT_H2D
+	CHKERR(err, "Failed to write to source array!");
 
 
     /* Execute the kernel over the entire range of our 1d input data set */
@@ -180,10 +186,13 @@ int main(int argc, char** argv) {
         for (j = i / 2; j > 0; j /= 2) {
             err = clSetKernelArg(kernel, 1, sizeof (unsigned int), (void *) &j);
             err |= clSetKernelArg(kernel, 2, sizeof (unsigned int), (void *) &i);
-            err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &events [0]);
+            START_TIMER
+		err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
             CHKERR(err, "Failed to execute kernel!");
-            err = clWaitForEvents(1, &events [0]);
-            CHKERR(err, "Failed to execute event");
+            err = clWaitForEvents(1, &myEvent);
+            END_TIMER
+		COUNT_K
+		CHKERR(err, "Failed to execute event");
 
         }
     }
@@ -192,8 +201,12 @@ int main(int argc, char** argv) {
     clFinish(commands);
 
     /* Read back the results from the device to verify the output */
-    err = clEnqueueReadBuffer(commands, input_mem, CL_TRUE, 0, sizeof (unsigned int) * size, input, 0, NULL, NULL);
-    CHKERR(err, "Failed to read output array!");
+    	START_TIMER
+	err = clEnqueueReadBuffer(commands, input_mem, CL_TRUE, 0, sizeof (unsigned int) * size, input, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+    	END_TIMER
+	COUNT_D2H
+	CHKERR(err, "Failed to read output array!");
     /* timer ends here */
 
     /* Validate our results */
@@ -204,9 +217,10 @@ int main(int argc, char** argv) {
             exit(1);
         }
     /* Print a brief summary detailing the results */
-    for (i = 0; i < size; i++)
+	#ifndef ENABLE_TIMER    
+	for (i = 0; i < size; i++)
         printf("%u  ", input[i]);
-
+	#endif
     printf("The result is valid\n");
 
     /* Shutdown and cleanup */
@@ -215,6 +229,6 @@ int main(int argc, char** argv) {
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-
+	PRINT_COUNT
     return 0;
 }

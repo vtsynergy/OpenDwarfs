@@ -9,13 +9,11 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
+#include "../../include/rdtsc.h"
 
+int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
 // includes, project
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
+
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -24,7 +22,7 @@
         exit(1); \
     }
 
-#define USEGPU 1
+//#define USEGPU 1
 
 #define min(x,y) (x < y ? x : y)
 
@@ -86,7 +84,6 @@ size_t MaxImageWidth;
 size_t MaxImageHeight;
 
 // OpenCL variables
-cl_platform_id   platform_id;
 cl_device_id     device_id;
 cl_context       context;
 cl_command_queue commands;
@@ -543,21 +540,14 @@ void initGpu()
     /////////////////////////////////////////////////////////////
     // Basic OpenCL Setup
 
-    // Retrieve an OpenCL platform
-    err = clGetPlatformIDs(1, &platform_id, NULL);
-    CHKERR(err, "Failed to get a platform!");
-
-    // Connect to a compute device
-    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-    CHKERR(err, "Failed to create a device group!");
-	
+	device_id = GetDevice(platform_id, n_device);
 
     // Create a compute context
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
 
     // Create a command queue
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
     /////////////////////////////////////////////////////////////
 }
@@ -583,7 +573,7 @@ void setupGpu()
     program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, NULL, &err);
     CHKERR(err, "Failed to create a compute program!");
     
-
+	printf("MaxImageWidth: %d, MaxImageHeight: %d\n",(int)MaxImageWidth, (int)MaxImageHeight);
     // Build the program executable
     char options[200];
     snprintf(options, 200, "-I . -D IMAGE_MAX_WIDTH=%lu -D IMAGE_MAX_HEIGHT=%lu", (unsigned long)MaxImageWidth, (unsigned long)MaxImageHeight);
@@ -681,7 +671,11 @@ void countCandidates(size_t* globalWork, size_t* localWork, cl_mem episodeSuppor
     errcode |= clSetKernelArg(kernel_countCandidates, 8, sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidates, 9, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidates");
-    errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidates, 3, NULL, globalWork, localWork, 0, NULL, NULL);
+    START_TIMER
+	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidates, 3, NULL, globalWork, localWork, 0, NULL, &myEvent);
+    	clFinish(commands);
+	END_TIMER
+	COUNT_K
     CHKERR(errcode, "Error running countCandidates");
 }
 
@@ -702,8 +696,12 @@ void countCandidatesMapMerge(size_t* globalWork, size_t* localWork, cl_mem episo
     errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 10,sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 11, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
-    errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMerge, 3, NULL, globalWork, localWork, 0, NULL, NULL);
-    CHKERR(errcode, "Error running countCandidatesMapMerge");
+    START_TIMER
+	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMerge, 3, NULL, globalWork, localWork, 0, NULL, &myEvent);
+    	clFinish(commands);
+	END_TIMER
+	COUNT_K
+	CHKERR(errcode, "Error running countCandidatesMapMerge");
 }
 void countCandidatesStatic(size_t* globalWork, size_t* localWork, cl_mem episodeSupport, long eventSize, int level, int sType, int numCandidates,
                     cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
@@ -720,7 +718,11 @@ void countCandidatesStatic(size_t* globalWork, size_t* localWork, cl_mem episode
     errcode |= clSetKernelArg(kernel_countCandidatesStatic, 8, sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidatesStatic, 9, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidates");
-    errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesStatic, 3, NULL, globalWork, localWork, 0, NULL, NULL);
+    START_TIMER
+	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesStatic, 3, NULL, globalWork, localWork, 0, NULL, &myEvent);
+    	clFinish(commands);
+	END_TIMER
+	COUNT_K
     CHKERR(errcode, "Error running countCandidatesStatic");
 }
 
@@ -741,7 +743,11 @@ void countCandidatesMapMergeStatic(size_t* globalWork, size_t* localWork, cl_mem
     errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 10,sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 11, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
-    errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMergeStatic, 3, NULL, globalWork, localWork, 0, NULL, NULL);
+    START_TIMER
+	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMergeStatic, 3, NULL, globalWork, localWork, 0, NULL, &myEvent);
+    	clFinish(commands);
+	END_TIMER
+	COUNT_K
     CHKERR(errcode, "Error running countCandidatesMapMergeStatic");
 }
 
@@ -870,7 +876,9 @@ void calculateLevelParameters(int level, size_t* block, size_t* grid, int& secti
 int
 main( int argc, char** argv)
 {
-    runTest( argc, argv);
+    INI_TIMER
+	runTest( argc, argv);
+	PRINT_COUNT
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -879,12 +887,17 @@ main( int argc, char** argv)
 void
 runTest( int argc, char** argv)
 {
-	if ( argc != 8 )
+	if ( argc != 8 && argc != 10)
 	{
-		printf("Usage: GpuTemporalDataMining <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic or (d)ynamic> <(m)ap and merge or (n)aive or (o)hybrid>\n");
+		printf("Usage: GpuTemporalDataMining <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic or (d)ynamic> <(m)ap and merge or (n)aive or (o)hybrid> [platform & device]\n");
 		return;
 	}
 
+    if(argc == 10)
+	{
+		platform_id = atoi(argv[8]);
+		n_device = atoi(argv[9]);
+	}
 //    CUT_DEVICE_INIT();
     initGpu();
 
@@ -906,7 +919,6 @@ runTest( int argc, char** argv)
     //CUT_SAFE_CALL( cutStartTimer( a2_counting_timer));
 
     unsigned int num_threads = atoi(argv[3]);
-
     // allocate host memory
     //initEpisodeCandidates();
 	if ( loadData( argv[1] ) != 0 )
@@ -982,9 +994,14 @@ runTest( int argc, char** argv)
         printf("Writing to buffer\n");
 		// Copy candidates to GPU
 #ifdef CPU_EPISODE_GENERATION
-		clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, NULL);
-		clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, NULL);
-
+		START_TIMER
+		clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &myEvent);
+		END_TIMER
+		COUNT_H2D
+		clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+		END_TIMER
+		COUNT_H2D
 #endif
 
         bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
@@ -1053,8 +1070,12 @@ runTest( int argc, char** argv)
 			//CUT_SAFE_CALL( cutStopTimer( a2_counting_timer));
 
             int err;
-            err = clEnqueueReadBuffer(commands,d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, NULL);
-            CHKERR(err, "Unable to read buffer from device.");
+		START_TIMER
+            err = clEnqueueReadBuffer(commands,d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+            	END_TIMER
+		COUNT_D2H
+		CHKERR(err, "Unable to read buffer from device.");
 		
 			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE) );
 			unbindTexture(&intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float));
@@ -1077,11 +1098,17 @@ runTest( int argc, char** argv)
 			}
 
 #ifdef CPU_EPISODE_GENERATION
-            err = clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, NULL);
+		START_TIMER
+            err = clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &myEvent);
+		END_TIMER
+		COUNT_H2D
             CHKERR(err, "Unable to write buffer 1.");
             if(numCandidates * (level - 1) * 2 * sizeof(float) != 0)
-            err = clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, NULL);
+            err = clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &myEvent);
+	CL_FINISH(commands)
             CHKERR(err, "Unable to write buffer 2.");
+		END_TIMER
+		COUNT_H2D
 #endif
             bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
             bindTexture( 0, &intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float), CL_FLOAT );
@@ -1121,12 +1148,18 @@ runTest( int argc, char** argv)
 		//CUT_CHECK_ERROR("Kernel execution failed");
 
 		//printf("Copying result back to host...\n\n");
-
-        int err = clEnqueueReadBuffer(commands, d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, NULL);
+		START_TIMER
+        int err = clEnqueueReadBuffer(commands, d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+		END_TIMER
+		COUNT_D2H
 		CHKERR(err, "Unable to read memory 1.");
-		err = clEnqueueReadBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, NULL);
+		err = clEnqueueReadBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &myEvent);
+	CL_FINISH(commands)
 		CHKERR(err, "Unable to read memory 2.");
 		//CUDA_SAFE_CALL( cudaMemcpy( h_mapRecords, d_mapRecords, 3 * numSections * maxLevel * maxCandidates * sizeof(float), cudaMemcpyDeviceToHost ));
+		END_TIMER
+		COUNT_D2H
 		saveResult(level);
 		fflush(dumpFile);
 	// END LOOP

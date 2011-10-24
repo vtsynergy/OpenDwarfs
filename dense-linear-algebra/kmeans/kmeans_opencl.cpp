@@ -3,14 +3,10 @@
 #include <string.h>
 #include <math.h>
 #include <assert.h>
+#include "../../include/rdtsc.h"
 
 #include <omp.h>
 
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
 
 #define CHECKERR(err) \
     if (err != CL_SUCCESS) \
@@ -21,8 +17,7 @@
 
 #define THREADS_PER_DIM 16
 #define BLOCKS_PER_DIM 16
-#define THREADS_PER_BLOCK THREADS_PER_DIM*THREADS_PER_DIM
-
+//#define USEGPU 1
 
 //#define BLOCK_DELTA_REDUCE
 //#define BLOCK_CENTER_REDUCE
@@ -32,7 +27,7 @@
 
 extern "C"
 int setup(int argc, char** argv);									/* function prototype */
-
+int platform_id=PLATFORM_ID, device_id=DEVICE_ID;
 // GLOBAL!!!!!
 unsigned int num_threads_perdim = THREADS_PER_DIM;					/* sqrt(256) -- see references for this choice */
 unsigned int num_blocks_perdim = BLOCKS_PER_DIM;					/* temporary */
@@ -40,7 +35,6 @@ unsigned int num_threads = num_threads_perdim*num_threads_perdim;	/* number of t
 unsigned int num_blocks = num_blocks_perdim*num_blocks_perdim;		/* number of blocks */
 
 /* Global variables for OpenCL */
-cl_platform_id clPlatform;
 cl_device_id clDevice;
 cl_context clContext;
 cl_command_queue clCommands;
@@ -74,16 +68,19 @@ void initCL()
 
     cl_int errcode;
 
-    errcode = clGetPlatformIDs(1, &clPlatform, NULL);
-    CHECKERR(errcode);
+clDevice = GetDevice(platform_id, device_id);
+	size_t max_worksize[3];
+errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
+ CHECKERR(errcode);
+        while(num_threads_perdim*num_threads_perdim>max_worksize[0])
+                num_threads_perdim = num_threads_perdim/2;
 
-    errcode = clGetDeviceIDs(clPlatform, CL_DEVICE_TYPE_GPU, 1, &clDevice, NULL);
-    CHECKERR(errcode);
-
+	num_threads = num_threads_perdim*num_threads_perdim;
+	
     clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
     CHECKERR(errcode);
 
-    clCommands = clCreateCommandQueue(clContext, clDevice, 0, &errcode);
+    clCommands = clCreateCommandQueue(clContext, clDevice, TIMER_ENABLE, &errcode);
     CHECKERR(errcode);
 
     kernelFile = fopen("kmeans_opencl_kernel.cl", "r");
@@ -151,8 +148,12 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	/* allocate memory for feature_flipped_d[][], feature_d[][] (device) */
     feature_flipped_d = clCreateBuffer(clContext, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
     CHECKERR(errcode);
-    errcode = clEnqueueWriteBuffer(clCommands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, NULL);
-    CHECKERR(errcode);
+	 
+    errcode = clEnqueueWriteBuffer(clCommands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+	END_TIMER
+	COUNT_H2D
+	CHECKERR(errcode);
     feature_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, npoints*nfeatures*sizeof(float), NULL, &errcode);
     CHECKERR(errcode);
 		
@@ -165,8 +166,12 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
     CHECKERR(errcode);
     globalWorkSize = num_blocks*num_threads;
     localWorkSize = num_threads;
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, NULL);
-    CHECKERR(errcode);
+	 
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_K
+	CHECKERR(errcode);
 		
 	/* allocate memory for membership_d[] and clusters_d[][] (device) */
     membership_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, npoints*sizeof(int), NULL, &errcode);
@@ -228,7 +233,9 @@ int
 main( int argc, char** argv) 
 {
 	// as done in the CUDA start/help document provided
+	INI_TIMER
 	setup(argc, argv);    
+	PRINT_COUNT
 }
 
 //																			  //
@@ -255,12 +262,20 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 
 	/* copy membership (host to device) */
-    errcode = clEnqueueWriteBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, NULL);
-    CHECKERR(errcode);
+    	 
+	errcode = clEnqueueWriteBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_H2D
+	CHECKERR(errcode);
 
 	/* copy clusters (host to device) */
-    errcode = clEnqueueWriteBuffer(clCommands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, NULL);
-    CHECKERR(errcode);
+    	 
+	errcode = clEnqueueWriteBuffer(clCommands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+	END_TIMER
+	COUNT_H2D
+	CHECKERR(errcode);
 
 	/* set up texture */
     /*cudaChannelFormatDesc chDesc0 = cudaCreateChannelDesc<float>();
@@ -313,31 +328,43 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     CHECKERR(errcode);
     
 	/* execute the kernel */
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-    CHECKERR(errcode);
+	 
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+	CHECKERR(errcode);
 
     errcode = clFinish(clCommands);
+	COUNT_K 
+   	END_TIMER
     CHECKERR(errcode);
-
 	/* copy back membership (device to host) */
-    errcode = clEnqueueReadBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, NULL);
-    CHECKERR(errcode);
+    	 
+	errcode = clEnqueueReadBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_D2H
+	CHECKERR(errcode);
 
 #ifdef BLOCK_CENTER_REDUCE
     /*** Copy back arrays of per block sums ***/
     float * block_clusters_h = (float *) malloc(
         num_blocks_perdim * num_blocks_perdim * 
         nclusters * nfeatures * sizeof(float));
-        
-    errcode = clEnqueueReadBuffer(clCommands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, NULL);
-    CHECKERR(errcode);
+         
+    errcode = clEnqueueReadBuffer(clCommands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+		END_TIMER
+		COUNT_D2H
+	    CHECKERR(errcode);
 #endif
 #ifdef BLOCK_DELTA_REDUCE
     int * block_deltas_h = (int *) malloc(
         num_blocks_perdim * num_blocks_perdim * sizeof(int));
-        
-    errcode = clEnqueueReadBuffer(clCommands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, NULL);
-    CHECKERR(errcode);
+         
+    errcode = clEnqueueReadBuffer(clCommands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_D2H
+	CHECKERR(errcode);
 #endif
     
 	/* for each point, sum data points in each cluster

@@ -4,12 +4,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <iostream>
-
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
+#include "../../include/rdtsc.h"
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -18,7 +13,7 @@
         exit(1); \
     }
 
-#define USEGPU 1
+//#define USEGPU 1
 
 typedef struct{
     float x;
@@ -31,7 +26,7 @@ typedef struct{
  *
  */
 #define GAMMA 1.4
-#define iterations 2000
+#define iterations 1
 
 #define NDIM 3
 #define NNB 4
@@ -81,14 +76,22 @@ void copy(cl_command_queue commands, cl_mem dst, cl_mem src, int N)
 template <typename T>
 void upload(cl_command_queue commands, cl_mem dst, T* src, int N)
 {
-    int err = clEnqueueWriteBuffer(commands, dst, CL_TRUE, 0, sizeof(T) * N, src, 0, NULL, NULL);
+    	START_TIMER
+	int err = clEnqueueWriteBuffer(commands, dst, CL_TRUE, 0, sizeof(T) * N, src, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
 	CHKERR(err, "Unable to write memory to device");
 }
 
 template <typename T>
 void download(cl_command_queue commands, T* dst, cl_mem src, int N)
 {
-    int err = clEnqueueReadBuffer(commands, src, CL_TRUE, 0, sizeof(T)*N, dst, 0, NULL, NULL);
+    	START_TIMER
+	int err = clEnqueueReadBuffer(commands, src, CL_TRUE, 0, sizeof(T)*N, dst, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_D2H
 	CHKERR(err, "Unable to read memory from device");
 }
 
@@ -182,12 +185,12 @@ inline void compute_flux_contribution(float* density, float3* momentum, float* d
 
 int main(int argc, char** argv)
 {
-    cl_int err;
+    INI_TIMER
+	cl_int err;
 
     size_t global_size;
     size_t local_size;
 
-    cl_platform_id platform_id;
     cl_device_id device_id;
     cl_context context;
     cl_command_queue commands;
@@ -210,21 +213,20 @@ int main(int argc, char** argv)
 		return 0;
 	}
 	const char* data_file_name = argv[1];
+	int n_platform=PLATFORM_ID, n_device=DEVICE_ID;
+	if(argc == 4)
+	{
+		n_platform = atoi(argv[2]);
+		n_device = atoi(argv[3]);
+	}
 
-    // Retrieve an OpenCL platform
-    err = clGetPlatformIDs(1, &platform_id, NULL);
-    CHKERR(err, "Failed to get a platform!");
-
-    // Connect to a compute device
-    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-    CHKERR(err, "Failed to create a device group!");
-
-    // Create a compute context
+	device_id = GetDevice(n_platform, n_device);
+        // Create a compute context
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
 
     // Create a command queue
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
 
@@ -395,9 +397,12 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
     local_size = 1;//std::min(local_size, (size_t)nelr);
     global_size = nelr;
-    err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, NULL);
+	START_TIMER
+    err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &myEvent);
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 0");
     err = clFinish(commands);
+	END_TIMER
+	COUNT_K
     CHKERR(err, "Failed to execute kernel [kernel_test]!");
 
 
@@ -420,10 +425,12 @@ int main(int argc, char** argv)
     // Get the maximum work group size for executing the kernel on the device
     err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
     CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
-    err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, NULL);
+    	START_TIMER
+	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &myEvent);
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 1");
     clFinish(commands);
-
+	END_TIMER
+	COUNT_K
     err = 0;
     err = clSetKernelArg(kernel_initialize_variables, 0, sizeof(int), &nelr);
     err |= clSetKernelArg(kernel_initialize_variables, 1, sizeof(cl_mem),&fluxes);
@@ -432,10 +439,13 @@ int main(int argc, char** argv)
     // Get the maximum work group size for executing the kernel on the device
     err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
     CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
-    err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, NULL);
+    	START_TIMER
+	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &myEvent);
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 2");
 
     clFinish(commands);
+	END_TIMER
+	COUNT_K
     std::cout << "About to memcopy" << std::endl;
     err = clReleaseMemObject(step_factors);
     float temp[nelr];
@@ -470,10 +480,12 @@ int main(int argc, char** argv)
         // Get the maximum work group size for executing the kernel on the device
         err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
         CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
-        err = clEnqueueNDRangeKernel(commands, kernel_compute_step_factor, 1, NULL, &global_size, NULL, 0, NULL, NULL);
+        START_TIMER
+	err = clEnqueueNDRangeKernel(commands, kernel_compute_step_factor, 1, NULL, &global_size, NULL, 0, NULL, &myEvent);
         CHKERR(err, "Failed to execute kernel[kernel_compute_step_factor]!");
 		clFinish(commands);
-
+	END_TIMER
+	COUNT_K
 		for(int j = 0; j < RK; j++)
         {
             err = 0;
@@ -487,11 +499,13 @@ int main(int argc, char** argv)
             // Get the maximum work group size for executing the kernel on the device
             err = clGetKernelWorkGroupInfo(kernel_compute_flux_contributions, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
             CHKERR(err, "Failed to retrieve kernel_compute_flux_contributions work group info!");
-            err = clEnqueueNDRangeKernel(commands, kernel_compute_flux_contributions, 1, NULL, &global_size, NULL, 0, NULL, NULL);
+            START_TIMER
+		err = clEnqueueNDRangeKernel(commands, kernel_compute_flux_contributions, 1, NULL, &global_size, NULL, 0, NULL, &myEvent);
             CHKERR(err, "Failed to execute kernel [kernel_compute_flux_contributions]!");
 			//compute_flux_contributions(nelr, variables, fc_momentum_x, fc_momentum_y, fc_momentum_z, fc_density_energy);
 			clFinish(commands);
-
+	END_TIMER
+	COUNT_K
             err = 0;
             err = clSetKernelArg(kernel_compute_flux, 0, sizeof(int), &nelr);
             err |= clSetKernelArg(kernel_compute_flux, 1, sizeof(cl_mem), &elements_surrounding_elements);
@@ -511,10 +525,12 @@ int main(int argc, char** argv)
             // Get the maximum work group size for executing the kernel on the device
             err = clGetKernelWorkGroupInfo(kernel_compute_flux, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
             CHKERR(err, "Failed to retrieve kernel_compute_flux work group info!");
-            err = clEnqueueNDRangeKernel(commands, kernel_compute_flux, 1, NULL, &global_size, NULL, 0, NULL, NULL);
+            START_TIMER
+		err = clEnqueueNDRangeKernel(commands, kernel_compute_flux, 1, NULL, &global_size, NULL, 0, NULL, &myEvent);
             CHKERR(err, "Failed to execute kernel [kernel_compute_flux]!");
 			clFinish(commands);
-
+		END_TIMER
+		COUNT_K
             err = 0;
             err = clSetKernelArg(kernel_time_step, 0, sizeof(int), &j);
             err |= clSetKernelArg(kernel_time_step, 1, sizeof(int), &nelr);
@@ -526,9 +542,12 @@ int main(int argc, char** argv)
             // Get the maximum work group size for executing the kernel on the device
             err = clGetKernelWorkGroupInfo(kernel_time_step, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
             CHKERR(err, "Failed to retrieve kernel_time_step work group info!");
-            err = clEnqueueNDRangeKernel(commands, kernel_time_step, 1, NULL, &global_size, NULL, 0, NULL, NULL);
+            START_TIMER
+		err = clEnqueueNDRangeKernel(commands, kernel_time_step, 1, NULL, &global_size, NULL, 0, NULL, &myEvent);
             CHKERR(err, "Failed to execute kernel [kernel_time_step]!");
 			clFinish(commands);
+		END_TIMER
+		COUNT_K
 		}
 	}
 
@@ -570,6 +589,6 @@ int main(int argc, char** argv)
 	dealloc<float>(fc_density_energy);
 
 	std::cout << "Done..." << std::endl;
-
-    return 0;
+    	PRINT_COUNT
+	return 0;
 }

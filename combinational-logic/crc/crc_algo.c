@@ -4,13 +4,9 @@
 #include <unistd.h>
 #include <string.h>
 #include <math.h>
+#include "../../include/rdtsc.h"
 
 
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
 
 #define CHKERR(err, str) \
 	if (err != CL_SUCCESS) \
@@ -19,12 +15,11 @@
 		exit(1); \
 	}
 
-#define USEGPU 1
+//#define USEGPU 1
 #define DATA_SIZE 100000000
 #define MIN(a,b) a < b ? a : b
-
+int platform_id=PLATFORM_ID, n_device=DEVICE_ID;
 const char *KernelSourceFile = "crc_algo_kernel.cl";
-cl_platform_id platform_id;
 cl_device_id device_id;
 cl_context context;
 cl_command_queue commands;
@@ -49,6 +44,8 @@ void usage()
 	printf("n <int>   - change the size of data blocks\n");
 	printf("q <int>   - change the number of times to run the kernel\n");
 	printf("w <int>   - change the maximum data size\n");
+	printf("e <int>   - change platform\n");
+	printf("d <int>   - change device\n");
 }
 
 void printTimeDiff(struct timeval start, struct timeval end)
@@ -61,7 +58,6 @@ int64_t computeTimeDiff(struct timeval start, struct timeval end)
 {
 	int64_t diff = (end.tv_sec * 1000000 + end.tv_usec)
 		  - (start.tv_sec * 1000000 + start.tv_usec);
-	printf("%lu\n", diff);
 	return diff;
 }
 
@@ -166,7 +162,11 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	struct timeval start_time, end_time;
 	gettimeofday(&start_time, NULL);
 	// Write our data set into the input array in device memory
-	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, NULL);
+	 START_TIMER	
+	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
 	gettimeofday(&end_time, NULL);
@@ -194,9 +194,12 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	// using the maximum number of work group items for this device
 	global_size = N + local_size - N%local_size;
 	gettimeofday(&start_time, NULL);
-	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+	START_TIMER
+	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
 	CHKERR(err, "Failed to execute compute kernel!");
 	clFinish(commands);
+	END_TIMER
+	COUNT_K
 	gettimeofday(&end_time, NULL);
 	kernelExecutionTime += computeTimeDiff(start_time, end_time);
 
@@ -204,7 +207,11 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	
 	gettimeofday(&start_time, NULL);
 	// Read back the results from the device to verify the output
-	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, NULL);
+	START_TIMER
+	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_D2H
 	CHKERR(err, "Failed to read output array!");
 	clFinish(commands);
 	gettimeofday(&end_time, NULL);
@@ -243,20 +250,15 @@ unsigned char computeCRC(unsigned char* h_num, unsigned long N, unsigned char cr
 
 void setupGPU()
 {
+	cl_int err;
 	// Retrieve an OpenCL platform
-	int err = clGetPlatformIDs(1, &platform_id, NULL);
-	CHKERR(err, "Failed to get a platform!");
+	device_id = GetDevice(platform_id, n_device);
 
-	// Connect to a compute device
-	err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-	CHKERR(err, "Failed to create a device group!");
-
-	// Create a compute context
 	context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
 	CHKERR(err, "Failed to create a compute context!");
 
 	// Create a command queue
-	commands = clCreateCommandQueue(context, device_id, 0, &err);
+	commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
 	CHKERR(err, "Failed to create a command queue!");
 
 	struct timeval compilation_st, compilation_et;
@@ -306,6 +308,7 @@ void setupGPU()
 
 int main(int argc, char** argv)
 {
+	INI_TIMER
 	cl_int err;
 
 	unsigned char* h_num;
@@ -326,7 +329,7 @@ int main(int argc, char** argv)
 	srand(seed);
 		
 	int c;
-	while((c = getopt (argc, argv, "vn:s:i:p:w:h")) != -1)
+	while((c = getopt (argc, argv, "vn:s:i:p:w:h:e:d:")) != -1)
 	{
 		switch(c)
 		{
@@ -353,6 +356,12 @@ int main(int argc, char** argv)
 				break;
 			case 'w':
 				maxSize = atoi(optarg);
+				break;
+			case 'e':
+				platform_id = atoi(optarg);
+				break;
+			case 'd':
+				n_device = atoi(optarg);
 				break;
 			default:
 				abort();
@@ -392,7 +401,11 @@ int main(int argc, char** argv)
 	
 	gettimeofday(&tables_st, NULL);
 	// Write our data set into the input array in device memory
-	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, NULL);
+	START_TIMER	
+	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, &myEvent);
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
 	gettimeofday(&tables_et, NULL);
@@ -470,4 +483,5 @@ int main(int argc, char** argv)
 
 	printf("Done\n");
 		
+	PRINT_COUNT
 }

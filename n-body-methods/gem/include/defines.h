@@ -18,7 +18,6 @@
  ****************************************************************************/
 #ifndef __defines_h__
 #define __defines_h__
-
 /**************************************************************************
  * This file contains all the defined constants to be used by calculation *
  * methods, if you want to optimize a constant or experiment with         *
@@ -27,7 +26,7 @@
 
 /* various parameters for reading in options */
 /* flag definitions */
-#define NUM_FLAGS       14
+#define NUM_FLAGS       16
 #define READ_PHI        0
 #define WRITE_PHI       1
 #define VISUALIZE       2
@@ -42,9 +41,11 @@
 #define DECOR_MOLECULE  11
 #define DECOR_TYPE      12
 #define BG_COLOR        13
+#define P_ID            14
+#define D_ID            15
 
 /* parameter data definitions */
-#define NUM_FILE_TYPES        15
+#define NUM_FILE_TYPES        17
 #define PHI_IN_FILE           0
 #define PHI_OUT_FILE          1
 #define PHI_EDGE_VAL          2
@@ -60,6 +61,8 @@
 #define DECOR_MOL_NAME        12
 #define DECOR_MOL_LOOK        13
 #define BG_COLOR_RGB          14
+#define P_ID_VAL              15
+#define D_ID_VAL              16
 
 /* Makes it easier to understand compilation flags */
 #define YES 1

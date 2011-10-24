@@ -1,4 +1,3 @@
-#define BLOCK_SIZE 16
 
 __kernel void
 srad_cuda_1(

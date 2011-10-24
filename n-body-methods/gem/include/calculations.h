@@ -21,7 +21,11 @@
 #define __CALCULATIONS_H__
 
 #include "structures.h"
-#include "CL/cl.h"
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
+#include <CL/opencl.h>
+#endif
 
 /* definitions for operations that project_grd can do */
 #define DIFFERENTIATE (uchar)1

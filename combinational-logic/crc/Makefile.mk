@@ -6,7 +6,7 @@
 #
 
 bin_PROGRAMS += crc 
-
+crc_LDFLAGS = -lm
 crc_SOURCES = combinational-logic/crc/crc_algo.c
 
 all_local += dwarf-crc-all-local

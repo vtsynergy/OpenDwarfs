@@ -5,11 +5,7 @@
 #include <math.h>
 #include "needle.h"
 #include <sys/time.h>
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
+#include "../../include/rdtsc.h"
 
 #define CHECKERR(err) \
     if (err != CL_SUCCESS) \
@@ -17,11 +13,12 @@
         fprintf(stderr, "Error: %d\n", err);\
         exit(1); \
     }
-
+//#define USEGPU 1  
 ////////////////////////////////////////////////////////////////////////////////
 // declaration, forward
 void runTest( int argc, char** argv);
 
+int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
 
 int blosum62[24][24] = {
 { 4, -1, -2, -2,  0, -1, -1,  0, -2, -1, -1, -1, -1, -2, -1,  1,  0, -3, -2,  0, -2, -1,  0, -4},
@@ -80,16 +77,19 @@ return(k);
 int
 main( int argc, char** argv) 
 {
-    runTest( argc, argv);
-
+    INI_TIMER
+	runTest( argc, argv);
+	PRINT_COUNT
     return EXIT_SUCCESS;
 }
 
 void usage(int argc, char **argv)
 {
-	fprintf(stderr, "Usage: %s <max_rows/max_cols> <penalty> \n", argv[0]);
+	fprintf(stderr, "Usage: %s <max_rows/max_cols> <penalty> [platform & device]\n", argv[0]);
 	fprintf(stderr, "\t<dimension>  - x and y dimensions\n");
 	fprintf(stderr, "\t<penalty> - penalty(positive integer)\n");
+	fprintf(stderr, "\t[platform] - index of platform)\n");
+	fprintf(stderr, "\t[device] - index of device)\n");
 	exit(1);
 }
 
@@ -109,6 +109,14 @@ void runTest( int argc, char** argv)
 		max_rows = atoi(argv[1]);
 		max_cols = atoi(argv[1]);
 		penalty = atoi(argv[2]);
+	}
+	else if(argc == 5)
+	{
+		max_rows = atoi(argv[1]);
+		max_cols = atoi(argv[1]);
+		penalty = atoi(argv[2]);
+		platform_id = atoi(argv[3]);
+		n_device = atoi(argv[4]);
 	}
     else{
 	usage(argc, argv);
@@ -160,7 +168,6 @@ void runTest( int argc, char** argv)
 	for(j = 1; j< max_cols ; j++)
        input_itemsets[j] = -j * penalty;
 
-    cl_platform_id clPlatform;
     cl_device_id clDevice;
     cl_context clContext;
     cl_command_queue clCommands;
@@ -173,17 +180,14 @@ void runTest( int argc, char** argv)
     FILE *kernelFile;
     char *kernelSource;
     size_t kernelLength;
-
-    errcode = clGetPlatformIDs(1, &clPlatform, NULL);
-    CHECKERR(errcode);
-
-    errcode = clGetDeviceIDs(clPlatform, CL_DEVICE_TYPE_GPU, 1, &clDevice, NULL);
-    CHECKERR(errcode);
-
+	
+    clDevice = GetDevice(platform_id, n_device);
+  
+ 
     clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
     CHECKERR(errcode);
 
-    clCommands = clCreateCommandQueue(clContext, clDevice, 0, &errcode);
+    clCommands = clCreateCommandQueue(clContext, clDevice, TIMER_ENABLE, &errcode);
     CHECKERR(errcode);
 
     kernelFile = fopen("needle_kernel.cl", "r");
@@ -225,12 +229,16 @@ void runTest( int argc, char** argv)
     CHECKERR(errcode);
     matrix_cuda_out = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(int)*size, NULL, &errcode);
     CHECKERR(errcode);
-	
-    errcode = clEnqueueWriteBuffer(clCommands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, NULL);
+	START_TIMER	
+    errcode = clEnqueueWriteBuffer(clCommands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &myEvent);
+	END_TIMER
+	COUNT_H2D
     CHECKERR(errcode);
-    errcode = clEnqueueWriteBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) input_itemsets, 0, NULL, NULL);
+    errcode = clEnqueueWriteBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) input_itemsets, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
     CHECKERR(errcode);
-
+	END_TIMER
+	COUNT_H2D
     size_t localWorkSize[2] = {BLOCK_SIZE, 1};
     size_t globalWorkSize[2];
 	int block_width = ( max_cols - 1 )/BLOCK_SIZE;
@@ -248,8 +256,12 @@ void runTest( int argc, char** argv)
         errcode |= clSetKernelArg(clKernel_nw1, 5, sizeof(int), (void *) &i);
         errcode |= clSetKernelArg(clKernel_nw1, 6, sizeof(int), (void *) &block_width);
         CHECKERR(errcode);
-        errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-        CHECKERR(errcode);
+	START_TIMER
+        errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+        clFinish(clCommands);
+	END_TIMER
+	COUNT_K
+	CHECKERR(errcode);
 	}
 	printf("Processing bottom-right matrix\n");
     //process bottom-right matrix
@@ -264,13 +276,20 @@ void runTest( int argc, char** argv)
         errcode |= clSetKernelArg(clKernel_nw2, 5, sizeof(int), (void *) &i);
         errcode |= clSetKernelArg(clKernel_nw2, 6, sizeof(int), (void *) &block_width);
         CHECKERR(errcode);
-        errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
+        START_TIMER
+	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+        clFinish(clCommands);
+	END_TIMER
+	COUNT_K
         CHECKERR(errcode);
 	}
 
-
-    errcode = clEnqueueReadBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, NULL);
-    CHECKERR(errcode);
+	START_TIMER
+    errcode = clEnqueueReadBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+    	END_TIMER
+	COUNT_D2H
+	CHECKERR(errcode);
 	
 	
 #ifdef TRACE

@@ -3,12 +3,8 @@
 #include <getopt.h>
 #include <stdlib.h>
 #include <assert.h>
-
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
+#include <math.h>
+#include "../../include/rdtsc.h"
 
 #include "common.h"
 
@@ -19,13 +15,16 @@
         exit(1); \
     }
 
-#define BLOCK_SIZE 16
-
+//#define USEGPU 1
+int BLOCK_SIZE = 16;
+int platform_id=PLATFORM_ID, device_id=DEVICE_ID;
 static int do_verify = 0;
 
 static struct option long_options[] = {
       /* name, has_arg, flag, val */
       {"input", 1, NULL, 'i'},
+      {"platform", 1, NULL, 'p'},
+      {"device", 1, NULL, 'd'},
       {"size", 1, NULL, 's'},
       {"verify", 0, NULL, 'v'},
       {0,0,0,0}
@@ -34,6 +33,7 @@ static struct option long_options[] = {
 int
 main ( int argc, char *argv[] )
 {
+  INI_TIMER
   int matrix_dim = 32; /* default matrix_dim */
   int opt, option_index=0;
   func_ret_t ret;
@@ -41,7 +41,6 @@ main ( int argc, char *argv[] )
   float *m, *mm;
   stopwatch sw;
 
-  cl_platform_id clPlatform;
   cl_device_id clDevice;
   cl_context clContext;
   cl_command_queue clCommands;
@@ -58,11 +57,17 @@ main ( int argc, char *argv[] )
 
   cl_mem d_m;
 
-  while ((opt = getopt_long(argc, argv, "::vs:i:", 
+  while ((opt = getopt_long(argc, argv, "::vs:i:p:d:", 
                             long_options, &option_index)) != -1 ) {
       switch(opt){
         case 'i':
           input_file = optarg;
+          break;
+        case 'p':
+          platform_id = atoi(optarg);
+          break;
+        case 'd':
+          device_id = atoi(optarg);
           break;
         case 'v':
           do_verify = 1;
@@ -70,7 +75,7 @@ main ( int argc, char *argv[] )
         case 's':
           matrix_dim = atoi(optarg);
           fprintf(stderr, "Currently not supported, use -i instead\n");
-          fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
+          fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file|-p platform|-d device]\n", argv[0]);
           exit(EXIT_FAILURE);
         case '?':
           fprintf(stderr, "invalid option\n");
@@ -79,14 +84,14 @@ main ( int argc, char *argv[] )
           fprintf(stderr, "missing argument\n");
           break;
         default:
-          fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n",
+          fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file||-p platform|-d device]\n",
                   argv[0]);
           exit(EXIT_FAILURE);
       }
   }
   
   if ( (optind < argc) || (optind == 1)) {
-      fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
+      fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file|-p platform|-d device]\n", argv[0]);
       exit(EXIT_FAILURE);
   }
 
@@ -109,16 +114,22 @@ main ( int argc, char *argv[] )
     matrix_duplicate(m, &mm, matrix_dim);
   }
 
-  errcode = clGetPlatformIDs(1, &clPlatform, NULL);
-  CHECKERR(errcode);
-
-  errcode = clGetDeviceIDs(clPlatform, CL_DEVICE_TYPE_GPU, 1, &clDevice, NULL);
-  CHECKERR(errcode);
-
+//  errcode = clGetPlatformIDs(NUM_PLATFORM, clPlatform, NULL);
+//  CHECKERR(errcode);
+//
+//  errcode = clGetDeviceIDs(clPlatform[PLATFORM_ID], USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &clDevice, NULL);
+//  CHECKERR(errcode);
+clDevice = GetDevice(platform_id, device_id);
+ size_t max_worksize[3];
+ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
+ CHECKERR(errcode);
+	while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
+		BLOCK_SIZE = BLOCK_SIZE/2;
+	
   clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
   CHECKERR(errcode);
 
-  clCommands = clCreateCommandQueue(clContext, clDevice, 0, &errcode);
+  clCommands = clCreateCommandQueue(clContext, clDevice, TIMER_ENABLE, &errcode);
   CHECKERR(errcode);
 
   kernelFile = fopen("lud_kernel.cl", "r");
@@ -133,8 +144,9 @@ main ( int argc, char *argv[] )
   CHECKERR(errcode);
 
   free(kernelSource);
-
-  errcode = clBuildProgram(clProgram, 1, &clDevice, NULL, NULL, NULL);
+	char arg[100];
+	sprintf(arg,"-D BLOCK_SIZE=%d", (int)BLOCK_SIZE);
+  errcode = clBuildProgram(clProgram, 1, &clDevice, arg, NULL, NULL);
   if (errcode == CL_BUILD_PROGRAM_FAILURE)                                                                                                                                       
   {
     char *log;
@@ -160,31 +172,47 @@ main ( int argc, char *argv[] )
 
   /* beginning of timing point */
   stopwatch_start(&sw);
-  errcode = clEnqueueWriteBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, NULL);
-  CHECKERR(errcode);
+	 
+  errcode = clEnqueueWriteBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+  	END_TIMER
+	COUNT_H2D
+	CHECKERR(errcode);
 
   int i=0;
   size_t localWorkSize[2];
   size_t globalWorkSize[2];
-  //float *m_debug = (float*)malloc(matrix_dim*matrix_dim*sizeof(float));
-
-  for (i=0; i < matrix_dim-BLOCK_SIZE; i += BLOCK_SIZE) {
+	//printf("BLOCK_SIZE: %d\n",BLOCK_SIZE);	
+//	printf("max Work-item Size: %d\n",(int)max_worksize[0]);	
+  	#ifdef START_POWER
+	for( int iter = 0; iter < 1000; iter++)
+	#endif
+	for (i=0; i < matrix_dim-BLOCK_SIZE; i += BLOCK_SIZE) {
       errcode = clSetKernelArg(clKernel_diagonal, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_diagonal, 1, sizeof(int), (void *) &matrix_dim);
       errcode |= clSetKernelArg(clKernel_diagonal, 2, sizeof(int), (void *) &i);
       CHECKERR(errcode);
+      
       localWorkSize[0] = BLOCK_SIZE;
       globalWorkSize[0] = BLOCK_SIZE;
-      errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-      CHECKERR(errcode);
+      	 
+	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+      	END_TIMER
+	COUNT_K
+	CHECKERR(errcode);
       errcode = clSetKernelArg(clKernel_perimeter, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_perimeter, 1, sizeof(int), (void *) &matrix_dim);
       errcode |= clSetKernelArg(clKernel_perimeter, 2, sizeof(int), (void *) &i);
       CHECKERR(errcode);
       localWorkSize[0] = BLOCK_SIZE*2;
       globalWorkSize[0] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[0];
-      errcode = clEnqueueNDRangeKernel(clCommands, clKernel_perimeter, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
+      	 
+	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_perimeter, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
       CHECKERR(errcode);
+	END_TIMER
+	COUNT_K
       errcode = clSetKernelArg(clKernel_internal, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_internal, 1, sizeof(int), (void *) &matrix_dim);
       errcode |= clSetKernelArg(clKernel_internal, 2, sizeof(int), (void *) &i);
@@ -193,8 +221,12 @@ main ( int argc, char *argv[] )
       localWorkSize[1] = BLOCK_SIZE;
       globalWorkSize[0] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[0];
       globalWorkSize[1] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[1];
-      errcode = clEnqueueNDRangeKernel(clCommands, clKernel_internal, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-      CHECKERR(errcode);
+      	 
+	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_internal, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+      	END_TIMER
+	COUNT_K
+	CHECKERR(errcode);
   }
   errcode = clSetKernelArg(clKernel_diagonal, 0, sizeof(cl_mem), (void *) &d_m);
   errcode |= clSetKernelArg(clKernel_diagonal, 1, sizeof(int), (void *) &matrix_dim);
@@ -202,13 +234,18 @@ main ( int argc, char *argv[] )
   CHECKERR(errcode);
   localWorkSize[0] = BLOCK_SIZE;
   globalWorkSize[0] = BLOCK_SIZE;
-  errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, NULL);
-  CHECKERR(errcode);
+  	 
+	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+	 CHECKERR(errcode);
 
   clFinish(clCommands);
-
-  errcode = clEnqueueReadBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, NULL);
-
+ 	END_TIMER
+        COUNT_K
+	 
+  errcode = clEnqueueReadBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &myEvent);
+	CL_FINISH(clCommands)
+	END_TIMER
+	COUNT_D2H
   /* end of timing point */
   stopwatch_stop(&sw);
   printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
@@ -219,6 +256,7 @@ main ( int argc, char *argv[] )
     printf("After LUD\n");
     print_matrix(m, matrix_dim);
     printf(">>>Verify<<<<\n");
+	printf("matrix_dim: %d\n",matrix_dim);
     lud_verify(mm, m, matrix_dim); 
     free(mm);
   }
@@ -231,6 +269,6 @@ main ( int argc, char *argv[] )
   clReleaseContext(clContext);
 
   free(m);
-
+	PRINT_COUNT
   return EXIT_SUCCESS;
 }				/* ----------  end of function main  ---------- */

@@ -8,9 +8,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <CL/cl.h>
+#include "../../include/rdtsc.h"
 
-#define SHARED_SIZE_LIMIT 512
+int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
+
+int SHARED_SIZE_LIMIT=512;
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -18,14 +20,15 @@
         fprintf(stderr, "CL Error %d: %s\n", err, str); \
         exit(1); \
     }
-#define USEGPU 1
+//#define USEGPU 1
 
 int compare(const void * a, const void * b) {
     return ( *(int*) a - *(int*) b);
 }
 
 int main(int argc, char** argv) {
-    cl_int err;
+    INI_TIMER
+	cl_int err;
     unsigned int *h_InputKey, *h_InputVal, *h_OutputKeyGPU, *h_OutputValGPU;
     cl_mem d_InputKey, d_InputVal, d_OutputKey, d_OutputVal;
     unsigned int hTimer, batchSize;
@@ -35,21 +38,23 @@ int main(int argc, char** argv) {
 
     size_t local_size, global_size, local;
 
-    cl_platform_id platform_id;
     cl_device_id device_id;
     cl_context context;
     cl_command_queue commands;
     cl_program program;
     cl_kernel kernel;
 
-
-
+    if(argc == 3)
+	{
+		platform_id = atoi(argv[1]);
+		n_device = atoi(argv[2]);
+	}
     FILE *kernelFile;
     char *kernelSource;
     size_t kernelLength;
     printf(" Starting...\n\n");
 
-    const unsigned int N = 512;
+    unsigned int N = 512;
     const unsigned int DIR = 0;
     const unsigned int numValues = 65536;
     const unsigned int numIterations = 1;
@@ -63,34 +68,38 @@ int main(int argc, char** argv) {
         h_InputKey[i] = rand() % numValues;
         h_InputVal[i] = i;
     }
+	#ifndef ENABLE_TIMER
     for (i = 0; i < N; i++)
         printf("%u  ", h_InputKey[i]);
+	#endif
     printf("Running GPU oddEvenMergeSort...\n\n");
 
     dir = (dir != 0);
-    batchSize = N / arrayLength;
-    blockCount = /*batchSize * arrayLength*/N / SHARED_SIZE_LIMIT;
-    threadCount = SHARED_SIZE_LIMIT / 2;
-    //assert((batchSize * arrayLength) % SHARED_SIZE_LIMIT == 0);
-    glo = threadCount*blockCount;
-    global_size = glo;
-    local = threadCount;
+//    batchSize = N / arrayLength;
+//    blockCount = /*batchSize * arrayLength*/N / SHARED_SIZE_LIMIT;
+//    threadCount = SHARED_SIZE_LIMIT / 2;
+//    //assert((batchSize * arrayLength) % SHARED_SIZE_LIMIT == 0);
+//    glo = threadCount*blockCount;
+//    global_size = glo;
+//    local = threadCount;
 
     //glo/=2;
 
-    err = clGetPlatformIDs(1, &platform_id, NULL);
-    CHKERR(err, "Failed to get a platform!");
+device_id = GetDevice(platform_id, n_device);
 
-
-    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-    CHKERR(err, "Failed to create a device group!");
-
+    size_t max_worksize[3];
+    err = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
+ while(SHARED_SIZE_LIMIT/2>max_worksize[0])
+	 {
+		SHARED_SIZE_LIMIT = SHARED_SIZE_LIMIT/2;
+    		N = N/2;
+	 }
 
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
 
 
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
 
@@ -108,8 +117,9 @@ int main(int argc, char** argv) {
 
     free(kernelSource);
 
-
-    err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
+    char arg[100];
+	sprintf(arg, "-D SHARED_SIZE_LIMIT=%d",SHARED_SIZE_LIMIT);
+    err = clBuildProgram(program, 0, NULL, arg, NULL, NULL);
     if (err == CL_BUILD_PROGRAM_FAILURE) {
         char *log;
         size_t logLen;
@@ -137,13 +147,18 @@ int main(int argc, char** argv) {
 
     d_OutputVal = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof (unsigned int) *N, NULL, &err);
     CHKERR(err, "Failed to Create  device buffer!");
-
-    err = clEnqueueWriteBuffer(commands, d_InputKey, CL_TRUE, 0, sizeof (unsigned int) *N, (void *) h_InputKey, 0, NULL, NULL);
+	START_TIMER
+    err = clEnqueueWriteBuffer(commands, d_InputKey, CL_TRUE, 0, sizeof (unsigned int) *N, (void *) h_InputKey, 0, NULL, &myEvent);
+    END_TIMER
+	COUNT_H2D
     CHKERR(err, "Failed to Enqueue  device buffer!");
 
-    err = clEnqueueWriteBuffer(commands, d_InputVal, CL_TRUE, 0, sizeof (unsigned int) *N, (void *) h_InputVal, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, d_InputVal, CL_TRUE, 0, sizeof (unsigned int) *N, (void *) h_InputVal, 0, NULL, &myEvent);
+	CL_FINISH(commands)
     CHKERR(err, "Failed to Enqueue  device buffer!");
-    for (arrayLength = 64; arrayLength <= N; arrayLength *= 2) {
+    END_TIMER
+	COUNT_H2D
+	for (arrayLength = 64; arrayLength <= N; arrayLength *= 2) {
         batchSize = N / arrayLength;
         blockCount = /*batchSize * arrayLength*/N / SHARED_SIZE_LIMIT;
         threadCount = SHARED_SIZE_LIMIT / 2;
@@ -162,27 +177,36 @@ int main(int argc, char** argv) {
 
         err = clGetKernelWorkGroupInfo(kernel, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof (size_t), (void *) &local_size, NULL);
         CHKERR(err, "Failed to retrieve kernel work group info!");
-
-        err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local, 0, NULL, NULL);
-        CHKERR(err, "Failed to execute kernel!");
+	START_TIMER	
+        err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local, 0, NULL, &myEvent);
+        clFinish(commands);
+	END_TIMER
+	COUNT_K
+	CHKERR(err, "Failed to execute kernel!");
     }
-
-    err = clEnqueueReadBuffer(commands, d_OutputKey, CL_TRUE, 0, sizeof (unsigned int) *N, h_OutputKeyGPU, 0, NULL, NULL);
+	START_TIMER
+    err = clEnqueueReadBuffer(commands, d_OutputKey, CL_TRUE, 0, sizeof (unsigned int) *N, h_OutputKeyGPU, 0, NULL, &myEvent);
+    END_TIMER
+	COUNT_D2H
     CHKERR(err, "Failed to read output array!");
 
-    err = clEnqueueReadBuffer(commands, d_OutputVal, CL_TRUE, 0, sizeof (unsigned int) *N, h_OutputValGPU, 0, NULL, NULL);
+    err = clEnqueueReadBuffer(commands, d_OutputVal, CL_TRUE, 0, sizeof (unsigned int) *N, h_OutputValGPU, 0, NULL, &myEvent);
+	CL_FINISH(commands)
     CHKERR(err, "Failed to read output array!");
-
+	END_TIMER
+	COUNT_D2H
     qsort(h_InputKey, N, sizeof (unsigned int), compare);
-    for (i = 0; i < N; i++)
+   #ifndef ENABLE_TIMER
+	 for (i = 0; i < N; i++)
         printf("%u  ", h_OutputKeyGPU[i]);
+	#endif
     for (i = 0; i < N; i++)
         if (h_OutputKeyGPU[i] != h_InputKey[i]){
             printf("The result is invalid");
             exit(1);
         }
 
-
+    printf("\n");
     free(h_OutputValGPU);
     free(h_OutputKeyGPU);
     free(h_InputVal);
@@ -195,6 +219,7 @@ int main(int argc, char** argv) {
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
+	PRINT_COUNT
     return (EXIT_SUCCESS);
 }
 

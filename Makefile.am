@@ -38,6 +38,10 @@ if build_samplecl
 include samplecl/Makefile.mk
 endif
 
+if build_fft
+include spectral-methods/fft/Makefile.mk
+endif
+
 if build_csr
 include sparse-linear-algebra/SPMV/Makefile.mk
 endif

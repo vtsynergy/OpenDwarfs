@@ -1,4 +1,3 @@
-#define BLOCK_SIZE 16
 
 __kernel void 
 lud_diagonal(__global float *m, int matrix_dim, int offset)

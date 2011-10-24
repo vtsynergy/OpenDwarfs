@@ -21,16 +21,16 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cmath>
-#include <CL/cl.h>
 #include <iostream>
 #include <fstream>
 #include <cstring>
 #include <sys/time.h>
 
-
+#include "../../../include/rdtsc.h"
+//#define USEGPU 1
 typedef long long int64;
 static struct timeval start_time;
-
+int platform_id=PLATFORM_ID, device_id=DEVICE_ID;
 void init_time() {
   gettimeofday(&start_time, NULL);
 }
@@ -43,17 +43,17 @@ int64 get_time() {
 }
 // #define BLOCK_DIM_X 8
 // #define BLOCK_DIM_Y 8
-#define BLOCK_DIM_X 16
-#define BLOCK_DIM_Y 16
+int  BLOCK_DIM_X=16;
+int  BLOCK_DIM_Y=16;
 //nthreads/block 64
 //#define BLOCKS 390
 #define BLOCKS 120
 //multiple of 30
-timeval start_timer, end_timer;
-#define START_TIMER gettimeofday(&start_timer, NULL);
-#define END_TIMER gettimeofday(&end_timer, NULL);
-#define MICRO_SECOND (end_timer.tv_sec - start_timer.tv_sec)*1000000 + (end_timer.tv_usec - start_timer.tv_usec)
-
+//timeval start_timer, end_timer;
+//#define START_TIMER gettimeofday(&start_timer, NULL);
+//#define END_TIMER gettimeofday(&end_timer, NULL);
+//#define MICRO_SECOND (end_timer.tv_sec - start_timer.tv_sec)*1000000 + (end_timer.tv_usec - start_timer.tv_usec)
+//
 
 cl_context          context;
 cl_device_id        *devices;
@@ -117,7 +117,7 @@ initializeCL(void)
 	    fprintf(stderr,"clGetPlatformIDs failed. %u",numPlatforms);
 	    return 1;
     }
-    if (0 < numPlatforms) 
+    if (0 < numPlatforms && numPlatforms>platform_id) 
     {
         cl_platform_id* platforms = new cl_platform_id[numPlatforms];
         status = clGetPlatformIDs(numPlatforms, platforms, NULL);
@@ -126,29 +126,19 @@ initializeCL(void)
                                   perror( "clGetPlatformIDs failed.2");
             return 1;
         }
-        for (unsigned i = 0; i < numPlatforms; ++i) 
-        {
-            char pbuf[100];
-            status = clGetPlatformInfo(platforms[i],
-                                       CL_PLATFORM_VENDOR,
-                                       sizeof(pbuf),
-                                       pbuf,
-                                       NULL);
 
-        if(status != CL_SUCCESS)
-                                       
-            {
-		    perror("clGetPlatformInfo failed.");
-                return 1;
-            }
-
-            platform = platforms[i];
-            if (!strcmp(pbuf, "Advanced Micro Devices, Inc.")) 
-            {
-                break;
-            }
-        }
+            platform = platforms[platform_id];
+//            if (!strcmp(pbuf, "Advanced Micro Devices, Inc.")) 
+//            {
+//                break;
+//            }
         delete[] platforms;
+    }
+    else
+    {
+	    printf("Platform index %d is out of range. \n", platform_id);
+	    exit(-4);
+
     }
 
 //  cl_uint numPlatforms;
@@ -204,7 +194,7 @@ initializeCL(void)
     cl_context_properties cps[3] = { CL_CONTEXT_PLATFORM, (cl_context_properties)platform, 0 };
     cl_context_properties* cprops = (NULL == platform) ? NULL : cps;
     context = clCreateContextFromType(cprops,
-        CL_DEVICE_TYPE_GPU,
+        USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU,
         NULL,
         NULL,
         &status);
@@ -235,7 +225,6 @@ initializeCL(void)
       (device list size, clGetContextInfo)\n";
     return 1;
   }
-
   /////////////////////////////////////////////////////////////////
   // Detect OpenCL devices
   /////////////////////////////////////////////////////////////////
@@ -268,8 +257,8 @@ initializeCL(void)
   /////////////////////////////////////////////////////////////////
   commandQueue = clCreateCommandQueue(
       context,
-      devices[0],
-      0,
+      devices[device_id],
+      TIMER_ENABLE,
       &status);
   if(status != CL_SUCCESS)
   {
@@ -420,7 +409,8 @@ void calc_potential_single_step(residue *residues,
   unsigned int *atom_lengths;
 
   initializeCL();
-  init_time();
+  INI_TIMER
+	init_time();
 
 
 
@@ -598,25 +588,58 @@ void calc_potential_single_step(residue *residues,
   vert_z_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_float)*nvert,   NULL, &err[14]);
   atom_addrs_s    = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_int)*nres,      NULL, &err[15]);
   atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_int)*nres,      NULL, &err[16]);
-
-  clEnqueueWriteBuffer ( commandQueue, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, NULL);
-  clEnqueueWriteBuffer ( commandQueue, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, NULL);
-
+	START_TIMER
+  clEnqueueWriteBuffer ( commandQueue, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
+  clEnqueueWriteBuffer ( commandQueue, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, &myEvent);
+END_TIMER
+	COUNT_H2D
   // clSetKernelArg( kernel, 0, sizeof(cl_mem), (void *)&outputBuffer);
   clSetKernelArg( kernel, 0, sizeof(cl_int), (void *)&    nres);// int nres,
   clSetKernelArg( kernel, 1, sizeof(cl_int), (void *)&    nvert);// int nvert,
@@ -648,14 +671,25 @@ void calc_potential_single_step(residue *residues,
   clSetKernelArg( kernel, 28, sizeof(cl_mem), (void *)&    vert_x_p_s);//__global float *vert_x_p_s
   clSetKernelArg( kernel, 29, sizeof(cl_mem), (void *)&    vert_y_p_s);//__global float *vert_y_p_s
   clSetKernelArg( kernel, 30, sizeof(cl_mem), (void *)&    vert_z_p_s);//__global float *vert_z_p_s)
+ 
+  size_t maxWorkItemSizes[3];
+ clGetDeviceInfo(
+      devices[0], 
+      CL_DEVICE_MAX_WORK_ITEM_SIZES, 
+      sizeof(size_t)*3,
+      (void*)maxWorkItemSizes,
+      NULL);
+
+    while(BLOCK_DIM_X*BLOCK_DIM_X>maxWorkItemSizes[0])
+                BLOCK_DIM_X = BLOCK_DIM_X/2;
+	BLOCK_DIM_Y = BLOCK_DIM_X;
+
 
   cl_int   status;
   cl_uint maxDims;
-  cl_event events[2];
   size_t globalThreads[2] = { BLOCK_DIM_X * BLOCK_DIM_Y, BLOCKS };
   size_t localThreads[2]  = { BLOCK_DIM_X * BLOCK_DIM_Y, 1 };
   size_t maxWorkGroupSize;
-  size_t maxWorkItemSizes[3];
 
 
   clGetDeviceInfo(
@@ -665,6 +699,7 @@ void calc_potential_single_step(residue *residues,
       (void*)&maxWorkGroupSize, 
       NULL);
 
+
   clGetDeviceInfo(
       devices[0], 
       CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, 
@@ -672,15 +707,9 @@ void calc_potential_single_step(residue *residues,
       (void*)&maxDims, 
       NULL);
 
-  clGetDeviceInfo(
-      devices[0], 
-      CL_DEVICE_MAX_WORK_ITEM_SIZES, 
-      sizeof(size_t)*maxDims,
-      (void*)maxWorkItemSizes,
-      NULL);
 
-  if(globalThreads[0] > maxWorkItemSizes[0] || 
-      localThreads[0] > maxWorkGroupSize)
+  if(globalThreads[0] > maxWorkGroupSize || 
+      localThreads[0] > maxWorkItemSizes[0])
   {
     std::cout<<"Unsupported: Device does not support requested number of work items."<<std::endl;
     std::cout<<"workgroup:"<< maxWorkGroupSize<<std::endl;
@@ -695,7 +724,8 @@ void calc_potential_single_step(residue *residues,
     clSetKernelArg( kernel, 9, sizeof(cl_int), (void *)&    eye);// int eye,
     fprintf(stderr,"finished first %d of %d\n", eye, nvert);
     /* copy the vert data of the current block to device */
-    status = clEnqueueNDRangeKernel(
+    START_TIMER
+	status = clEnqueueNDRangeKernel(
         commandQueue,
         kernel,
         2,
@@ -704,7 +734,7 @@ void calc_potential_single_step(residue *residues,
         localThreads,
         0,
         NULL,
-        &events[0]);
+        &myEvent);
     if(status != CL_SUCCESS) 
     { 
       std::cout<<
@@ -715,8 +745,10 @@ void calc_potential_single_step(residue *residues,
 
 
     /* wait for the kernel call to finish execution */
-    status = clWaitForEvents(1, &events[0]);
-    if(status != CL_SUCCESS) 
+    status = clWaitForEvents(1, &myEvent);
+    END_TIMER
+	COUNT_K
+	if(status != CL_SUCCESS) 
     { 
       std::cout<<
         "Error: Waiting for kernel run to finish. \
@@ -724,7 +756,6 @@ void calc_potential_single_step(residue *residues,
       return;
     }
 
-    clReleaseEvent(events[0]);
     //calc_potential_single_step_dev<<<dimGrid, dimBlock>>>(
     //    nres,
     //    nvert,
@@ -756,7 +787,7 @@ void calc_potential_single_step(residue *residues,
  
 	 if(eye > bound)
     eye = bound;
-
+	START_TIMER
   status = clEnqueueReadBuffer(
       commandQueue,
       vert_c_s,
@@ -766,8 +797,10 @@ void calc_potential_single_step(residue *residues,
       vert_c,
       0,
       NULL,
-      &events[1]);
-
+      &myEvent);
+	CL_FINISH(commandQueue)
+END_TIMER
+	COUNT_D2H
   if(status != CL_SUCCESS) 
   { 
     std::cout << 
@@ -778,7 +811,7 @@ void calc_potential_single_step(residue *residues,
   }
 
   /* Wait for the read buffer to finish execution */
-  status = clWaitForEvents(1, &events[1]);
+  status = clWaitForEvents(1, &myEvent);
   if(status != CL_SUCCESS) 
   { 
     std::cout<<
@@ -787,7 +820,6 @@ void calc_potential_single_step(residue *residues,
     return ;
   }
 
-  clReleaseEvent(events[1]);
 
   //a.charge = 0;
   //addr[1] = 0;
@@ -826,5 +858,6 @@ void calc_potential_single_step(residue *residues,
   //cudaFree(atoms_s);
 
   *i = eye;
+	PRINT_COUNT
 }
 

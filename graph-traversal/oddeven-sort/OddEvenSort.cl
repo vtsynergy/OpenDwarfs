@@ -1,4 +1,3 @@
-#define SHARED_SIZE_LIMIT 512
 
 __kernel void oddEvenMergeSortShared(
     __global unsigned int *d_DstKey,

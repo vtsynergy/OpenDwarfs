@@ -21,7 +21,7 @@ typedef struct
 } analytical_definitions_struct;
 
 
-extern int printf(constant char* format, ...);
+//extern int printf(constant char* format, ...);
 
 inline float dist2D(float x, float y, float z, float x2, float y2, float z2)
 {

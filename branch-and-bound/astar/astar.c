@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <CL/cl.h>
+
+#include "../../include/rdtsc.h"
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -12,9 +13,10 @@
 
 
 
-#define USEGPU 1
+//#define USEGPU 1
 #define CITIES 14
 
+int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
 void CPUsearch(
         int *h,
         int *city,
@@ -110,7 +112,8 @@ void CPUsearch(
 }
 
 int main(int argc, char** argv) {
-    cl_int err;
+    INI_TIMER
+	cl_int err;
     int i, j, k;
 
     unsigned int correct;
@@ -118,7 +121,6 @@ int main(int argc, char** argv) {
     size_t global_size;
     size_t local_size;
 
-    cl_platform_id platform_id;
     cl_device_id device_id;
     cl_context context;
     cl_command_queue commands;
@@ -133,7 +135,11 @@ int main(int argc, char** argv) {
     size_t kernelLength;
     size_t lengthRead;
     int start = 0, end = 1, result[CITIES * CITIES], traverse[CITIES * CITIES * CITIES], CPU_result[1];
-
+	if(argc == 3)
+	{
+		platform_id = atoi(argv[1]);
+		n_device = atoi(argv[2]);
+	}
     /* Fill input set with distance and heuristic value */
     int h[] = {0, 366, 272, 219, 139, 229, 389, 176, 90, 269, 166, 116, 79, 36,
         366, 0, 160, 242, 244, 178, 77, 241, 380, 98, 193, 253, 329, 374,
@@ -164,21 +170,14 @@ int main(int argc, char** argv) {
         118, -1, -1, -1, 111, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         75, -1, -1, -1, -1, -1, -1, -1, 71, -1, -1, -1, -1, -1};
 
-
-    /* Retrieve an OpenCL platform */
-    err = clGetPlatformIDs(1, &platform_id, NULL);
-    CHKERR(err, "Failed to get a platform!");
-
-    /* Connect to a compute device */
-    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-    CHKERR(err, "Failed to create a device group!");
+	device_id = GetDevice(platform_id, n_device);
 
     /* Create a compute context */
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
 
     /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
@@ -226,11 +225,16 @@ int main(int argc, char** argv) {
     CHKERR(err, "Failed to allocate device memory!");
 
     /* Write our data set into the input array in device memory */
-    err = clEnqueueWriteBuffer(commands, h_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, h, 0, NULL, NULL);
+   START_TIMER 
+	err = clEnqueueWriteBuffer(commands, h_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, h, 0, NULL, &myEvent);
+	END_TIMER
+	COUNT_H2D
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, city_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, city, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, city_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, city, 0, NULL, &myEvent);
     CHKERR(err, "Failed to write to source array!");
-
+	CL_FINISH(commands)
+	END_TIMER
+	COUNT_H2D
 
     /* Set the arguments to our compute kernel */
     err = 0;
@@ -254,18 +258,25 @@ int main(int argc, char** argv) {
     /* using the maximum number of work group items for this device */
     global_size = CITIES*CITIES;
     local_size = CITIES;
-    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+	START_TIMER
+    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
     CHKERR(err, "Failed to execute kernel!");
-
     /* Wait for the command commands to get serviced before reading back results */
     clFinish(commands);
 
+	END_TIMER
+	COUNT_K
     /* Read back the results from the device to verify the output */
-    err = clEnqueueReadBuffer(commands, result_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, result, 0, NULL, NULL);
+    START_TIMER
+	err = clEnqueueReadBuffer(commands, result_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, result, 0, NULL, &myEvent);
+	END_TIMER
+	COUNT_D2H
     CHKERR(err, "Failed to read output array!");
-    err = clEnqueueReadBuffer(commands, traverse_mem, CL_TRUE, 0, sizeof (int) *CITIES * CITIES*CITIES, traverse, 0, NULL, NULL);
+    err = clEnqueueReadBuffer(commands, traverse_mem, CL_TRUE, 0, sizeof (int) *CITIES * CITIES*CITIES, traverse, 0, NULL, &myEvent);
+	CL_FINISH(commands)
     CHKERR(err, "Failed to read output array!");
-
+	END_TIMER
+	COUNT_D2H
     /* Validate our results */
     for (i = 0; i < CITIES; i++)
         for (j = 0; j < CITIES; j++) {
@@ -276,17 +287,17 @@ int main(int argc, char** argv) {
             }
         }
     /* Print a brief summary detailing the results */
-    
+   #ifndef ENABLE_TIMER 
     for (i = 0; i < CITIES; i++) {
         for (k = 0; k < CITIES; k++) {
             printf("The shortest path from node %d to node %d is %d", i, k, i);
             for (j = 0; traverse[CITIES * CITIES * i + CITIES * k + j] != -1; j++)
-                printf("  %d", traverse[CITIES * CITIES * i + CITIES * k + j]);
+        printf("  %d", traverse[CITIES * CITIES * i + CITIES * k + j]);
             printf("  %d\n", k);
             printf("The shortest distance from %d to node %d is %d\n", i, k, result[CITIES * i + k]);
         }
     }
-
+#endif
 
     /* Shutdown and cleanup */
     clReleaseMemObject(h_mem);
@@ -297,7 +308,7 @@ int main(int argc, char** argv) {
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-
+	PRINT_COUNT
     return 0;
 }
 
