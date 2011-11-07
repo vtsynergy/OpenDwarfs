@@ -1,9 +1,14 @@
+//#define __CL_ENABLE_EXCEPTIONS
+//#ifdef __APPLE__
+//#include <OpenCL/cl.hpp>
+//#else
+//#include <CL/cl.hpp>
+//#endif
+#if defined(__cplusplus)
 #define __CL_ENABLE_EXCEPTIONS
-#ifdef __APPLE__
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
+#include "cl.hpp"
+#endif /* __cplusplus */
+
 #include "OpenCLNodePlatformContainer.h"
 #include "support.h"
 #include <stdlib.h>

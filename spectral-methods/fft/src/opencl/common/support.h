@@ -7,14 +7,20 @@
 #include <stdlib.h>
 #include <string.h>
 
+//#if defined(__cplusplus)
+//#define __CL_ENABLE_EXCEPTIONS
+//#ifdef __APPLE__
+//#include <OpenCL/cl.hpp>
+//#else
+//#include <CL/cl.hpp>
+//#endif
+//#endif /* __cplusplus */
+
 #if defined(__cplusplus)
 #define __CL_ENABLE_EXCEPTIONS
-#ifdef __APPLE__
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
+#include "cl.hpp"
 #endif /* __cplusplus */
+
 
 // ****************************************************************************
 // File:  support.h

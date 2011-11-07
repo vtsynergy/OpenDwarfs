@@ -195,19 +195,22 @@ srad_cuda_2(
 
     barrier(CLK_LOCAL_MEM_FENCE);
 	 
-	south_c[ty][tx] = C_cuda[index_s];
 
 	if ( by == get_num_groups(1) - 1 ){
 	south_c[ty][tx] = C_cuda[cols * BLOCK_SIZE * (get_num_groups(1) - 1) + BLOCK_SIZE * bx + cols * ( BLOCK_SIZE - 1 ) + tx];
 	}
+    else
+	south_c[ty][tx] = C_cuda[index_s];
+    
 	barrier(CLK_LOCAL_MEM_FENCE);
 	 
 	 
-	east_c[ty][tx] = C_cuda[index_e];
 	
 	if ( bx == get_num_groups(0) - 1 ){
 	east_c[ty][tx] = C_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * ( get_num_groups(0) - 1) + cols * ty + BLOCK_SIZE-1];
 	}
+    else
+	east_c[ty][tx] = C_cuda[index_e];
 	 
     barrier(CLK_LOCAL_MEM_FENCE);
   

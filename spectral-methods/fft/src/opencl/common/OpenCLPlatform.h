@@ -4,15 +4,19 @@
 #include <iostream>
 #include <string>
 #include <list>
-#define __CL_ENABLE_EXCEPTIONS
-#ifdef __APPLE__
-#include <OpenCL/cl.hpp>
-#else
-#include <CL/cl.hpp>
-#endif
+//#define __CL_ENABLE_EXCEPTIONS
+//#ifdef __APPLE__
+//#include <OpenCL/cl.hpp>
+//#else
+//#include <CL/cl.hpp>
+//#endif
 #include "support.h"
 #include "OpenCLDeviceInfo.h"
 #include "Platform.h"
+#if defined(__cplusplus)
+#define __CL_ENABLE_EXCEPTIONS
+#include "cl.hpp"
+#endif /* __cplusplus */
 
 using namespace std;
 

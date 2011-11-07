@@ -4,14 +4,18 @@
 #include <string.h>
 #include <math.h>
 #include "srad.h"
+#include <string.h>
+
 int  BLOCK_SIZE = 16;
 #include "../../include/rdtsc.h"
 int platform_id = PLATFORM_ID, device_id = DEVICE_ID;
 // includes, project
+
+
 #define CHECKERR(err) \
     if (err != CL_SUCCESS) \
     { \
-        fprintf(stderr, "Error: %d\n", err);\
+        fprintf(stderr, "Error: %d in line: %d\n", err, __LINE__);\
         exit(1); \
     }
 //#define USEGPU 1
@@ -320,8 +324,8 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
 	START_TIMER
     errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
 	CL_FINISH(clCommands)
-    	END_TIMER
-	COUNT_K
+        END_TIMER
+        COUNT_K
 	CHECKERR(errcode);
     errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
     errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);

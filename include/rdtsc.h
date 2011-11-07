@@ -106,5 +106,6 @@ GetDevice(int platform, int device)
 	return devices[device];
 }
 
+
 #endif
 
