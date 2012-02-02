@@ -1,11 +1,58 @@
-astar
+A* search use best search algorithm to find the least cost path from a
+starting node to one goal node. For this application, we try to find
+all pair shortest path with A* search with each working thread looking
+for one pair of shortest path. It uses a distance plus cost heuristic
+function to determine the search order.  The function contains two
+parts. First part, the path-function , g(x), which is the shortest
+path from starting node to the current node. The second part, the
+heuristic function, h(x), which is the Euclid distance from starting
+node to the current node.  We choose to explore the node with minimum
+f(x)= g(x)+h(x) first in each iteration till we reach the goal node.
+The following pusedo code explain the algorithm from
+http://en.wikipedia.org/wiki/A*_search_algorithm
+function A*(start,goal)
+    // The set of nodes already evaluated.
+    closedset := the empty set
+    // The set of tentative nodes to be evaluated.
+    openset := set containing the initial node
+    // The map of navigated nodes.
+    came_from := the empty map
+    // Distance from start along optimal path.
+    g_score[start] := 0
+    h_score[start] := heuristic_estimate_of_distance(start, goal)
+    // Estimated total distance from start to goal through y.
+    f_score[start] := h_score[start](
+    while openset is not empty
+        x := the node in openset having the lowest f_score[] value
+        if x = goal
+            return reconstruct_path(came_from, came_from[goal])
+        remove x from openset
+        add x to closedset
+        foreach y in neighbor_nodes(x)
+            if y in closedset
+                continue
+            tentative_g_score := g_score[x] + dist_between(x,y)
 
-Status: PRE-ALPHA
+            if y not in openset
+                add y to openset
+                tentative_is_better := true
+            elseif tentative_g_score < g_score[y]
+                tentative_is_better := true
+            else
+                tentative_is_better := false
+            if tentative_is_better = true
+                came_from[y] := x
 
-Synopsis: A* search is an algorithm for finding the lowest cost path in a graph from one node to another.  This program performance pair-wise A* searches for the entire given graph.
+                g_score[y] := tentative_g_score
+                h_score[y] := heuristic_estimate_of_distance(y, goal)
+                f_score[y] := g_score[y] + h_score[y]
+                Update(closedset,y)
+                Update(openset,y)
 
-Options:  There are no options for this program.
+    return failure
 
-Example: astar
 
-Notes:
+Running
+-------
+
+Usage: ./astar
