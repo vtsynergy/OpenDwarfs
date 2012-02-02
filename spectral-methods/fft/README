@@ -1,5 +1,46 @@
 Fast Fourier Transform
 ======================
 
+Performs the Fast Fourier Transform (FFT) function on a random data set.
+
 Note: This application belongs to the SHOC suite
       (http://ft.ornl.gov/doku/shoc/).
+
+Running
+-------
+
+Usage: clfft [--2D ]
+                 [--configFile value]
+                 [--device n1,n2,...]
+                 [--help ]
+                 [--infoDevices ]
+                 [--passes number]
+                 [--platform number]
+                 [--pts number]
+                 [--pts1 number]
+                 [--pts2 number]
+                 [--quiet ]
+                 [--size n1,n2,...]
+                 [--verbose ]
+
+Available Options: 
+        --2D                     2D FFT
+    -c, --configFile             specify configuration file
+    -d, --device                 specify device(s) to run on
+    -h, --help                   print this usage
+    -i, --infoDevices            show info for available platforms and devices
+    -n, --passes                 specify number of passes
+    -p, --platform               specify OpenCL platform to use
+        --pts                    data size (in megabytes)
+        --pts1                   data size (in megabytes)
+        --pts2                   data size (in megabytes)
+    -q, --quiet                  write minimum necessary to standard output
+    -s, --size                   specify problem size
+    -v, --verbose                enable verbose output
+
+Example: clfft --pts 1
+
+Notes
+-----
+The pts argument must be specified if the FFT is one-dimensional.  If the FFT
+is 2-dimensional, then both -pts1 and -pts2 must be defined (numbers 1-7).

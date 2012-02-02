@@ -1,14 +1,17 @@
 Computational Fluid Dynamics
 ==================
 
-The CFD solver is an unstructured grid dwarf.  It finite volume solver for three-dimensional Euler equations for compressible flow.
+The CFD solver is an unstructured grid dwarf.  It is a finite volume solver for
+three-dimensional Euler equations for compressible flow.
 
-This program has been ported from the Rodinia Benchmark Suite.
+Note: This program has been ported from the Rodinia Benchmark Suite.
 Copyright 2009, Andrew Corrigan, acorrigan@gmu.edu
 
 Running
 -------
 
-Usage: ./bfs filename
+Usage: cfd <filename>
 
-    filename         :the name of the file from which to read data.
+    filename - the name of the file from which to read data.
+
+Example: cfd fvcorr.domn.097K

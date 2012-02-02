@@ -3,9 +3,13 @@ Odd-Even Sort
 
 Status: Pre-Alpha
 
+Performs an odd-even sort on a 512 length array.
+
 Running
 -------
 
-Usage: 
+Usage: oesort [platform_id] [n_device]
+	platform_id 	- platform ID to run kernels on
+	n_device 	- device ID to run kernels on
 
-Example:
+Example: oesort 0 0

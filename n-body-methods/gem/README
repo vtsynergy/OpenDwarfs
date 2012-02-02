@@ -1,3 +1,5 @@
+GEM
+===
 
 GEM is a package designed to be a sandbox for experimenting with
 biomolecular visualization and electrostatic potential
@@ -11,8 +13,25 @@ around it.
 
 COMPILE: ./build.sh 
 
-RUN: 
+Running
+-------
 
+Usage: gemnoui [molname diel_ext diel_int salinity] <options>
+molname, diel_ext, diel_int, and salinity are all required together if present
+molname is the name of the molecule
+diel_ext is the exterior dielectric charge
+diel_int is the interior dielectric charge
+salinity is the salinity of the environment
+and <options> can be any combination of the following:
+	-projLen       <length>
+	-triDens       <triangles>
+	-probeRad      <radius>
+	-fixA          <electrostatic radius>
+	-dumpVertices  <fileName>
+	-p  <platform>
+	-d  <device>
+
+Example:
 gemnoui Mb.Hhelix.bondi 80 1 0 -dumpVertices phi.out 
 
 This assumes that you have Mb.Hhelix.bondi.pqr (structure + charges + radii) 
