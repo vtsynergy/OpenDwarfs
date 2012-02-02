@@ -1,18 +1,23 @@
-kmeans
+k-means clustering
+==================
 
-Status: ALPHA
-
-Synopsis: In k-means, a data object is comprised of several values, called
-features. By dividing a cluster of data objects into K sub-clusters, k-means
-represents all the data objects by the mean values or centroids of their
-respective sub-clusters. The initial cluster center for each sub-cluster is
-randomly chosen or derived from some heuristic. In each iteration, the algorithm
+In k-means, a data object is comprised of several values, called features. By
+dividing a cluster of data objects into K sub-clusters, k-means represents all
+the data objects by the mean values or centroids of their respective
+sub-clusters. The initial cluster center for each sub-cluster is randomly
+chosen or derived from some heuristic. In each iteration, the algorithm
 associates each data object with its nearest center, based on some chosen
 distance metric. The new centroids are calculated by taking the mean of all the
 data objects within each sub-cluster respectively. The algorithm iterates until
 no data objects move from one sub-cluster to another. 
 
-Options: kmeans [options] -i <filename>
+Note: This application was ported from the Rodinia Suite
+      (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).
+
+Running
+-------
+
+Usage: kmeans [options] -i <filename>
 
     -i filename      :file containing data to be clustered
     -m max_nclusters :maximum number of clusters allowed    [default=5]
@@ -24,9 +29,3 @@ Options: kmeans [options] -i <filename>
     -o               :output cluster center coordinates     [default=off]
 
 Example: kmeans -o -i test/dense-linear-algebra/kmeans/100
-
-Notes:
-
-This application was ported from the Rodinia Suite
-(https://www.cs.virginia.edu/~skadron/wiki/rodinia/).
-
