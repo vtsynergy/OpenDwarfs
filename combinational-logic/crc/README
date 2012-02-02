@@ -1,28 +1,33 @@
 Cyclic Redundancy Check
+=======================
 
-Status: ALPHA
-
-Synopsis: Cyclic Redundancy Check (CRC) is an error-detecting code which is
-designed to detect errors caused by network transmission or any other
-accidental error. Specifically, CRC is designed to catch burst errors in
-data that is transfered. Polynomial division is performed on the data stream S
-by the CRC polynomial. This polynomial is predetermined.  The remainder from
-this division is the CRC value.  This value is typically added to the end of the
-data stream as it is sent out.  When the reciever divides the recieved datastream,
-the division will return no remainder on a successful transmission.
+Cyclic Redundancy Check (CRC) is an error-detecting code which is designed
+to detect errors caused by network transmission or any other accidental error.
+Specifically, CRC is designed to catch burst errors in data that is transfered.
+Polynomial division is performed on the data stream S by the CRC polynomial.
+This polynomial is predetermined.  The remainder from this division is the CRC
+value.  This value is typically added to the end of the data stream as it is sent
+out.  When the reciever divides the recieved datastream, the division will return
+no remainder on a successful transmission.
 
 Currently data for this algorithm is created on the spot (using the rand() function).
 Also, currently only an 8-bit CRC polynomial is allowed.
 If inputing a file, the file will be clipped to 32768 bytes. 
 
-Options: crc [hsivp]
+Running
+-------
+
+Usage: crc [hsivp]
+
 h         - print this help message
 s {seed}  - set the seed for the vertex
 i {file}  - take input from file instead of randomly generating code
 v         - verify parallel code with serial implementation of crc
 p {num}   - change the last 8 bits of the crc polynomial
 
-Example:
+Example Usage
+-------------
+
 #Runs the code on a random data set with no verification
 crc
 
@@ -32,5 +37,3 @@ crc -s 1000 -v
 
 #Runs crc with a modified polynomial
 crc -p 7
-
-Notes:
