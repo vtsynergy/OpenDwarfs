@@ -1,6 +1,8 @@
 k-means clustering
 ==================
 
+Status: Alpha
+
 In k-means, a data object is comprised of several values, called features. By
 dividing a cluster of data objects into K sub-clusters, k-means represents all
 the data objects by the mean values or centroids of their respective

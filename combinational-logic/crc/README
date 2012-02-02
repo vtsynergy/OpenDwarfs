@@ -1,6 +1,8 @@
 Cyclic Redundancy Check
 =======================
 
+Status: Alpha
+
 Cyclic Redundancy Check (CRC) is an error-detecting code which is designed
 to detect errors caused by network transmission or any other accidental error.
 Specifically, CRC is designed to catch burst errors in data that is transfered.

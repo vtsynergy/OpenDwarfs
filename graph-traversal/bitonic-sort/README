@@ -1,6 +1,7 @@
- 
 Bitonic Sort
-=======================
+============
+
+Status: Alpha
 
 Bitonic mergesort is a parallel algorithm for sorting. It is also
  used as a construction method for building a sorting network. The 
@@ -16,3 +17,5 @@ Usage: bosrt [ns]
 h         - print this help message
 s {seed} - set the seed for the random number
 n {number} - number of items to be sorted( must be power of 2)
+
+Example: bsort -s 1024 -n 4096
