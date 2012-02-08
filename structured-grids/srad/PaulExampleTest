@@ -1,0 +1,9 @@
+Laptop: 560M with OpenCL 1.1, 64-bit Ubuntu 11.10
+
+Configure and Build work without error. Tested for arguments:
+
+256 256 0 127 0 127 0.5 2
+1024 1024 0 127 0 127 0.5 2
+4096 4096 0 127 0 127 0.5 2
+
+No apparent errors.

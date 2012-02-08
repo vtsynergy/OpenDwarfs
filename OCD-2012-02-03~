@@ -1,0 +1,26 @@
+Try "Example commands"
+
+Make sure they run from root directory / directory benchmark is in
+	-Don't care, just standardize
+
+Towards a 1.0:
+Tweaked Documentation
+Automated Testing
+	-Might require changes to common header 
+	-Standardizing timing, etc.
+Initialization STuff
+	-Some benchmarks can't run on cards below a certain size
+	-Let Init system bail and emit a mean‌ingful error if conditions aren't met
+	-(Maybe after 1.0) Command Line parsing?
+		-Device selection
+		
+
+THIS WEEK!
+Test examples / fix
+Look at how timing is done
+How does centralized stuff work?
+
+Input on timing facility to use (right now gettimeofday)
+	-Maybe OpenCL timers?
+	-How feasible is this?
+

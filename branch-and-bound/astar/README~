@@ -4,7 +4,7 @@ A* Search
 Status: Pre-Alpha
 
 The A* search is a lowest-cost path traversal algorithm.  This application
-performs a pair-wise set of A* searches for a given graph.
+performs a pair-wise set of A* seraches for a given graph.
 
 
 Running

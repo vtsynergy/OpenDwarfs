@@ -1,0 +1,15 @@
+Laptop: 560M with OpenCL 1.1, 64-bit Ubuntu 11.10
+
+Configure and Build work without error. Tested with following arguments:
+
+--pts 1
+--pts 4
+--pts 20
+--pts 32
+--pts 16
+--pts 8
+--pts 4
+--pts 7
+--pts 3
+
+For all --pts >= 8, fails with "Invalid size index specified". We should explicitly state the argument bounds.

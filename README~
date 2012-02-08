@@ -15,7 +15,6 @@ To build:
     autoconf >= 2.63
     autoheader
     automake
-    libtool
     gcc
     make
 

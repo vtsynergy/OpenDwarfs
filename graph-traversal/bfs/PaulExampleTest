@@ -1,0 +1,3 @@
+Laptop: 560M with OpenCL 1.1, 64-bit Ubuntu 11.10
+
+Configure and Build work without error. Tested all four graphs available in test/graph-traversal/rodinia-bfs. All appear to execute without error.

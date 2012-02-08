@@ -12,7 +12,7 @@ where n is the number items to be sorted
 Running
 -------
 
-Usage: bosrt [ns]
+Usage: bsort [ns]
 
 h         - print this help message
 s {seed} - set the seed for the random number

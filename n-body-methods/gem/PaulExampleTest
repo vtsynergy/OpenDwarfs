@@ -1,0 +1,7 @@
+Laptop: 560M with OpenCL 1.1, 64-bit Ubuntu 11.10
+
+Configure and Build work without error.
+Tested for all provided structures.
+Mb.Hhelix.bondi, nucleosome, and 1uwo_A all compute successfully.
+death_star fails with "Error:Waiting for kernel run to finish. (clWaitForEvents)" after "finished first 30720 of 670160".
+Appears to be an automatic kernel timeout for Xwindows, awaiting test on a headless GPU.

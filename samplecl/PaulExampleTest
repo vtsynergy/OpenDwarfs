@@ -1,0 +1,3 @@
+Laptop: 560M with OpenCL 1.1, 64-bit Ubuntu 11.10
+
+Configure and Build work without error. Example run without command line arguments executes successfully.
