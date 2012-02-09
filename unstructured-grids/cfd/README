@@ -14,4 +14,4 @@ Usage: cfd <filename>
 
     filename - the name of the file from which to read data.
 
-Example: cfd fvcorr.domn.097K
+Example: cfd test/unstructured-grids/cfd/fvcorr.domn.097K
