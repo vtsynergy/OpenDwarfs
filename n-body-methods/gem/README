@@ -32,7 +32,7 @@ and <options> can be any combination of the following:
 	-d  <device>
 
 Example:
-gemnoui Mb.Hhelix.bondi 80 1 0 -dumpVertices phi.out 
+gemnoui test/n-body-methods/gem/Mb.Hhelix.bondi 80 1 0 -dumpVertices phi.out 
 
 This assumes that you have Mb.Hhelix.bondi.pqr (structure + charges + radii) 
 file in the directory you run gemnoui. If you don't have MSMS installed, 

@@ -153,7 +153,7 @@ countCandidates(__global float* episodeSupport, long eventSize, int level, int s
 
 									addToList(timestampMatrix, timestampSize, symbolIdx, read_imagef(timeTex, sampler, IMAGE_POS(eventIdx)).x);
 								}
-								break;
+//								break;
 							}
 						}
 					}
@@ -394,7 +394,7 @@ void countCandidatesMapMerge(__global float* episodeSupport, long eventSize, int
 									//addToList(timestampMatrix, timestampSize, symbolIdx, tex1Dfetch(timeTex, eventIdx));
 									addToList(timestampMatrix, timestampSize, symbolIdx, read_imagef(timeTex, sampler, IMAGE_POS(eventIdx)).x);
 								}
-								break;
+								//break;
 							}
 						}
 					}

@@ -1,7 +1,7 @@
 Temporal Data Mining
 ====================
 
-Status: Alpha
+Status: Pre-Alpha
 
 The Temporal Data Mining(TDM) code is a restricted variant of
 association rule data mining.  In this case, temporal data is
@@ -21,4 +21,4 @@ Usage: tdm <filepath> <temporal constraints path> <threads> <support> <(a)bsolut
     <(m)ap and merge or (n)aive :algorithm type to use
         or (h)ybrid>           
 
-Example: tdm  
+Example: tdm test/finite-state-machine/tdm/stream-new-1.csv test/finite-state-machine/tdm/streamIntervals.txt 100 0.5 r s n 0 0   

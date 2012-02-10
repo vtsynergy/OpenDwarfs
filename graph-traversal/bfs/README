@@ -19,4 +19,4 @@ Usage: bfs <filename>
 
 	<filename> - name of the graph file
 
-Example: bfs medium_graph.txt
+Example: bfs test/graph-traversal/bfs/medium_graph.txt

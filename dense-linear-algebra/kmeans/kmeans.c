@@ -131,7 +131,7 @@ int setup(int argc, char **argv) {
 		//float	cluster_timing, io_timing;		
 
 		/* obtain command line arguments and change appropriate options */
-		while ( (opt=getopt(argc,argv,"i:t:m:n:l:bro:p:d:"))!= EOF) {
+		while ( (opt=getopt(argc,argv,"i:t:m:n:l:brop:d:"))!= EOF) {
         switch (opt) {
             case 'i': filename=optarg;
                       break;
