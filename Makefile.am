@@ -22,6 +22,10 @@ if build_nw
 include dynamic-programming/nw/Makefile.mk
 endif
 
+if build_swat
+include dynamic-programming/swat/Makefile.mk
+endif
+
 if build_srad
 include structured-grids/srad/Makefile.mk
 endif

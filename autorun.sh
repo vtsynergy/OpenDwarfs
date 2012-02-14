@@ -27,6 +27,32 @@ else
 #clean data
 rm $DWAFT_PATH/$OUTPUT_PATH/*
 fi
+
+
+#swat
+EXC_FILE=swat
+echo "$EXC_FILE Begin..."
+OUTPUT_FILE=$OUTPUT_PATH/$EXC_FILE.txt
+date > $OUTPUT_FILE
+INPUT_PATH="$DWAFT_PATH/test/dynamic-programming/swat"
+INPUT_FILE1=("$INPUT_PATH/query1K1" \
+	"$INPUT_PATH/query2K1" \
+	"$INPUT_PATH/query3K1" \
+	"$INPUT_PATH/query4K1" \
+	"$INPUT_PATH/query5K1")
+
+INPUT_FILE2=("$INPUT_PATH/sampledb1K1" \
+	"$INPUT_PATH/sampledb2K1" \
+	"$INPUT_PATH/sampledb3K1" \
+	"$INPUT_PATH/sampledb4K1" \
+	"$INPUT_PATH/sampledb5K1")
+for ((  i = 0 ;  i < 5;  i++  ))
+do
+        echo -e "\n$DWAFT_PATH/$EXC_FILE  ${INPUT_FILE1[$i]} ${INPUT_FILE2[$i]}" >> $OUTPUT_FILE
+        $DWAFT_PATH/$EXC_FILE  ${INPUT_FILE1[$i]} ${INPUT_FILE2[$i]}>> $OUTPUT_FILE
+done 
+
+
 #gemnoui
 EXC_FILE=gemnoui
 echo "$EXC_FILE Begin..."
@@ -192,6 +218,7 @@ do
 echo -e "\n$DWAFT_PATH/$EXC_FILE --pts $i" >> $OUTPUT_FILE
 $DWAFT_PATH/$EXC_FILE --pts $i >> $OUTPUT_FILE
 done
+
 
 #get cpu info
 cat /proc/cpuinfo > $OUTPUT_PATH/cpuinfo.txt

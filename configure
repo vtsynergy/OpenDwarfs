@@ -628,6 +628,8 @@ build_crc_FALSE
 build_crc_TRUE
 build_csr_FALSE
 build_csr_TRUE
+build_swat_FALSE
+build_swat_TRUE
 build_fft_FALSE
 build_fft_TRUE
 build_samplecl_FALSE
@@ -1433,7 +1435,7 @@ Optional Packages:
   --with-opencl-sdk       path to the OpenCL SDK
   --with-opencl           path to OpenCL
   --with-apps             Applications to build
-                          (gem,nw,srad,lud,kmeans,fft,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar)
+                          (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar)
 
 Some influential environment variables:
   CC          C compiler command
@@ -17247,13 +17249,14 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 if test "${with_apps+set}" = set; then :
   withval=$with_apps; app_list=$withval
 else
-  app_list=gem,nw,srad,lud,kmeans,fft,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar
+  app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar
 fi
 
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
 build_gem=false
 build_fft=false
+build_swat=false
 #build_matmult=false
 #build_mattran=false
 #build_swat=false
@@ -17342,6 +17345,10 @@ for app in ${app_names}; do
         build_fft=true
         selected_apps="$selected_apps fft"
         ;;
+      swat)
+        build_swat=true
+        selected_apps="$selected_apps swat"
+        ;;
       tdm)
 	build_tdm=true
         selected_apps="$selected_apps tdm"
@@ -17419,6 +17426,14 @@ fi
 else
   build_fft_TRUE='#'
   build_fft_FALSE=
+fi
+
+ if $build_swat; then
+  build_swat_TRUE=
+  build_swat_FALSE='#'
+else
+  build_swat_TRUE='#'
+  build_swat_FALSE=
 fi
 
  if $build_csr; then
@@ -17652,6 +17667,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${build_fft_TRUE}" && test -z "${build_fft_FALSE}"; then
   as_fn_error $? "conditional \"build_fft\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${build_swat_TRUE}" && test -z "${build_swat_FALSE}"; then
+  as_fn_error $? "conditional \"build_swat\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${build_csr_TRUE}" && test -z "${build_csr_FALSE}"; then
