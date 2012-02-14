@@ -1,7 +1,11 @@
 #include "global.h"
 #include "functions.h"
 #include "timeRec.h"
-#include <CL/opencl.h>
+#ifdef __APPLE__
+#include <OpenCL/opencl.h>
+#else
+#include <CL/cl.h>
+#endif
 
 /*************************************************************
  **************** Version 1 **********************************

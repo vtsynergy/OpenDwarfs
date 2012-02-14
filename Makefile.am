@@ -62,13 +62,13 @@ if build_bfs
 include graph-traversal/bfs/Makefile.mk
 endif
 
-if build_bsort
-include graph-traversal/bitonic-sort/Makefile.mk
-endif
+#if build_bsort
+#include graph-traversal/bitonic-sort/Makefile.mk
+#endif
 
-if build_oesort
-include graph-traversal/oddeven-sort/Makefile.mk
-endif
+#if build_oesort
+#include graph-traversal/oddeven-sort/Makefile.mk
+#endif
 
 if build_tdm
 include finite-state-machine/tdm/Makefile.mk

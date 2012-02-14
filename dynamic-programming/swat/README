@@ -20,6 +20,6 @@ Example:
     #aligns query1K1 against sampledb1K1        
     swat query1K1 sampledb1K1
     
-    #aligns query2K2 against sampledb2K@ with modified open penalty
+    #aligns query2K2 against sampledb2K2 with modified open penalty
     swat quary2K2 sampledb2K2 10.0 0.5 14
 

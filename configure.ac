@@ -103,8 +103,8 @@ AC_LANG_POP([C++])
 #	AC_HELP_STRING([--with-apps],[Applications to build (gem,matmult,mattran,swat)]),
 #	[app_list=$withval],[app_list=gem,matmult,mattran,swat])
 AC_ARG_WITH([apps],
-	AC_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar)]),
-	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar])
+	AC_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar)]),
+	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar])
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
 build_gem=false
@@ -121,8 +121,8 @@ build_samplecl=false
 build_csr=false
 build_crc=false
 build_cfd=false
-build_bsort=false
-build_oesort=false
+#build_bsort=false
+#build_oesort=false
 build_bfs=false
 build_tdm=false
 build_astar=false
@@ -166,14 +166,14 @@ for app in ${app_names}; do
         build_crc=true
         selected_apps="$selected_apps crc"
         ;;
-     bsort)
-        build_bsort=true
-        selected_apps="$selected_apps bsort"
-        ;;
-     oesort)
-        build_oesort=true
-        selected_apps="$selected_apps oesort"
-        ;;
+#     bsort)
+#        build_bsort=true
+#        selected_apps="$selected_apps bsort"
+#        ;;
+#     oesort)
+#        build_oesort=true
+#        selected_apps="$selected_apps oesort"
+#        ;;
      nw)
         build_nw=true
         selected_apps="$selected_apps nw"
@@ -235,8 +235,8 @@ AM_CONDITIONAL([build_swat], [$build_swat])
 AM_CONDITIONAL([build_csr], [$build_csr])
 AM_CONDITIONAL([build_crc], [$build_crc])
 AM_CONDITIONAL([build_cfd], [$build_cfd])
-AM_CONDITIONAL([build_bsort], [$build_bsort])
-AM_CONDITIONAL([build_oesort], [$build_oesort])
+#AM_CONDITIONAL([build_bsort], [$build_bsort])
+#AM_CONDITIONAL([build_oesort], [$build_oesort])
 AM_CONDITIONAL([build_bfs], [$build_bfs])
 AM_CONDITIONAL([build_tdm], [$build_tdm])
 AM_CONDITIONAL([build_astar], [$build_astar])
