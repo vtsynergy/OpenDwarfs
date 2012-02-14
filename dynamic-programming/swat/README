@@ -1,0 +1,25 @@
+Smith-Waterman
+================
+
+Smith-Waterman is a variant of the Needleman-Wunsch algorithm for computing local alignment between two DNA sequences. Smith-Waterman requires all negative values in the output scoring matrix to be reset to zero, which effectively truncates non-beneficial paths through the matrix. See ../nw/README for a description of the Needleman-Wunsch global sequence alignment algorithm.
+
+
+Running
+-------
+
+Usage: swat <queryFile> <dbFile> [<openPenalty> <extensionPenalty> <workGroups>]
+
+    queryFile           :filename of query sequence
+    dbFile              :filename of sequence database
+    openPenalty         :penalty to open a gap (Default: 5.0)
+    extensionPenalty    :penalty for gap extensions (Default: 0.5)
+    workGroups          :number of OpenCL work-groups to use (Default: 14)
+
+Example:
+
+    #aligns query1K1 against sampledb1K1        
+    swat query1K1 sampledb1K1
+    
+    #aligns query2K2 against sampledb2K@ with modified open penalty
+    swat quary2K2 sampledb2K2 10.0 0.5 14
+
