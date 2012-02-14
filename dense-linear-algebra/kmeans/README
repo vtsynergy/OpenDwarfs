@@ -3,15 +3,8 @@ k-means clustering
 
 Status: Alpha
 
-In k-means, a data object is comprised of several values, called features. By
-dividing a cluster of data objects into K sub-clusters, k-means represents all
-the data objects by the mean values or centroids of their respective
-sub-clusters. The initial cluster center for each sub-cluster is randomly
-chosen or derived from some heuristic. In each iteration, the algorithm
-associates each data object with its nearest center, based on some chosen
-distance metric. The new centroids are calculated by taking the mean of all the
-data objects within each sub-cluster respectively. The algorithm iterates until
-no data objects move from one sub-cluster to another. 
+K-means performs a local clustering algorithm to represent a collection of data objects by means of sub-cluster centroids. Each sub-cluster seed is initally set randomly or based on a heuristic. Each step of the algorithm computes the nearest centroid for each data object, then relocates the centroid to the mean of all objects within the sub-cluster. Execution terminates when no clusters change size between iterations.
+
 
 Note: This application was ported from the Rodinia Suite
       (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).

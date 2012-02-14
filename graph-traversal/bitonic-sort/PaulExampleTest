@@ -1,3 +1,0 @@
-Laptop: 560M with OpenCL 1.1, 64-bit Ubuntu 11.10
-
-Configure and Build work without error. Tested the provided command line. Results appear valid. Output formatting leaves something to be desired, we could stand to clean this one up.
