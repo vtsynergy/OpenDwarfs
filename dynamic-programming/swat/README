@@ -13,7 +13,7 @@ Usage: swat <queryFile> <dbFile> [<openPenalty> <extensionPenalty> <workGroups>]
     dbFile              :filename of sequence database
     openPenalty         :penalty to open a gap (Default: 5.0)
     extensionPenalty    :penalty for gap extensions (Default: 0.5)
-    workGroups          :number of OpenCL work-groups to use (Default: 14)
+    workGroups          :number of OpenCL work-groups to request (Default: 14)
 
 Example:
 
@@ -23,3 +23,6 @@ Example:
     #aligns query2K2 against sampledb2K2 with modified open penalty
     swat quary2K2 sampledb2K2 10.0 0.5 14
 
+Notes:
+
+    The "workGroups" parameter, including the default of 14, is only a request. The algorithm requires workGroups be <= the number of compute units on the device, and is automatically scaled downwards if necessary.

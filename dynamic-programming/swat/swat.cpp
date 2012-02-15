@@ -25,6 +25,11 @@ verOpenCL4 Opencl implemenation, GPU lock-based sync
 		exit(1); \
 	} \
 
+#define MIN(a, b) \
+	(a < b ? a : b) \
+
+
+
 char * loadSource(char *filePathName, size_t *fileSize)
 {
 	FILE *pfile;
@@ -83,6 +88,8 @@ int main(int argc, char ** argv)
 	size_t blockSize = 64;
 	size_t setZeroThreadNum, mfThreadNum;
 	int blockNum = 14;
+
+
 	int arraySize;
 
     struct timeval t1, t2;
@@ -102,7 +109,10 @@ int main(int argc, char ** argv)
 		extensionPenalty = atof(argv[4]);
 		blockNum = atoi(argv[5]);
 	}
-	mfThreadNum = blockNum * blockSize;
+
+
+	//relocated to after MAX_COMPUTE_UNITS check
+	//mfThreadNum = blockNum * blockSize;
 
 	//for opencl initialization
 	cl_int err;
@@ -120,6 +130,20 @@ int main(int argc, char ** argv)
 
 	err = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 1, &deviceID, NULL);
 	CHECK_ERR(err, "Get device ID error!");
+
+
+	//check to make sure the device supports this block count
+	//then scale threads appropriately
+	cl_uint devBlockNum = 0;
+	CHECK_ERR(clGetDeviceInfo(deviceID, CL_DEVICE_MAX_COMPUTE_UNITS,\
+		sizeof(cl_uint), &devBlockNum, 0), \
+		"Error while querying CL_DEVICE_MAX_COMPUTE_UNITS.");
+	if (devBlockNum == MIN(blockNum, devBlockNum)) {
+		printf("Scaling blocks from %d to %d to fit on device\n",\
+			blockNum, devBlockNum);
+		blockNum = devBlockNum;
+	}
+	mfThreadNum = blockNum * blockSize;
 	
 	hContext = clCreateContext(0, 1, &deviceID, 0, 0, &err);
 	CHECK_ERR(err, "Create context from type error");
