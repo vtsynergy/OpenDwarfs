@@ -11,14 +11,18 @@ Stable:
 gem
 
 Beta:
-
-Alpha:
 bfs
+cfd
 crc
+fft
 kmeans
 lud
+nw
+spmv
+srad
+swat
 
-Pre-alpha:
+Alpha:
 astar
 tdm
 

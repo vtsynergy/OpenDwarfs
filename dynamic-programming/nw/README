@@ -1,6 +1,8 @@
 Needleman-Wunsch
 ================
 
+Status: Beta
+
 Needleman-Wunsch is an algorithm for calculating optimal global alignment of two
 DNA sequences. All-pairs matching is represented by an NxM 2D matrix. Matrix
 cells are scored from northwestern-most to southeastern-most, depending solely

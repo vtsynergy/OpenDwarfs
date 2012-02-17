@@ -1,20 +1,20 @@
 Cyclic Redundancy Check
 =======================
 
-Status: Alpha
+Status: Beta
 
-Cyclic Redundancy Check (CRC) is an error-detecting code which is designed
-to detect errors caused by network transmission or any other accidental error.
+Cyclic Redundancy Check (CRC) is an error-detecting code which is designed to
+detect errors caused by network transmission or any other accidental error.
 Specifically, CRC is designed to catch burst errors in data that is transfered.
 Polynomial division is performed on the data stream S by the CRC polynomial.
 This polynomial is predetermined.  The remainder from this division is the CRC
-value.  This value is typically added to the end of the data stream as it is sent
-out.  When the reciever divides the recieved datastream, the division will return
-no remainder on a successful transmission.
+value.  This value is typically added to the end of the data stream as it is
+sent out.  When the reciever divides the recieved datastream, the division will
+return no remainder on a successful transmission.
 
-Currently data for this algorithm is created on the spot (using the rand() function).
-Also, currently only an 8-bit CRC polynomial is allowed.
-If inputing a file, the file will be clipped to 32768 bytes. 
+Currently data for this algorithm is created on the spot (using the rand()
+function). Also, currently only an 8-bit CRC polynomial is allowed. If inputing
+a file, the file will be clipped to 32768 bytes. 
 
 Running
 -------

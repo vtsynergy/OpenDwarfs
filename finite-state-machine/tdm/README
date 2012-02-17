@@ -1,7 +1,7 @@
 Temporal Data Mining
 ====================
 
-Status: Pre-Alpha
+Status: Alpha
 
 The Temporal Data Mining(TDM) code is a restricted variant of association rule
 data mining.  In this case, temporal data is also considered as part of the
@@ -10,7 +10,9 @@ association process.
 Running
 -------
 
-Usage: tdm <filepath> <temporal constraints path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic (d)ynamic> <(m)ap and merge or (n)aive or (h)ybrid>
+Usage: tdm <filepath> <temporal constraints path> <threads> <support>
+       <(a)bsolute or (r)atio> <(s)tatic (d)ynamic>
+       <(m)ap and merge or (n)aive or (h)ybrid>
 
     <filepath>                  :file containing temporal database
     <temporal constraints path> :path containing temporal constraints  
