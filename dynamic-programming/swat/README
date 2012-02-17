@@ -1,7 +1,11 @@
 Smith-Waterman
 ================
 
-Smith-Waterman is a variant of the Needleman-Wunsch algorithm for computing local alignment between two DNA sequences. Smith-Waterman requires all negative values in the output scoring matrix to be reset to zero, which effectively truncates non-beneficial paths through the matrix. See ../nw/README for a description of the Needleman-Wunsch global sequence alignment algorithm.
+Smith-Waterman is a descendant of the Needleman-Wunsch algorithm for computing
+local alignment between two sequences. Smith-Waterman requires all negative
+values in the output scoring matrix to be reset to zero, which effectively
+truncates non-beneficial paths through the matrix. See ../nw/README for a
+description of the Needleman-Wunsch global sequence alignment algorithm.
 
 
 Running
@@ -25,4 +29,6 @@ Example:
 
 Notes:
 
-    The "workGroups" parameter, including the default of 14, is only a request. The algorithm requires workGroups be <= the number of compute units on the device, and is automatically scaled downwards if necessary.
+    The "workGroups" parameter, including the default of 14, is only a request.
+    The algorithm requires workGroups be <= the number of compute units on the
+    device, and is automatically scaled downwards if necessary.

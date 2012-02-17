@@ -3,7 +3,12 @@ k-means clustering
 
 Status: Alpha
 
-K-means performs a local clustering algorithm to represent a collection of data objects by means of sub-cluster centroids. Each sub-cluster seed is initally set randomly or based on a heuristic. Each step of the algorithm computes the nearest centroid for each data object, then relocates the centroid to the mean of all objects within the sub-cluster. Execution terminates when no clusters change size between iterations.
+K-means performs a local clustering algorithm to represent a collection of data
+objects by means of sub-cluster centroids. Each sub-cluster seed is initally set
+randomly or based on a heuristic. Each step of the algorithm computes the
+nearest centroid for each data object, then relocates the centroid to the mean
+of all objects within the sub-cluster. Execution terminates when no clusters
+change size between iterations.
 
 
 Note: This application was ported from the Rodinia Suite

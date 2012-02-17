@@ -1,6 +1,8 @@
 GEM
 ===
 
+Status: Stable
+
 GEM is a package designed to be a sandbox for experimenting with
 biomolecular visualization and electrostatic potential
 computation and representations.  It is open-source (which you now
@@ -65,4 +67,5 @@ Notes for initial GPGU work: ignore whatever IF statements related to
 #define GRANULAR_CUTOFF 1000.0
 #define GRANULAR_CUTOFF2 1000000.0    /* cutoff**2 to reduce computations */
 
-For now, these are set so large as to never be reached for realistic structures. That is you are guaranteed to have "distance < GRANULAR_CUTOFF". 
+For now, these are set so large as to never be reached for realistic structures.
+That is you are guaranteed to have "distance < GRANULAR_CUTOFF". 

@@ -4,6 +4,24 @@ OpenCL Dwarfs
 A suite of applications categorized under the 13 Berkeley Dwarfs
 (http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
 
+Benchmark status
+----------------
+
+Stable:
+gem
+
+Beta:
+
+Alpha:
+bfs
+crc
+kmeans
+lud
+
+Pre-alpha:
+astar
+tdm
+
 Requirements
 ------------
 

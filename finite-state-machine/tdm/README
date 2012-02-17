@@ -3,9 +3,9 @@ Temporal Data Mining
 
 Status: Pre-Alpha
 
-The Temporal Data Mining(TDM) code is a restricted variant of
-association rule data mining.  In this case, temporal data is
-also considered as part of the association process.
+The Temporal Data Mining(TDM) code is a restricted variant of association rule
+data mining.  In this case, temporal data is also considered as part of the
+association process.
 
 Running
 -------

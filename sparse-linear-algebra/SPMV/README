@@ -23,4 +23,6 @@ Example: csr -v
 Notes
 -----
 
-Source code for csr.c and sparse_formats was written by Nathan Bell and Michael Garland at NVIDIA, and adapted to OpenCl by Joseph Banks.  Please see LICENSE.txt for full source license.
+Source code for csr.c and sparse_formats was written by Nathan Bell and Michael
+Garland at NVIDIA, and adapted to OpenCl by Joseph Banks.  Please see
+LICENSE.txt for full source license.
