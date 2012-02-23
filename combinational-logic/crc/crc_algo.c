@@ -5,7 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include "../../include/rdtsc.h"
-
+#include "../../include/common_args.h"
 
 
 #define CHKERR(err, str) \
