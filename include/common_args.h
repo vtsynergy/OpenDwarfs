@@ -27,8 +27,19 @@ ocd_options _settings = {0, 0, 0};
 
 option* _options = NULL;
 
+void _ocd_create_arguments()
+{
+	free(_options);
+	_options = malloc(sizeof(option) * 5);
+	//_options = {{OTYPE_INT, 'p', "platform", "OpenCL Platform ID",
+	//		OFLAG_NONE, &_settings.platform_id, NULL, NULL, NULL, NULL}}
+}
+
 int ocd_parse(int argc, char** argv)
 {
+	if(!_options)
+		_ocd_create_arguments();
+	option* op;
 	if (optsgets(argc, argv, _options)) {
 		fprintf(stderr, "optsgets() errored.\nUsage:");
 		for (op = &_options[0]; op->type; ++op)
@@ -38,22 +49,13 @@ int ocd_parse(int argc, char** argv)
 	}
 }
 
-void _ocd_create_arguments()
-{
-	free(_options);
-	_options = malloc(sizeof(option) * 5);
-	_options = {{OTYPE_INT, 'p', "platform", "OpenCL Platform ID",
-			OFLAG_NONE, &_settings.platform_id, NULL, NULL, NULL, NULL}}
-}
 
-int ocd_register_arg(int type, char abbr, char* name, char* desc, void* value, optsverify verify, opssettor settor)
+int ocd_register_arg(int type, char abbr, char* name, char* desc, void* value, optsverify verify, optssettor settor)
 {
 	option o;
 	
 	if(!_options)
-	{
 		_ocd_create_arguments();
-	}
 }
 
 #endif
