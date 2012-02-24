@@ -1,19 +1,6 @@
 #ifndef __COMMON_ARGS_H__
 #define __COMMON_ARGS_H__
 
-#define CHECK_ERROR(err) \
-	if (err != CL_SUCCESS) \
-{ \
-	fprintf(stderr, "Error1: %d\n", err);\
-	exit(1); \
-}
-
-#ifdef __APPLE__
-#include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
-#endif
-
 #include <opts.h>
 
 typedef struct ocd_options
@@ -26,13 +13,30 @@ typedef struct ocd_options
 ocd_options _settings = {0, 0, 0};
 
 option* _options = NULL;
+int _options_length = 0;
+int _options_size = 0;
 
 void _ocd_create_arguments()
 {
 	free(_options);
 	_options = malloc(sizeof(option) * 5);
-	//_options = {{OTYPE_INT, 'p', "platform", "OpenCL Platform ID",
-	//		OFLAG_NONE, &_settings.platform_id, NULL, NULL, NULL, NULL}}
+	option ops[3] = {{OTYPE_INT, 'p', "platform", "OpenCL Platform ID",
+                     OFLAG_NONE, &_settings.platform_id, NULL, NULL, NULL, NULL},
+		{OTYPE_INT, 'd', "device", "OpenCL Device ID",
+                     OFLAG_NONE, &_settings.device_id, NULL, NULL, NULL, NULL},
+		{OTYPE_END, '\0', "", 0,
+                     OFLAG_NONE, NULL, NULL, NULL, NULL, NULL}};
+	
+	_options[0] = ops[0];
+	_options[1] = ops[1];
+	_options[2] = ops[2];
+	_options_length = 5;
+	_options_size = 3;
+}
+
+ocd_options ocd_get_options()
+{
+	return _settings;
 }
 
 int ocd_parse(int argc, char** argv)
@@ -49,13 +53,41 @@ int ocd_parse(int argc, char** argv)
 	}
 }
 
+void _ocd_expand_list()
+{
+	option* new_options = malloc(sizeof(option) * (_options_length + 5));
+	memcpy(new_options, _options, sizeof(option) * _options_length);
+	free(_options);
+	_options = new_options;
+	_options_length += 5;
+}
+
+void _ocd_add_arg(option o, int size)
+{
+	if(_options_size >= _options_length)
+		_ocd_expand_list();
+	
+	option end = _options[size-1];
+	_options[size-1] = o;
+	_options[size] = end;	
+	
+	_options_size++;
+}
 
 int ocd_register_arg(int type, char abbr, char* name, char* desc, void* value, optsverify verify, optssettor settor)
 {
-	option o;
+	option o = {type, abbr, name, desc, OFLAG_NONE, value, 0, verify, settor, 0};
 	
 	if(!_options)
 		_ocd_create_arguments();
+	_ocd_add_arg(o, _options_size);	
+}
+
+void ocd_usage()
+{
+	option* op;
+	for (op = &_options[0]; op->type; ++op)
+		printf("%s\n", optsusage(op));
 }
 
 #endif
