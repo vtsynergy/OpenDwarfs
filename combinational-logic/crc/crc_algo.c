@@ -33,19 +33,11 @@ cl_mem dev_output;
 int64_t dataTransferTime = 0;
 int64_t kernelExecutionTime = 0;
 
-void usage()
+void usage(option* op, opt_value * val)
 {
-	printf("graphCreator [hsivp]\n");
-	printf("h		 - print this help message\n");
-	printf("s <seed>  - set the seed for the vertex\n");
-	printf("i <file>  - take input from file instead of randomly generating code\n");
-	printf("v		 - verify parallel code with serial implementation of crc\n");
-	printf("p <int>   - change the last 8 bits of the crc polynomial\n");
-	printf("n <int>   - change the size of data blocks\n");
-	printf("q <int>   - change the number of times to run the kernel\n");
-	printf("w <int>   - change the maximum data size\n");
-	printf("e <int>   - change platform\n");
-	printf("d <int>   - change device\n");
+	printf("crc [hsivpdw]\n");
+	ocd_usage();
+	exit(0);
 }
 
 void printTimeDiff(struct timeval start, struct timeval end)
@@ -315,65 +307,35 @@ int main(int argc, char** argv)
 	unsigned char* h_answer;
 	unsigned char* data = NULL;
 	unsigned char crc = 0x9B;
-	unsigned long N = 0;
 	unsigned char finalCRC;
 	unsigned char* h_tables;
 	unsigned int run_serial = 0;
 	char* file = NULL;
 	size_t maxSize = DATA_SIZE;
+	unsigned long N = maxSize;
 	size_t read = 0;
 	FILE* fp = NULL;
 	unsigned int seed = time(NULL);
 
-	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;
-	srand(seed);
-		
-	int c;
-	while((c = getopt (argc, argv, "vn:s:i:p:w:h:e:d:")) != -1)
-	{
-		switch(c)
-		{
-			case 'h':
-				usage();
-				exit(0);
-				break;
-			case 'p':
-				crc = atoi(optarg);				
-				break;
-			case 'v':
-				run_serial = 1;
-				break;
-			case 'i':
-				file = malloc(sizeof(*file) * strlen(optarg));
-				strncpy(file, optarg, sizeof(*file) * strlen(optarg));
-				break;
-			case 's':
-				srand(atoi(optarg));
-				seed = atoi(optarg);
-				break;
-			case 'n':
-				N = atoi(optarg);
-				break;
-			case 'w':
-				maxSize = atoi(optarg);
-				break;
-			case 'e':
-				platform_id = atoi(optarg);
-				break;
-			case 'd':
-				n_device = atoi(optarg);
-				break;
-			default:
-				abort();
-		}	
-	}
-	if(N == 0)	
-		N = maxSize;
+	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;		
+
+	ocd_register_arg(OTYPE_INT, 'n', "size", "Problem Size", &N, NULL, NULL);
+	ocd_register_arg(OTYPE_INT, 'w', "chunk-size", "Maximum Chunk Size", &maxSize, NULL, NULL);
+	ocd_register_arg(OTYPE_INT, '\0', "polynomial", "CRC Polynomial", &crc, NULL, NULL);
+	ocd_register_arg(OTYPE_NUL, 'h', "help", "Prints help message.", NULL, NULL, usage);
+	ocd_register_arg(OTYPE_BOL, 'v', "verify", "Verify GPU Computation", &run_serial, NULL, NULL);
+	ocd_register_arg(OTYPE_INT, 's', "seed", "Random Seed", &seed, NULL, NULL);
+	ocd_register_arg(OTYPE_STR, 'i', "input-file", "CRC Input File", &file, NULL, NULL);
+	ocd_parse(argc, argv);
 	
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	n_device = opts.device_id;
+
+	srand(seed);
 
 	size_t global_size;
 	size_t local_size;
-
 	
 	gettimeofday(&par_st, NULL);	
 	h_num = malloc(sizeof(*h_num) * N);
