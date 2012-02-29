@@ -43,14 +43,36 @@ int ocd_parse(int argc, char** argv)
 {
 	if(!_options)
 		_ocd_create_arguments();
-	option* op;
+	
+	//Determine if there are any arguments to parse.
+	int i;
+	int origargc = argc;
+	for(i = 0; i < argc; i++)
+	{
+		if(strlen(argv[i]) == 2 && strncmp(argv[i], "--", 2) == 0)
+		{
+			argc = i;
+			break;
+		}
+	}
+
 	if (optsgets(argc, argv, _options)) {
+		if(argc == origargc) // No double dash
+		{
+			//Assume we failed because they were actually
+			//Program specific arguments.
+			return 0;
+		}
+
 		fprintf(stderr, "optsgets() errored.\nUsage:");
+		option* op;
 		for (op = &_options[0]; op->type; ++op)
 			if (!((op->type == OTYPE_NUL) &&
 			  (op->flags & OFLAG_ARG)))
 				fprintf(stderr, "%s\n", optsusage(op));
 	}
+	
+	return argc;
 }
 
 void _ocd_expand_list()

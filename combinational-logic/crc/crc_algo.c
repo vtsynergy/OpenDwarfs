@@ -33,10 +33,22 @@ cl_mem dev_output;
 int64_t dataTransferTime = 0;
 int64_t kernelExecutionTime = 0;
 
-void usage(option* op, opt_value * val)
+void usage()
 {
-	printf("crc [hsivpdw]\n");
+	printf("crc [pd][hsivpw]\n");
+	printf("Common arguments:\n");
 	ocd_usage();
+	printf("Program-specific arguments:\n");
+	printf("\t-h | 'Print this help message'\n");
+	printf("\t-s | 'Set random seed' [integer]\n");
+	printf("\t-i | 'Input file name' [string]\n");
+	printf("\t-v | 'Verify results on CPU'\n");
+	printf("\t-p | 'CRC Polynomial' [integer]\n");
+	printf("\t-n | 'Data size' [integer]\n");
+	printf("\t-q | 'Kernel iterations' [integer]\n");
+	printf("\t-w | 'Data block size' [integer]\n");
+
+	printf("\nNOTE: Seperate common arguments and program specific arguments with the '--' delimeter\n");
 	exit(0);
 }
 
@@ -318,19 +330,65 @@ int main(int argc, char** argv)
 	unsigned int seed = time(NULL);
 
 	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;		
-
-	ocd_register_arg(OTYPE_INT, 'n', "size", "Problem Size", &N, NULL, NULL);
-	ocd_register_arg(OTYPE_INT, 'w', "chunk-size", "Maximum Chunk Size", &maxSize, NULL, NULL);
-	ocd_register_arg(OTYPE_INT, '\0', "polynomial", "CRC Polynomial", &crc, NULL, NULL);
-	ocd_register_arg(OTYPE_NUL, 'h', "help", "Prints help message.", NULL, NULL, usage);
-	ocd_register_arg(OTYPE_BOL, 'v', "verify", "Verify GPU Computation", &run_serial, NULL, NULL);
-	ocd_register_arg(OTYPE_INT, 's', "seed", "Random Seed", &seed, NULL, NULL);
-	ocd_register_arg(OTYPE_STR, 'i', "input-file", "CRC Input File", &file, NULL, NULL);
-	ocd_parse(argc, argv);
 	
+
+	//ocd_register_arg(OTYPE_INT, 'n', "size", "Problem Size", &N, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, 'w', "chunk-size", "Maximum Chunk Size", &maxSize, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, '\0', "polynomial", "CRC Polynomial", &crc, NULL, NULL);
+	//ocd_register_arg(OTYPE_NUL, 'h', "help", "Prints help message.", NULL, NULL, usage);
+	//ocd_register_arg(OTYPE_BOL, 'v', "verify", "Verify GPU Computation", &run_serial, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, 's', "seed", "Random Seed", &seed, NULL, NULL);
+	//ocd_register_arg(OTYPE_STR, 'i', "input-file", "CRC Input File", &file, NULL, NULL);
+
+	int off = ocd_parse(argc, argv);
+	argc -= off;
+	argv += off;
+	
+	int c;
+	while((c = getopt (argc, argv, "vn:s:i:p:w:h")) != -1)
+	{
+		switch(c)
+		{
+			case 'h':
+				usage();
+				exit(0);
+				break;
+			case 'p':
+				crc = atoi(optarg);				
+				break;
+			case 'v':
+				run_serial = 1;
+				break;
+			case 'i':
+				file = malloc(sizeof(*file) * strlen(optarg));
+				strncpy(file, optarg, sizeof(*file) * strlen(optarg));
+				break;
+			case 's':
+				srand(atoi(optarg));
+				seed = atoi(optarg);
+				break;
+			case 'n':
+				N = atoi(optarg);
+				break;
+			case 'w':
+				maxSize = atoi(optarg);
+				break;
+			default:
+				abort();
+		}	
+	}
+	if(N == 0)	
+		N = maxSize;
+
+	
+
+
 	ocd_options opts = ocd_get_options();
 	platform_id = opts.platform_id;
 	n_device = opts.device_id;
+
+	//printf("Common Arguments: p=%d d=%d\n", platform_id, n_device);
+	//printf("Program Arguments: p=%d v=%d i=%s s=%d n=%lu w=%d\n", crc, run_serial, file, seed, N, maxSize);
 
 	srand(seed);
 
