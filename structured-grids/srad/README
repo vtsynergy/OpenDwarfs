@@ -1,7 +1,12 @@
 SRAD
 ====
 
-SRAD (Speckle Reducing Anisotropic Diffusion) is an application for safely removing local correlations of noise (speckles) from ultrasonic and radar images. This is performed with a diffusion method based on partial differential equations (PDEs). 
+Status: Beta
+
+SRAD (Speckle Reducing Anisotropic Diffusion) is an application for safely
+removing local correlations of noise (speckles) from ultrasonic and radar
+images. This is performed with a diffusion method based on partial differential
+equations (PDEs). 
 
 Note: This application was ported from the Rodinia Suite
       (https://www.cs.virginia.edu/~skadron/wiki/rodinia/).

@@ -1,7 +1,7 @@
 LU Decomposition
 ================
 
-Status: Alpha
+Status: Beta
 
 In LU Decomposition, a matrix is decomposed into a product of two matrices,
 one a lower triangular matrix and the other an uppper triangular matrix.

@@ -1,5 +1,7 @@
 Computational Fluid Dynamics
-==================
+============================
+
+Status: Beta
 
 The CFD solver is an unstructured grid dwarf.  It is a finite volume solver for
 three-dimensional Euler equations for compressible flow.

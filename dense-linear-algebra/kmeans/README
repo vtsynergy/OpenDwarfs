@@ -1,7 +1,7 @@
 k-means clustering
 ==================
 
-Status: Alpha
+Status: Beta
 
 K-means performs a local clustering algorithm to represent a collection of data
 objects by means of sub-cluster centroids. Each sub-cluster seed is initally set
