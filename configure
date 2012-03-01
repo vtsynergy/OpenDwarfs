@@ -618,10 +618,6 @@ build_tdm_FALSE
 build_tdm_TRUE
 build_bfs_FALSE
 build_bfs_TRUE
-build_oesort_FALSE
-build_oesort_TRUE
-build_bsort_FALSE
-build_bsort_TRUE
 build_cfd_FALSE
 build_cfd_TRUE
 build_crc_FALSE
@@ -1435,7 +1431,7 @@ Optional Packages:
   --with-opencl-sdk       path to the OpenCL SDK
   --with-opencl           path to OpenCL
   --with-apps             Applications to build
-                          (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar)
+                          (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar)
 
 Some influential environment variables:
   CC          C compiler command
@@ -17249,7 +17245,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 if test "${with_apps+set}" = set; then :
   withval=$with_apps; app_list=$withval
 else
-  app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bsort,oesort,bfs,csr,tdm,astar
+  app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar
 fi
 
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
@@ -17268,8 +17264,8 @@ build_samplecl=false
 build_csr=false
 build_crc=false
 build_cfd=false
-build_bsort=false
-build_oesort=false
+#build_bsort=false
+#build_oesort=false
 build_bfs=false
 build_tdm=false
 build_astar=false
@@ -17313,14 +17309,14 @@ for app in ${app_names}; do
         build_crc=true
         selected_apps="$selected_apps crc"
         ;;
-     bsort)
-        build_bsort=true
-        selected_apps="$selected_apps bsort"
-        ;;
-     oesort)
-        build_oesort=true
-        selected_apps="$selected_apps oesort"
-        ;;
+#     bsort)
+#        build_bsort=true
+#        selected_apps="$selected_apps bsort"
+#        ;;
+#     oesort)
+#        build_oesort=true
+#        selected_apps="$selected_apps oesort"
+#        ;;
      nw)
         build_nw=true
         selected_apps="$selected_apps nw"
@@ -17460,22 +17456,8 @@ else
   build_cfd_FALSE=
 fi
 
- if $build_bsort; then
-  build_bsort_TRUE=
-  build_bsort_FALSE='#'
-else
-  build_bsort_TRUE='#'
-  build_bsort_FALSE=
-fi
-
- if $build_oesort; then
-  build_oesort_TRUE=
-  build_oesort_FALSE='#'
-else
-  build_oesort_TRUE='#'
-  build_oesort_FALSE=
-fi
-
+#AM_CONDITIONAL([build_bsort], [$build_bsort])
+#AM_CONDITIONAL([build_oesort], [$build_oesort])
  if $build_bfs; then
   build_bfs_TRUE=
   build_bfs_FALSE='#'
@@ -17683,14 +17665,6 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${build_cfd_TRUE}" && test -z "${build_cfd_FALSE}"; then
   as_fn_error $? "conditional \"build_cfd\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${build_bsort_TRUE}" && test -z "${build_bsort_FALSE}"; then
-  as_fn_error $? "conditional \"build_bsort\" was never defined.
-Usually this means the macro was only invoked conditionally." "$LINENO" 5
-fi
-if test -z "${build_oesort_TRUE}" && test -z "${build_oesort_FALSE}"; then
-  as_fn_error $? "conditional \"build_oesort\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${build_bfs_TRUE}" && test -z "${build_bfs_FALSE}"; then

@@ -120,20 +120,6 @@
 # associated documentation.
 #
 
-#
-# Copyright 2010 by Virginia Polytechnic Institute and State
-# University. All rights reserved. Virginia Polytechnic Institute and
-# State University (Virginia Tech) owns the software and its
-# associated documentation.
-#
-
-#
-# Copyright 2010 by Virginia Polytechnic Institute and State
-# University. All rights reserved. Virginia Polytechnic Institute and
-# State University (Virginia Tech) owns the software and its
-# associated documentation.
-#
-
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
@@ -157,8 +143,7 @@ bin_PROGRAMS = $(am__EXEEXT_1) $(am__EXEEXT_2) $(am__EXEEXT_3) \
 	$(am__EXEEXT_4) $(am__EXEEXT_5) $(am__EXEEXT_6) \
 	$(am__EXEEXT_7) $(am__EXEEXT_8) $(am__EXEEXT_9) \
 	$(am__EXEEXT_10) $(am__EXEEXT_11) $(am__EXEEXT_12) \
-	$(am__EXEEXT_13) $(am__EXEEXT_14) $(am__EXEEXT_15) \
-	$(am__EXEEXT_16)
+	$(am__EXEEXT_13) $(am__EXEEXT_14)
 DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in \
 	$(srcdir)/branch-and-bound/astar/Makefile.mk \
@@ -170,8 +155,6 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/dynamic-programming/swat/Makefile.mk \
 	$(srcdir)/finite-state-machine/tdm/Makefile.mk \
 	$(srcdir)/graph-traversal/bfs/Makefile.mk \
-	$(srcdir)/graph-traversal/bitonic-sort/Makefile.mk \
-	$(srcdir)/graph-traversal/oddeven-sort/Makefile.mk \
 	$(srcdir)/n-body-methods/gem/Makefile.mk \
 	$(srcdir)/samplecl/Makefile.mk \
 	$(srcdir)/sparse-linear-algebra/SPMV/Makefile.mk \
@@ -216,18 +199,12 @@ DIST_COMMON = README $(am__configure_deps) $(srcdir)/Makefile.am \
 @build_bfs_TRUE@am__append_34 = bfs
 @build_bfs_TRUE@am__append_35 = bfs-all-local
 @build_bfs_TRUE@am__append_36 = bfs-exec-local
-@build_bsort_TRUE@am__append_37 = bsort
-@build_bsort_TRUE@am__append_38 = bitonic-sort-all-local
-@build_bsort_TRUE@am__append_39 = bitonic-sort-exec-local
-@build_oesort_TRUE@am__append_40 = oesort
-@build_oesort_TRUE@am__append_41 = oesort-all-local
-@build_oesort_TRUE@am__append_42 = oesort-exec-local
-@build_tdm_TRUE@am__append_43 = tdm
-@build_tdm_TRUE@am__append_44 = tdm-all-local
-@build_tdm_TRUE@am__append_45 = tdm-exec-local
-@build_astar_TRUE@am__append_46 = astar
-@build_astar_TRUE@am__append_47 = astar-all-local
-@build_astar_TRUE@am__append_48 = astar-exec-local
+@build_tdm_TRUE@am__append_37 = tdm
+@build_tdm_TRUE@am__append_38 = tdm-all-local
+@build_tdm_TRUE@am__append_39 = tdm-exec-local
+@build_astar_TRUE@am__append_40 = astar
+@build_astar_TRUE@am__append_41 = astar-all-local
+@build_astar_TRUE@am__append_42 = astar-exec-local
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/aclocal_cache.m4 \
@@ -256,10 +233,8 @@ CONFIG_CLEAN_VPATH_FILES =
 @build_crc_TRUE@am__EXEEXT_10 = crc$(EXEEXT)
 @build_cfd_TRUE@am__EXEEXT_11 = cfd$(EXEEXT)
 @build_bfs_TRUE@am__EXEEXT_12 = bfs$(EXEEXT)
-@build_bsort_TRUE@am__EXEEXT_13 = bsort$(EXEEXT)
-@build_oesort_TRUE@am__EXEEXT_14 = oesort$(EXEEXT)
-@build_tdm_TRUE@am__EXEEXT_15 = tdm$(EXEEXT)
-@build_astar_TRUE@am__EXEEXT_16 = astar$(EXEEXT)
+@build_tdm_TRUE@am__EXEEXT_13 = tdm$(EXEEXT)
+@build_astar_TRUE@am__EXEEXT_14 = astar$(EXEEXT)
 am__installdirs = "$(DESTDIR)$(bindir)"
 PROGRAMS = $(bin_PROGRAMS)
 am__astar_SOURCES_DIST = branch-and-bound/astar/astar.c
@@ -275,11 +250,6 @@ am__bfs_SOURCES_DIST = graph-traversal/bfs/bfs.cpp
 @build_bfs_TRUE@am_bfs_OBJECTS = graph-traversal/bfs/bfs.$(OBJEXT)
 bfs_OBJECTS = $(am_bfs_OBJECTS)
 bfs_LDADD = $(LDADD)
-am__bsort_SOURCES_DIST = graph-traversal/bitonic-sort/main.c
-@build_bsort_TRUE@am_bsort_OBJECTS =  \
-@build_bsort_TRUE@	graph-traversal/bitonic-sort/main.$(OBJEXT)
-bsort_OBJECTS = $(am_bsort_OBJECTS)
-bsort_LDADD = $(LDADD)
 am__cfd_SOURCES_DIST = unstructured-grids/cfd/cfd.cpp
 @build_cfd_TRUE@am_cfd_OBJECTS = unstructured-grids/cfd/cfd.$(OBJEXT)
 cfd_OBJECTS = $(am_cfd_OBJECTS)
@@ -382,10 +352,6 @@ am__needle_SOURCES_DIST = dynamic-programming/nw/needle.c
 @build_nw_TRUE@	dynamic-programming/nw/needle.$(OBJEXT)
 needle_OBJECTS = $(am_needle_OBJECTS)
 needle_LDADD = $(LDADD)
-am__oesort_SOURCES_DIST = graph-traversal/oddeven-sort/main2.c
-@build_oesort_TRUE@am_oesort_OBJECTS = graph-traversal/oddeven-sort/main2.$(OBJEXT)
-oesort_OBJECTS = $(am_oesort_OBJECTS)
-oesort_LDADD = $(LDADD)
 am__scl_SOURCES_DIST = samplecl/samplecl.c
 @build_samplecl_TRUE@am_scl_OBJECTS = samplecl/samplecl.$(OBJEXT)
 scl_OBJECTS = $(am_scl_OBJECTS)
@@ -459,17 +425,16 @@ am__v_CXXLD_0 = @echo "  CXXLD " $@;
 AM_V_GEN = $(am__v_GEN_$(V))
 am__v_GEN_ = $(am__v_GEN_$(AM_DEFAULT_VERBOSITY))
 am__v_GEN_0 = @echo "  GEN   " $@;
-SOURCES = $(astar_SOURCES) $(bfs_SOURCES) $(bsort_SOURCES) \
-	$(cfd_SOURCES) $(clfft_SOURCES) $(crc_SOURCES) $(csr_SOURCES) \
+SOURCES = $(astar_SOURCES) $(bfs_SOURCES) $(cfd_SOURCES) \
+	$(clfft_SOURCES) $(crc_SOURCES) $(csr_SOURCES) \
 	$(gemnoui_SOURCES) $(kmeans_SOURCES) $(lud_SOURCES) \
-	$(needle_SOURCES) $(oesort_SOURCES) $(scl_SOURCES) \
-	$(srad_SOURCES) $(swat_SOURCES) $(tdm_SOURCES)
+	$(needle_SOURCES) $(scl_SOURCES) $(srad_SOURCES) \
+	$(swat_SOURCES) $(tdm_SOURCES)
 DIST_SOURCES = $(am__astar_SOURCES_DIST) $(am__bfs_SOURCES_DIST) \
-	$(am__bsort_SOURCES_DIST) $(am__cfd_SOURCES_DIST) \
-	$(am__clfft_SOURCES_DIST) $(am__crc_SOURCES_DIST) \
-	$(am__csr_SOURCES_DIST) $(am__gemnoui_SOURCES_DIST) \
-	$(am__kmeans_SOURCES_DIST) $(am__lud_SOURCES_DIST) \
-	$(am__needle_SOURCES_DIST) $(am__oesort_SOURCES_DIST) \
+	$(am__cfd_SOURCES_DIST) $(am__clfft_SOURCES_DIST) \
+	$(am__crc_SOURCES_DIST) $(am__csr_SOURCES_DIST) \
+	$(am__gemnoui_SOURCES_DIST) $(am__kmeans_SOURCES_DIST) \
+	$(am__lud_SOURCES_DIST) $(am__needle_SOURCES_DIST) \
 	$(am__scl_SOURCES_DIST) $(am__srad_SOURCES_DIST) \
 	$(am__swat_SOURCES_DIST) $(am__tdm_SOURCES_DIST)
 ETAGS = etags
@@ -612,14 +577,12 @@ all_local = $(am__append_2) $(am__append_5) $(am__append_8) \
 	$(am__append_11) $(am__append_14) $(am__append_17) \
 	$(am__append_20) $(am__append_23) $(am__append_26) \
 	$(am__append_29) $(am__append_32) $(am__append_35) \
-	$(am__append_38) $(am__append_41) $(am__append_44) \
-	$(am__append_47)
+	$(am__append_38) $(am__append_41)
 exec_local = $(am__append_3) $(am__append_6) $(am__append_9) \
 	$(am__append_12) $(am__append_15) $(am__append_18) \
 	$(am__append_21) $(am__append_24) $(am__append_27) \
 	$(am__append_30) $(am__append_33) $(am__append_36) \
-	$(am__append_39) $(am__append_42) $(am__append_45) \
-	$(am__append_48)
+	$(am__append_39) $(am__append_42)
 @build_gem_TRUE@gemnoui_SOURCES = n-body-methods/gem/dump_vertices.c n-body-methods/gem/floating_centers.c \
 @build_gem_TRUE@	n-body-methods/gem/radix_sort.c n-body-methods/gem/read_pqr.c \
 @build_gem_TRUE@	n-body-methods/gem/vector_math.c n-body-methods/gem/write_grid.c \
@@ -656,8 +619,6 @@ exec_local = $(am__append_3) $(am__append_6) $(am__append_9) \
 @build_crc_TRUE@crc_SOURCES = combinational-logic/crc/crc_algo.c
 @build_cfd_TRUE@cfd_SOURCES = unstructured-grids/cfd/cfd.cpp
 @build_bfs_TRUE@bfs_SOURCES = graph-traversal/bfs/bfs.cpp
-@build_bsort_TRUE@bsort_SOURCES = graph-traversal/bitonic-sort/main.c
-@build_oesort_TRUE@oesort_SOURCES = graph-traversal/oddeven-sort/main2.c
 @build_tdm_TRUE@tdm_SOURCES = finite-state-machine/tdm/GpuTemporalDataMining.cpp
 @build_astar_TRUE@astar_SOURCES = branch-and-bound/astar/astar.c
 all: config.h
@@ -667,7 +628,7 @@ all: config.h
 .SUFFIXES: .c .cpp .lo .o .obj
 am--refresh:
 	@:
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(srcdir)/n-body-methods/gem/Makefile.mk $(srcdir)/dynamic-programming/nw/Makefile.mk $(srcdir)/dynamic-programming/swat/Makefile.mk $(srcdir)/structured-grids/srad/Makefile.mk $(srcdir)/dense-linear-algebra/lud/Makefile.mk $(srcdir)/dense-linear-algebra/kmeans/Makefile.mk $(srcdir)/samplecl/Makefile.mk $(srcdir)/spectral-methods/fft/Makefile.mk $(srcdir)/sparse-linear-algebra/SPMV/Makefile.mk $(srcdir)/combinational-logic/crc/Makefile.mk $(srcdir)/unstructured-grids/cfd/Makefile.mk $(srcdir)/graph-traversal/bfs/Makefile.mk $(srcdir)/graph-traversal/bitonic-sort/Makefile.mk $(srcdir)/graph-traversal/oddeven-sort/Makefile.mk $(srcdir)/finite-state-machine/tdm/Makefile.mk $(srcdir)/branch-and-bound/astar/Makefile.mk $(am__configure_deps)
+$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(srcdir)/n-body-methods/gem/Makefile.mk $(srcdir)/dynamic-programming/nw/Makefile.mk $(srcdir)/dynamic-programming/swat/Makefile.mk $(srcdir)/structured-grids/srad/Makefile.mk $(srcdir)/dense-linear-algebra/lud/Makefile.mk $(srcdir)/dense-linear-algebra/kmeans/Makefile.mk $(srcdir)/samplecl/Makefile.mk $(srcdir)/spectral-methods/fft/Makefile.mk $(srcdir)/sparse-linear-algebra/SPMV/Makefile.mk $(srcdir)/combinational-logic/crc/Makefile.mk $(srcdir)/unstructured-grids/cfd/Makefile.mk $(srcdir)/graph-traversal/bfs/Makefile.mk $(srcdir)/finite-state-machine/tdm/Makefile.mk $(srcdir)/branch-and-bound/astar/Makefile.mk $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -783,18 +744,6 @@ graph-traversal/bfs/bfs.$(OBJEXT):  \
 bfs$(EXEEXT): $(bfs_OBJECTS) $(bfs_DEPENDENCIES) 
 	@rm -f bfs$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(bfs_OBJECTS) $(bfs_LDADD) $(LIBS)
-graph-traversal/bitonic-sort/$(am__dirstamp):
-	@$(MKDIR_P) graph-traversal/bitonic-sort
-	@: > graph-traversal/bitonic-sort/$(am__dirstamp)
-graph-traversal/bitonic-sort/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) graph-traversal/bitonic-sort/$(DEPDIR)
-	@: > graph-traversal/bitonic-sort/$(DEPDIR)/$(am__dirstamp)
-graph-traversal/bitonic-sort/main.$(OBJEXT):  \
-	graph-traversal/bitonic-sort/$(am__dirstamp) \
-	graph-traversal/bitonic-sort/$(DEPDIR)/$(am__dirstamp)
-bsort$(EXEEXT): $(bsort_OBJECTS) $(bsort_DEPENDENCIES) 
-	@rm -f bsort$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(bsort_OBJECTS) $(bsort_LDADD) $(LIBS)
 unstructured-grids/cfd/$(am__dirstamp):
 	@$(MKDIR_P) unstructured-grids/cfd
 	@: > unstructured-grids/cfd/$(am__dirstamp)
@@ -1002,18 +951,6 @@ dynamic-programming/nw/needle.$(OBJEXT):  \
 needle$(EXEEXT): $(needle_OBJECTS) $(needle_DEPENDENCIES) 
 	@rm -f needle$(EXEEXT)
 	$(AM_V_CCLD)$(LINK) $(needle_OBJECTS) $(needle_LDADD) $(LIBS)
-graph-traversal/oddeven-sort/$(am__dirstamp):
-	@$(MKDIR_P) graph-traversal/oddeven-sort
-	@: > graph-traversal/oddeven-sort/$(am__dirstamp)
-graph-traversal/oddeven-sort/$(DEPDIR)/$(am__dirstamp):
-	@$(MKDIR_P) graph-traversal/oddeven-sort/$(DEPDIR)
-	@: > graph-traversal/oddeven-sort/$(DEPDIR)/$(am__dirstamp)
-graph-traversal/oddeven-sort/main2.$(OBJEXT):  \
-	graph-traversal/oddeven-sort/$(am__dirstamp) \
-	graph-traversal/oddeven-sort/$(DEPDIR)/$(am__dirstamp)
-oesort$(EXEEXT): $(oesort_OBJECTS) $(oesort_DEPENDENCIES) 
-	@rm -f oesort$(EXEEXT)
-	$(AM_V_CCLD)$(LINK) $(oesort_OBJECTS) $(oesort_LDADD) $(LIBS)
 samplecl/$(am__dirstamp):
 	@$(MKDIR_P) samplecl
 	@: > samplecl/$(am__dirstamp)
@@ -1098,8 +1035,6 @@ mostlyclean-compile:
 	-rm -f dynamic-programming/swat/timeRec.$(OBJEXT)
 	-rm -f finite-state-machine/tdm/GpuTemporalDataMining.$(OBJEXT)
 	-rm -f graph-traversal/bfs/bfs.$(OBJEXT)
-	-rm -f graph-traversal/bitonic-sort/main.$(OBJEXT)
-	-rm -f graph-traversal/oddeven-sort/main2.$(OBJEXT)
 	-rm -f n-body-methods/gem/gemnoui-calculate_potential.$(OBJEXT)
 	-rm -f n-body-methods/gem/gemnoui-check_cmdline.$(OBJEXT)
 	-rm -f n-body-methods/gem/gemnoui-dump_vertices.$(OBJEXT)
@@ -1156,8 +1091,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@dynamic-programming/swat/$(DEPDIR)/timeRec.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@finite-state-machine/tdm/$(DEPDIR)/GpuTemporalDataMining.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@graph-traversal/bfs/$(DEPDIR)/bfs.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@graph-traversal/bitonic-sort/$(DEPDIR)/main.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@graph-traversal/oddeven-sort/$(DEPDIR)/main2.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@n-body-methods/gem/$(DEPDIR)/gemnoui-calculate_potential.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@n-body-methods/gem/$(DEPDIR)/gemnoui-check_cmdline.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@n-body-methods/gem/$(DEPDIR)/gemnoui-dump_vertices.Po@am__quote@
@@ -1962,10 +1895,6 @@ distclean-generic:
 	-rm -f finite-state-machine/tdm/$(am__dirstamp)
 	-rm -f graph-traversal/bfs/$(DEPDIR)/$(am__dirstamp)
 	-rm -f graph-traversal/bfs/$(am__dirstamp)
-	-rm -f graph-traversal/bitonic-sort/$(DEPDIR)/$(am__dirstamp)
-	-rm -f graph-traversal/bitonic-sort/$(am__dirstamp)
-	-rm -f graph-traversal/oddeven-sort/$(DEPDIR)/$(am__dirstamp)
-	-rm -f graph-traversal/oddeven-sort/$(am__dirstamp)
 	-rm -f n-body-methods/gem/$(DEPDIR)/$(am__dirstamp)
 	-rm -f n-body-methods/gem/$(am__dirstamp)
 	-rm -f samplecl/$(DEPDIR)/$(am__dirstamp)
@@ -1993,7 +1922,7 @@ clean-am: clean-binPROGRAMS clean-generic clean-libtool clean-local \
 
 distclean: distclean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
-	-rm -rf branch-and-bound/astar/$(DEPDIR) combinational-logic/crc/$(DEPDIR) dense-linear-algebra/kmeans/$(DEPDIR) dense-linear-algebra/lud/$(DEPDIR) dynamic-programming/nw/$(DEPDIR) dynamic-programming/swat/$(DEPDIR) finite-state-machine/tdm/$(DEPDIR) graph-traversal/bfs/$(DEPDIR) graph-traversal/bitonic-sort/$(DEPDIR) graph-traversal/oddeven-sort/$(DEPDIR) n-body-methods/gem/$(DEPDIR) samplecl/$(DEPDIR) sparse-linear-algebra/SPMV/$(DEPDIR) spectral-methods/fft/src/common/$(DEPDIR) spectral-methods/fft/src/opencl/common/$(DEPDIR) spectral-methods/fft/src/opencl/fft/$(DEPDIR) structured-grids/srad/$(DEPDIR) unstructured-grids/cfd/$(DEPDIR)
+	-rm -rf branch-and-bound/astar/$(DEPDIR) combinational-logic/crc/$(DEPDIR) dense-linear-algebra/kmeans/$(DEPDIR) dense-linear-algebra/lud/$(DEPDIR) dynamic-programming/nw/$(DEPDIR) dynamic-programming/swat/$(DEPDIR) finite-state-machine/tdm/$(DEPDIR) graph-traversal/bfs/$(DEPDIR) n-body-methods/gem/$(DEPDIR) samplecl/$(DEPDIR) sparse-linear-algebra/SPMV/$(DEPDIR) spectral-methods/fft/src/common/$(DEPDIR) spectral-methods/fft/src/opencl/common/$(DEPDIR) spectral-methods/fft/src/opencl/fft/$(DEPDIR) structured-grids/srad/$(DEPDIR) unstructured-grids/cfd/$(DEPDIR)
 	-rm -f Makefile
 distclean-am: clean-am distclean-compile distclean-generic \
 	distclean-hdr distclean-libtool distclean-tags
@@ -2041,7 +1970,7 @@ installcheck-am:
 maintainer-clean: maintainer-clean-am
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
 	-rm -rf $(top_srcdir)/autom4te.cache
-	-rm -rf branch-and-bound/astar/$(DEPDIR) combinational-logic/crc/$(DEPDIR) dense-linear-algebra/kmeans/$(DEPDIR) dense-linear-algebra/lud/$(DEPDIR) dynamic-programming/nw/$(DEPDIR) dynamic-programming/swat/$(DEPDIR) finite-state-machine/tdm/$(DEPDIR) graph-traversal/bfs/$(DEPDIR) graph-traversal/bitonic-sort/$(DEPDIR) graph-traversal/oddeven-sort/$(DEPDIR) n-body-methods/gem/$(DEPDIR) samplecl/$(DEPDIR) sparse-linear-algebra/SPMV/$(DEPDIR) spectral-methods/fft/src/common/$(DEPDIR) spectral-methods/fft/src/opencl/common/$(DEPDIR) spectral-methods/fft/src/opencl/fft/$(DEPDIR) structured-grids/srad/$(DEPDIR) unstructured-grids/cfd/$(DEPDIR)
+	-rm -rf branch-and-bound/astar/$(DEPDIR) combinational-logic/crc/$(DEPDIR) dense-linear-algebra/kmeans/$(DEPDIR) dense-linear-algebra/lud/$(DEPDIR) dynamic-programming/nw/$(DEPDIR) dynamic-programming/swat/$(DEPDIR) finite-state-machine/tdm/$(DEPDIR) graph-traversal/bfs/$(DEPDIR) n-body-methods/gem/$(DEPDIR) samplecl/$(DEPDIR) sparse-linear-algebra/SPMV/$(DEPDIR) spectral-methods/fft/src/common/$(DEPDIR) spectral-methods/fft/src/opencl/common/$(DEPDIR) spectral-methods/fft/src/opencl/fft/$(DEPDIR) structured-grids/srad/$(DEPDIR) unstructured-grids/cfd/$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
@@ -2153,18 +2082,6 @@ uninstall-am: uninstall-binPROGRAMS
 @build_bfs_TRUE@bfs-exec-local:
 @build_bfs_TRUE@	cp $(top_srcdir)/graph-traversal/bfs/bfs_kernel.cl ${DESTDIR}${bindir}
 
-@build_bsort_TRUE@bitonic-sort-all-local:
-@build_bsort_TRUE@	cp $(top_srcdir)/graph-traversal/bitonic-sort/sort.cl .
-
-@build_bsort_TRUE@bitonic-sort-exec-local:
-@build_bsort_TRUE@	cp $(top_srcdir)/graph-traversal/bitonic-sort/sort.cl ${DESTDIR}${bindir}
-
-@build_oesort_TRUE@oesort-all-local:
-@build_oesort_TRUE@	cp $(top_srcdir)/graph-traversal/oddeven-sort/OddEvenSort.cl .
-
-@build_oesort_TRUE@oesort-exec-local:
-@build_oesort_TRUE@	cp $(top_srcdir)/graph-traversal/oddeven-sort/OddEvenSort.cl ${DESTDIR}${bindir}
-
 @build_tdm_TRUE@tdm-all-local:
 @build_tdm_TRUE@	cp $(top_srcdir)/finite-state-machine/tdm/GpuTemporalDataMining.cl .
 @build_tdm_TRUE@	cp $(top_srcdir)/finite-state-machine/tdm/strncpy.cl .
@@ -2182,6 +2099,14 @@ uninstall-am: uninstall-binPROGRAMS
 
 @build_astar_TRUE@astar-exec-local:
 @build_astar_TRUE@	cp $(top_srcdir)/branch-and-bound/astar/astar.cl ${DESTDIR}${bindir}
+
+#if build_bsort
+#include graph-traversal/bitonic-sort/Makefile.mk
+#endif
+
+#if build_oesort
+#include graph-traversal/oddeven-sort/Makefile.mk
+#endif
 
 all-local: $(all_local)
 
