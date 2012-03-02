@@ -156,6 +156,11 @@ int main(int argc, char** argv)
             correct++;
     }
     //Clock in end times for each event
+    TIMER_DEBUG_WALK_LIST
+    INI_DUAL_TIMER(writeEvent, readEvent)
+    START_DUAL_TIMER(writeEvent, readEvent)
+    TIMER_DEBUG_WALK_LIST
+    END_DUAL_TIMER(writeEvent, readEvent)
     END_TIMER(writeEvent)
     END_TIMER(kernEvent)
     END_TIMER(readEvent)
@@ -173,6 +178,8 @@ int main(int argc, char** argv)
     DEST_TIMER(writeEvent)
     DEST_TIMER(kernEvent)
     DEST_TIMER(readEvent)
+    DEST_DUAL_TIMER(writeEvent, readEvent)
+    TIMER_DEBUG_WALK_LIST
     clReleaseEvent(writeEvent);
     clReleaseEvent(kernEvent);
     clReleaseEvent(readEvent);

@@ -30,10 +30,10 @@ unsigned long long int h2d_t = 0, k_t = 0, d2h_t = 0;
 #define TIMER_D2D 4
 #define TIMER_KERNEL 8
 #define TIMER_USER 16
-#define TIMER_COMPOSED -1 //use negative values for caomposed timers, so we can look at MSB as a quick identifier
+#define TIMER_DUAL -1 //use negative values for composed timers, so we can look at MSB as a quick identifier
 
 enum timer_types {
-    d2h = TIMER_D2H, h2d = TIMER_H2D, d2d = TIMER_D2D, kern = TIMER_KERNEL, user = TIMER_USER, comp = TIMER_COMPOSED
+    d2h = TIMER_D2H, h2d = TIMER_H2D, d2d = TIMER_D2D, kern = TIMER_KERNEL, user = TIMER_USER, dual = TIMER_DUAL
 };
 
 struct internalSingleTimer {
@@ -155,11 +155,13 @@ void * getDualTimePtr(cl_event e1, cl_event e2) {
     }
     return (void *) -1;
 }
+
+//Debug call for checking list construction
 void walkList() {
     struct timer_group_mem * curr = head.next;
-    printf("Walking list starting at [%lx]--[%lx]\n", (unsigned long) &head, (unsigned long) head.timer);
+    fprintf(stderr, "Walking list starting at [%lx]--[%lx]\n", (unsigned long) &head, (unsigned long) head.timer);
     while (curr != 0) {
-        printf("\t[%lx]--[%lx]\n", (unsigned long) curr, (unsigned long) curr->timer->s.event);
+        fprintf(stderr, "\t[%lx]--[%lx]\n", (unsigned long) curr, (unsigned long) curr->timer->s.event);
         curr = curr->next;
     }
 }
@@ -232,7 +234,7 @@ int removeTimer(union internalTimer * t) {
         }
 #define INI_TIMER(e, t) {void * ptr = getTimePtr(e); \
                          if (ptr == (void *) -1) {\
-                                 if(t >= TIMER_USER || t <= TIMER_COMPOSED) { \
+                                 if(t >= TIMER_USER || t <= TIMER_DUAL) { \
                                          fprintf(stderr, "Timer Error: invalid type [%d] for INI_TIMER!\nTimer for event [%lx] not initialized!", t, (unsigned long) e); }\
                                  struct internalSingleTimer * temp = (struct internalSingleTimer*) malloc(sizeof(struct internalSingleTimer)); \
                                  temp->type = t;\
@@ -262,7 +264,7 @@ int removeTimer(union internalTimer * t) {
 #define TOTAL_D2D aggregateTimesFromType(TIMER_D2D)
 #define TOTAL_KERNEL aggregateTimesFromType(TIMER_KERNEL)
 #define TOTAL_USER aggregateTimesFromType(TIMER_USER)
-#define TOTAL_COMPOSED aggregateTimesFromType(TIMER_COMPOSED)
+#define TOTAL_COMPOSED aggregateTimesFromType(TIMER_DUAL)
 #define PRINT_CORE_TIMERS {printf("********************************************************************************\n"\
 "OCD Core Timers\n"\
 "********************************************************************************\n"\
@@ -276,10 +278,41 @@ int removeTimer(union internalTimer * t) {
 ,TOTAL_H2D, TOTAL_D2H, TOTAL_D2D, TOTAL_KERNEL, TOTAL_USER, TOTAL_COMPOSED);}
 #define TIMER_DEBUG_WALK_LIST {walkList();}
 
-//#define START_DUAL_TIMER(a, b)
-//#define INI_DUAL_TIMER(a, b)
-//#define DEST_DUAL_TIMER(a, b)
-//#define END_DUAL_TIMER(a, b)
+//starts the dual timer specified by events a and b, assumes a is the "first" event
+#define START_DUAL_TIMER(a, b) {void * ptr = getDualTimePtr(a, b); \
+                        if (ptr == (void *) -1) {\
+                                fprintf(stderr, "Timer Error: Cannot start uninitialized timer for events [%lx] and [%lx]!\n", (unsigned long) a, (unsigned long) b); \
+                        } else {\
+                            cl_int err = clGetEventProfilingInfo(a, CL_PROFILING_COMMAND_START, sizeof(cl_ulong), &((union internalTimer *)ptr)->s.starttime, NULL); \
+                            CHECK_ERROR(err)\
+                        }\
+        }
+//assumes must be TIMER_COMPOSED
+#define INI_DUAL_TIMER(a, b) {void * ptr = getDualTimePtr(a, b); \
+                         if (ptr == (void *) -1) {\
+                                 struct internalComposedTimer * temp = (struct internalComposedTimer*) malloc(sizeof(struct internalComposedTimer)); \
+                                 temp->type = TIMER_DUAL;\
+                                 temp->starttime = 0;\
+                                 temp->endtime = 0;\
+                                 temp->event[0] = a;\
+                                 temp->event[1] = b;\
+                                 addTimer((union internalTimer *)temp);\
+                         } else { \
+                 		fprintf(stderr, "Timer Error: events [%lx] and [%lx] have already initialized timer [%lx]!\n", (unsigned long) a, (unsigned long) b, (unsigned long) ptr); \
+                  	}}
+#define DEST_DUAL_TIMER(a, b) {void * ptr = getDualTimePtr(a, b); \
+                       if(ptr != (void *) -1) { \
+                       		removeTimer((union internalTimer *) ptr); \
+                       		free(ptr); \
+                       }}
+//Assumes b is the "second" event
+#define END_DUAL_TIMER(a, b) {void * ptr = getDualTimePtr(a, b); \
+                        if (ptr == (void *) -1) {\
+                                fprintf(stderr, "Timer Error: Cannot end uninitialized timer for events [%lx] and [%lx]!\n", (unsigned long) a, (unsigned long) b); \
+                        } else { \
+                            cl_int err = clGetEventProfilingInfo(b, CL_PROFILING_COMMAND_END, sizeof(cl_ulong), &((union internalTimer *)ptr)->s.endtime, NULL); \
+                            CHECK_ERROR(err)\
+                        }}
 //#define PRINT_COUNT printf("H2D Transfer Time: %f (ms)\n",h2d_t*1e-6f);\
 		    printf("Kernel Time: %f (ms)\n",k_t*1e-6f);\
 		    printf("D2H Transfer Time: %f (ms)\n",d2h_t*1e-6f);
