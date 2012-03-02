@@ -340,9 +340,7 @@ int main(int argc, char** argv)
 	//ocd_register_arg(OTYPE_INT, 's', "seed", "Random Seed", &seed, NULL, NULL);
 	//ocd_register_arg(OTYPE_STR, 'i', "input-file", "CRC Input File", &file, NULL, NULL);
 
-	int off = ocd_parse(argc, argv);
-	argc -= off;
-	argv += off;
+	ocd_parse(&argc, &argv);
 	
 	int c;
 	while((c = getopt (argc, argv, "vn:s:i:p:w:h")) != -1)
@@ -387,8 +385,8 @@ int main(int argc, char** argv)
 	platform_id = opts.platform_id;
 	n_device = opts.device_id;
 
-	//printf("Common Arguments: p=%d d=%d\n", platform_id, n_device);
-	//printf("Program Arguments: p=%d v=%d i=%s s=%d n=%lu w=%d\n", crc, run_serial, file, seed, N, maxSize);
+	printf("Common Arguments: p=%d d=%d\n", platform_id, n_device);
+	printf("Program Arguments: p=%d v=%d i=%s s=%d n=%lu w=%d\n", crc, run_serial, file, seed, N, maxSize);
 
 	srand(seed);
 

@@ -39,30 +39,34 @@ ocd_options ocd_get_options()
 	return _settings;
 }
 
-int ocd_parse(int argc, char** argv)
+int ocd_parse(int* argc, char*** argv)
 {
 	if(!_options)
 		_ocd_create_arguments();
 	
+	int largc = *argc;
+	char** largv = *argv;
+
 	//Determine if there are any arguments to parse.
 	int i;
-	int origargc = argc;
-	for(i = 0; i < argc; i++)
+	int origargc = largc;
+	for(i = 0; i < largc; i++)
 	{
-		if(strlen(argv[i]) == 2 && strncmp(argv[i], "--", 2) == 0)
+		if(strlen(largv[i]) == 2 && strncmp(largv[i], "--", 2) == 0)
 		{
-			argc = i;
+			largc = i;
 			break;
 		}
 	}
 
-	if (optsgets(argc, argv, _options)) {
-		if(argc == origargc) // No double dash
-		{
-			//Assume we failed because they were actually
-			//Program specific arguments.
-			return 0;
-		}
+	if(largc == origargc) // No double dash
+	{
+		//Assume we failed because they were actually
+		//Program specific arguments.
+		return 0;
+	}
+
+	if (optsgets(largc, largv, _options)) {
 
 		fprintf(stderr, "optsgets() errored.\nUsage:");
 		option* op;
@@ -71,8 +75,10 @@ int ocd_parse(int argc, char** argv)
 			  (op->flags & OFLAG_ARG)))
 				fprintf(stderr, "%s\n", optsusage(op));
 	}
-	
-	return argc;
+
+	*argv += largc;
+	*argc = *argc - largc;
+	return largc;
 }
 
 void _ocd_expand_list()
