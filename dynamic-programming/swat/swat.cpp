@@ -89,6 +89,7 @@ int main(int argc, char ** argv)
 	size_t setZeroThreadNum, mfThreadNum;
 	int blockNum = 14;
 
+	cl_ulong maxLocalSize;
 
 	int arraySize;
 
@@ -145,6 +146,10 @@ int main(int argc, char ** argv)
 	}
 	mfThreadNum = blockNum * blockSize;
 	
+	CHECK_ERR(clGetDeviceInfo(deviceID, CL_DEVICE_LOCAL_MEM_SIZE,\
+		sizeof(cl_ulong), &maxLocalSize, 0), \
+		"Error while querying CL_DEVICE_LOCAL_MEM_SIZE.");
+	
 	hContext = clCreateContext(0, 1, &deviceID, 0, 0, &err);
 	CHECK_ERR(err, "Create context from type error");
 	
@@ -160,16 +165,16 @@ int main(int argc, char ** argv)
 	CHECK_ERR(err, "Create program with source error");
 
 	err = clBuildProgram(hProgram, 0, 0, 0, 0, 0);
-//	//debug================================
-//	int logSize = 3000, i;
-//	size_t retSize;
-//	char logTxt[3000];
-//	err = clGetProgramBuildInfo(hProgram, deviceID, CL_PROGRAM_BUILD_LOG, logSize, logTxt, &retSize);
-//	for (i = 0; i < retSize; i++)
-//	{
-//		printf("%c", logTxt[i]);
-//	}
-//	//===================================
+	//debug================================
+	int logSize = 3000, i;
+	size_t retSize;
+	char logTxt[3000];
+	err = clGetProgramBuildInfo(hProgram, deviceID, CL_PROGRAM_BUILD_LOG, logSize, logTxt, &retSize);
+	for (i = 0; i < retSize; i++)
+	{
+		printf("%c", logTxt[i]);
+	}
+	//===================================
 	CHECK_ERR(err, "Build program error");
 
 	hMatchStringKernel = clCreateKernel(hProgram, "MatchStringGPUSync", &err);
@@ -457,6 +462,7 @@ int main(int argc, char ** argv)
 		err |= clSetKernelArg(hMatchStringKernel, 14, sizeof(cl_mem), (void *)&maxInfoD);
 		err |= clSetKernelArg(hMatchStringKernel, 15, sizeof(cl_mem), (void *)&blosum62D);
 		err |= clSetKernelArg(hMatchStringKernel, 16, sizeof(cl_mem), (void *)&mutexMem);
+		err |= clSetKernelArg(hMatchStringKernel, 17, maxLocalSize, NULL);
 		CHECK_ERR(err, "Set match string argument error!");
 
 		err = clEnqueueNDRangeKernel(hCmdQueue, hMatchStringKernel, 1, NULL, &mfThreadNum,
