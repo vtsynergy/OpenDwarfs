@@ -630,6 +630,7 @@ int main(int argc, char ** argv)
 	clReleaseProgram(hProgram);
 	clReleaseCommandQueue(hCmdQueue);
 	clReleaseContext(hContext);
+        OCD_FINISH
 	return 0;
 }
 
