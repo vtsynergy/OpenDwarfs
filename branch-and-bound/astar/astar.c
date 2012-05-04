@@ -112,7 +112,7 @@ void CPUsearch(
 }
 
 int main(int argc, char** argv) {
-    INI_TIMER
+    OCD_INIT
 	cl_int err;
     int i, j, k;
 
@@ -177,7 +177,7 @@ int main(int argc, char** argv) {
     CHKERR(err, "Failed to create a compute context!");
 
     /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
+    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
@@ -225,16 +225,16 @@ int main(int argc, char** argv) {
     CHKERR(err, "Failed to allocate device memory!");
 
     /* Write our data set into the input array in device memory */
-   START_TIMER 
-	err = clEnqueueWriteBuffer(commands, h_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, h, 0, NULL, &myEvent);
-	END_TIMER
-	COUNT_H2D
+   
+	err = clEnqueueWriteBuffer(commands, h_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, h, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+        END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, city_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, city, 0, NULL, &myEvent);
+    err = clEnqueueWriteBuffer(commands, city_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, city, 0, NULL, &ocdTempEvent);
+    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+        END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+	clFinish(commands);
 
     /* Set the arguments to our compute kernel */
     err = 0;
@@ -258,25 +258,24 @@ int main(int argc, char** argv) {
     /* using the maximum number of work group items for this device */
     global_size = CITIES*CITIES;
     local_size = CITIES;
-	START_TIMER
-    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
+    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
+    START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
     CHKERR(err, "Failed to execute kernel!");
     /* Wait for the command commands to get serviced before reading back results */
     clFinish(commands);
+        END_TIMER(ocdTempTimer)
 
-	END_TIMER
-	COUNT_K
     /* Read back the results from the device to verify the output */
-    START_TIMER
-	err = clEnqueueReadBuffer(commands, result_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, result, 0, NULL, &myEvent);
-	END_TIMER
-	COUNT_D2H
+    
+	err = clEnqueueReadBuffer(commands, result_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, result, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
+        END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to read output array!");
-    err = clEnqueueReadBuffer(commands, traverse_mem, CL_TRUE, 0, sizeof (int) *CITIES * CITIES*CITIES, traverse, 0, NULL, &myEvent);
-	CL_FINISH(commands)
+    err = clEnqueueReadBuffer(commands, traverse_mem, CL_TRUE, 0, sizeof (int) *CITIES * CITIES*CITIES, traverse, 0, NULL, &ocdTempEvent);
+	clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
+        END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to read output array!");
-	END_TIMER
-	COUNT_D2H
     /* Validate our results */
     for (i = 0; i < CITIES; i++)
         for (j = 0; j < CITIES; j++) {
@@ -308,7 +307,7 @@ int main(int argc, char** argv) {
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-	PRINT_COUNT
+	PRINT_CORE_TIMERS
     return 0;
 }
 

@@ -258,7 +258,7 @@ initializeCL(void)
   commandQueue = clCreateCommandQueue(
       context,
       devices[device_id],
-      TIMER_ENABLE,
+      CL_QUEUE_PROFILING_ENABLE,
       &status);
   if(status != CL_SUCCESS)
   {
@@ -409,7 +409,6 @@ void calc_potential_single_step(residue *residues,
   unsigned int *atom_lengths;
 
   initializeCL();
-  INI_TIMER
 	init_time();
 
 
@@ -588,58 +587,59 @@ void calc_potential_single_step(residue *residues,
   vert_z_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_float)*nvert,   NULL, &err[14]);
   atom_addrs_s    = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_int)*nres,      NULL, &err[15]);
   atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_int)*nres,      NULL, &err[16]);
-	START_TIMER
-  clEnqueueWriteBuffer ( commandQueue, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
-  clEnqueueWriteBuffer ( commandQueue, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, &myEvent);
-END_TIMER
-	COUNT_H2D
+
+  
+  clEnqueueWriteBuffer ( commandQueue, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
+  clEnqueueWriteBuffer ( commandQueue, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+END_TIMER(ocdTempTimer)
   // clSetKernelArg( kernel, 0, sizeof(cl_mem), (void *)&outputBuffer);
   clSetKernelArg( kernel, 0, sizeof(cl_int), (void *)&    nres);// int nres,
   clSetKernelArg( kernel, 1, sizeof(cl_int), (void *)&    nvert);// int nvert,
@@ -724,7 +724,6 @@ END_TIMER
     clSetKernelArg( kernel, 9, sizeof(cl_int), (void *)&    eye);// int eye,
     fprintf(stderr,"finished first %d of %d\n", eye, nvert);
     /* copy the vert data of the current block to device */
-    START_TIMER
 	status = clEnqueueNDRangeKernel(
         commandQueue,
         kernel,
@@ -734,7 +733,8 @@ END_TIMER
         localThreads,
         0,
         NULL,
-        &myEvent);
+        &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
     if(status != CL_SUCCESS) 
     { 
       std::cout<<
@@ -745,9 +745,8 @@ END_TIMER
 
 
     /* wait for the kernel call to finish execution */
-    status = clWaitForEvents(1, &myEvent);
-    END_TIMER
-	COUNT_K
+    status = clWaitForEvents(1, &ocdTempEvent);
+    END_TIMER(ocdTempTimer)
 	if(status != CL_SUCCESS) 
     { 
       std::cout<<
@@ -787,7 +786,6 @@ END_TIMER
  
 	 if(eye > bound)
     eye = bound;
-	START_TIMER
   status = clEnqueueReadBuffer(
       commandQueue,
       vert_c_s,
@@ -797,10 +795,9 @@ END_TIMER
       vert_c,
       0,
       NULL,
-      &myEvent);
-	CL_FINISH(commandQueue)
-END_TIMER
-	COUNT_D2H
+      &ocdTempEvent);
+	clFinish(commandQueue);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
   if(status != CL_SUCCESS) 
   { 
     std::cout << 
@@ -811,7 +808,8 @@ END_TIMER
   }
 
   /* Wait for the read buffer to finish execution */
-  status = clWaitForEvents(1, &myEvent);
+  status = clWaitForEvents(1, &ocdTempEvent);
+  END_TIMER(ocdTempTimer)
   if(status != CL_SUCCESS) 
   { 
     std::cout<<
@@ -858,6 +856,6 @@ END_TIMER
   //cudaFree(atoms_s);
 
   *i = eye;
-	PRINT_COUNT
+	PRINT_CORE_TIMERS
 }
 

@@ -162,11 +162,10 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	struct timeval start_time, end_time;
 	gettimeofday(&start_time, NULL);
 	// Write our data set into the input array in device memory
-	 START_TIMER	
-	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
 	gettimeofday(&end_time, NULL);
@@ -193,25 +192,23 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	// Execute the kernel over the entire range of our 1d input data set
 	// using the maximum number of work group items for this device
 	global_size = N + local_size - N%local_size;
-	gettimeofday(&start_time, NULL);
-	START_TIMER
-	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
+	gettimeofday(&start_time, NULL);\
+	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
 	CHKERR(err, "Failed to execute compute kernel!");
 	clFinish(commands);
-	END_TIMER
-	COUNT_K
+	END_TIMER(ocdTempTimer)
 	gettimeofday(&end_time, NULL);
 	kernelExecutionTime += computeTimeDiff(start_time, end_time);
 
 	unsigned char* h_answer = malloc(sizeof(*h_answer)*N);
 	
 	gettimeofday(&start_time, NULL);
-	// Read back the results from the device to verify the output
-	START_TIMER
+	// Read back the results from the device to verify the output\
 	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_D2H
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to read output array!");
 	clFinish(commands);
 	gettimeofday(&end_time, NULL);
@@ -258,7 +255,7 @@ void setupGPU()
 	CHKERR(err, "Failed to create a compute context!");
 
 	// Create a command queue
-	commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
+	commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
 	CHKERR(err, "Failed to create a command queue!");
 
 	struct timeval compilation_st, compilation_et;
@@ -308,7 +305,7 @@ void setupGPU()
 
 int main(int argc, char** argv)
 {
-	INI_TIMER
+    OCD_INIT
 	cl_int err;
 
 	unsigned char* h_num;
@@ -401,11 +398,10 @@ int main(int argc, char** argv)
 	
 	gettimeofday(&tables_st, NULL);
 	// Write our data set into the input array in device memory
-	START_TIMER	
-	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
 	gettimeofday(&tables_et, NULL);
@@ -483,5 +479,5 @@ int main(int argc, char** argv)
 
 	printf("Done\n");
 		
-	PRINT_COUNT
+        OCD_FINISH
 }

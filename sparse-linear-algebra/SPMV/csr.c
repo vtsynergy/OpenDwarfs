@@ -28,7 +28,7 @@ static struct option long_options[] = {
 int platform_id=PLATFORM_ID, n_device=DEVICE_ID;
 int main(int argc, char** argv)
 {
-    	INI_TIMER
+    OCD_INIT
 	cl_int err;
 	int usegpu = USEGPU;
     int do_verify = 0;
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to create a compute context!");
 
     /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
+    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
@@ -169,32 +169,31 @@ int main(int argc, char** argv)
     stopwatch_start(&sw); 
    
     /* Write our data set into the input array in device memory */
-    START_TIMER
-	err = clEnqueueWriteBuffer(commands, csr_ap, CL_TRUE, 0, sizeof(unsigned int)*csr.num_rows+4, csr.Ap, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+	err = clEnqueueWriteBuffer(commands, csr_ap, CL_TRUE, 0, sizeof(unsigned int)*csr.num_rows+4, csr.Ap, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, csr_aj, CL_TRUE, 0, sizeof(unsigned int)*csr.num_nonzeros, csr.Aj, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+    err = clEnqueueWriteBuffer(commands, csr_aj, CL_TRUE, 0, sizeof(unsigned int)*csr.num_nonzeros, csr.Aj, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, csr_ax, CL_TRUE, 0, sizeof(float)*csr.num_nonzeros, csr.Ax, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+    err = clEnqueueWriteBuffer(commands, csr_ax, CL_TRUE, 0, sizeof(float)*csr.num_nonzeros, csr.Ax, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, x_loc, CL_TRUE, 0, sizeof(float)*csr.num_cols, x_host, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+    err = clEnqueueWriteBuffer(commands, x_loc, CL_TRUE, 0, sizeof(float)*csr.num_cols, x_host, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-    err = clEnqueueWriteBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, y_host, 0, NULL, &myEvent);
+    err = clEnqueueWriteBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, y_host, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+	clFinish(commands);
+	END_TIMER(ocdTempTimer)
     /* Set the arguments to our compute kernel */
     err = 0;
     err = clSetKernelArg(kernel, 0, sizeof(unsigned int), &csr.num_rows);
@@ -212,22 +211,20 @@ int main(int argc, char** argv)
     /* Execute the kernel over the entire range of our 1d input data set */
     /* using the maximum number of work group items for this device */
     global_size = csr.num_rows;
-	START_TIMER
-    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
+    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
     clFinish(commands);
-	END_TIMER
-	COUNT_K
+	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to execute kernel!");
 
     /* Wait for the command commands to get serviced before reading back results */
     float output[csr.num_rows];
     
     /* Read back the results from the device to verify the output */
-    	START_TIMER
-	err = clEnqueueReadBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, output, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-    	END_TIMER
-	COUNT_D2H
+	err = clEnqueueReadBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, output, 0, NULL, &ocdTempEvent);
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
+	clFinish(commands);
+    	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to read output array!");
 
     /* end of timing point */
@@ -263,6 +260,7 @@ int main(int argc, char** argv)
     }
 
     /* Print a brief summary detailing the results */
+   OCD_FINISH
 
     /* Shutdown and cleanup */
     clReleaseMemObject(csr_ap);
@@ -274,6 +272,5 @@ int main(int argc, char** argv)
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-PRINT_COUNT
     return 0;
 }

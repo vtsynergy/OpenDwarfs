@@ -1,3 +1,4 @@
+#include <config.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,7 +7,6 @@
 #else
 #include <CL/opencl.h>
 #endif
-#define ENABLE_TIMER
 #include "../include/rdtsc.h"
 
 #define CHKERR(err, str) \
@@ -23,6 +23,7 @@
 
 int main(int argc, char** argv)
 {
+    OCD_INIT
     cl_int err;
     float *input = (float*)malloc(DATA_SIZE*sizeof(float));
     float *output = (float*)malloc(DATA_SIZE*sizeof(float));
@@ -65,7 +66,7 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to create a compute context!");
 
     /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
+    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
@@ -114,8 +115,8 @@ int main(int argc, char** argv)
     err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(float)*count, input, 0, NULL, &writeEvent);
     CHKERR(err, "Failed to write to source array!");
     clFinish(commands);
-    INI_TIMER(writeEvent, TIMER_H2D)
-    START_TIMER(writeEvent)
+    struct ocdTimer * writeTimer;
+    START_TIMER(writeEvent, OCD_TIMER_H2D, NULL, writeTimer)
 
     /* Set the arguments to our compute kernel */
     err = 0;
@@ -137,16 +138,16 @@ int main(int argc, char** argv)
 
     /* Wait for the command commands to get serviced before reading back results */
     clFinish(commands);
-    INI_TIMER(kernEvent, TIMER_KERNEL)
-    START_TIMER(kernEvent)
+    struct ocdTimer * kernTimer;
+    START_TIMER(kernEvent, OCD_TIMER_KERNEL, NULL, kernTimer)
 
     /* Read back the results from the device to verify the output */
     cl_event readEvent;
     err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(float)*count, output, 0, NULL, &readEvent);
     CHKERR(err, "Failed to read output array!");
     clFinish(commands);
-    INI_TIMER(readEvent, TIMER_D2H)
-    START_TIMER(readEvent)
+    struct ocdTimer * readTimer;
+    START_TIMER(readEvent, OCD_TIMER_D2H, NULL, readTimer);
 
     /* Validate our results */
     correct = 0;
@@ -156,30 +157,15 @@ int main(int argc, char** argv)
             correct++;
     }
     //Clock in end times for each event
-    TIMER_DEBUG_WALK_LIST
-    INI_DUAL_TIMER(writeEvent, readEvent)
-    START_DUAL_TIMER(writeEvent, readEvent)
-    TIMER_DEBUG_WALK_LIST
-    END_DUAL_TIMER(writeEvent, readEvent)
-    END_TIMER(writeEvent)
-    END_TIMER(kernEvent)
-    END_TIMER(readEvent)
+    START_DUAL_TIMER(writeEvent, readEvent, NULL, ocdTempDualTimer)
+    END_DUAL_TIMER(ocdTempDualTimer)
+    END_TIMER(writeTimer)
+    END_TIMER(kernTimer)
+    END_TIMER(readTimer)
 
     /* Print a brief summary detailing the results */
     printf("Computed '%d/%d' correct values!\n", correct, count);
-    //Prints all automatically measured metrics
-    PRINT_CORE_TIMERS
-            //These are the metrics we measure
-            //
-            
-           
-            
-    //Destroy the timers associated with the events        
-    DEST_TIMER(writeEvent)
-    DEST_TIMER(kernEvent)
-    DEST_TIMER(readEvent)
-    DEST_DUAL_TIMER(writeEvent, readEvent)
-    TIMER_DEBUG_WALK_LIST
+    
     clReleaseEvent(writeEvent);
     clReleaseEvent(kernEvent);
     clReleaseEvent(readEvent);
@@ -194,6 +180,9 @@ int main(int argc, char** argv)
     
     free(input);
     free(output);
+    
+    //Finalize the timer suite
+    OCD_FINISH
 
     return 0;
 }
