@@ -5,7 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include "../../include/rdtsc.h"
-
+#include "../../include/common_args.h"
 
 
 #define CHKERR(err, str) \
@@ -35,17 +35,21 @@ int64_t kernelExecutionTime = 0;
 
 void usage()
 {
-	printf("graphCreator [hsivp]\n");
-	printf("h		 - print this help message\n");
-	printf("s <seed>  - set the seed for the vertex\n");
-	printf("i <file>  - take input from file instead of randomly generating code\n");
-	printf("v		 - verify parallel code with serial implementation of crc\n");
-	printf("p <int>   - change the last 8 bits of the crc polynomial\n");
-	printf("n <int>   - change the size of data blocks\n");
-	printf("q <int>   - change the number of times to run the kernel\n");
-	printf("w <int>   - change the maximum data size\n");
-	printf("e <int>   - change platform\n");
-	printf("d <int>   - change device\n");
+	printf("crc [pd][hsivpw]\n");
+	printf("Common arguments:\n");
+	ocd_usage();
+	printf("Program-specific arguments:\n");
+	printf("\t-h | 'Print this help message'\n");
+	printf("\t-s | 'Set random seed' [integer]\n");
+	printf("\t-i | 'Input file name' [string]\n");
+	printf("\t-v | 'Verify results on CPU'\n");
+	printf("\t-p | 'CRC Polynomial' [integer]\n");
+	printf("\t-n | 'Data size' [integer]\n");
+	printf("\t-q | 'Kernel iterations' [integer]\n");
+	printf("\t-w | 'Data block size' [integer]\n");
+
+	printf("\nNOTE: Seperate common arguments and program specific arguments with the '--' delimeter\n");
+	exit(0);
 }
 
 void printTimeDiff(struct timeval start, struct timeval end)
@@ -312,21 +316,31 @@ int main(int argc, char** argv)
 	unsigned char* h_answer;
 	unsigned char* data = NULL;
 	unsigned char crc = 0x9B;
-	unsigned long N = 0;
 	unsigned char finalCRC;
 	unsigned char* h_tables;
 	unsigned int run_serial = 0;
 	char* file = NULL;
 	size_t maxSize = DATA_SIZE;
+	unsigned long N = maxSize;
 	size_t read = 0;
 	FILE* fp = NULL;
 	unsigned int seed = time(NULL);
 
-	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;
-	srand(seed);
-		
+	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;		
+	
+
+	//ocd_register_arg(OTYPE_INT, 'n', "size", "Problem Size", &N, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, 'w', "chunk-size", "Maximum Chunk Size", &maxSize, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, '\0', "polynomial", "CRC Polynomial", &crc, NULL, NULL);
+	//ocd_register_arg(OTYPE_NUL, 'h', "help", "Prints help message.", NULL, NULL, usage);
+	//ocd_register_arg(OTYPE_BOL, 'v', "verify", "Verify GPU Computation", &run_serial, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, 's', "seed", "Random Seed", &seed, NULL, NULL);
+	//ocd_register_arg(OTYPE_STR, 'i', "input-file", "CRC Input File", &file, NULL, NULL);
+
+	ocd_parse(&argc, &argv);
+	
 	int c;
-	while((c = getopt (argc, argv, "vn:s:i:p:w:h:e:d:")) != -1)
+	while((c = getopt (argc, argv, "vn:s:i:p:w:h")) != -1)
 	{
 		switch(c)
 		{
@@ -354,23 +368,27 @@ int main(int argc, char** argv)
 			case 'w':
 				maxSize = atoi(optarg);
 				break;
-			case 'e':
-				platform_id = atoi(optarg);
-				break;
-			case 'd':
-				n_device = atoi(optarg);
-				break;
 			default:
 				abort();
 		}	
 	}
 	if(N == 0)	
 		N = maxSize;
+
 	
+
+
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	n_device = opts.device_id;
+
+	printf("Common Arguments: p=%d d=%d\n", platform_id, n_device);
+	printf("Program Arguments: p=%d v=%d i=%s s=%d n=%lu w=%d\n", crc, run_serial, file, seed, N, maxSize);
+
+	srand(seed);
 
 	size_t global_size;
 	size_t local_size;
-
 	
 	gettimeofday(&par_st, NULL);	
 	h_num = malloc(sizeof(*h_num) * N);
