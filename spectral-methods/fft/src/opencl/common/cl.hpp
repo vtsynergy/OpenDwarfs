@@ -157,7 +157,6 @@
 #include <OpenGL/OpenGL.h>
 #include <OpenCL/opencl.h>
 #else
-#include <GL/gl.h>
 #include <CL/opencl.h>
 #endif // !__APPLE__
 
@@ -1958,116 +1957,6 @@ public:
 };
 #endif
 
-/*! \class BufferGL
- * \brief Memory buffer interface for GL interop.
- */
-class BufferGL : public Buffer
-{
-public:
-    BufferGL(
-        const Context& context,
-        cl_mem_flags flags,
-        GLuint bufobj,
-        cl_int * err = NULL)
-    {
-        cl_int error;
-        object_ = ::clCreateFromGLBuffer(
-            context(),
-            flags,
-            bufobj,
-            &error);
-
-        detail::errHandler(error, __CREATE_GL_BUFFER_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
-    }
-
-    BufferGL() : Buffer() { }
-
-    BufferGL(const BufferGL& buffer) : Buffer(buffer) { }
-
-    BufferGL(const cl_mem& buffer) : Buffer(buffer) { }
-
-    BufferGL& operator = (const BufferGL& rhs)
-    {
-        if (this != &rhs) {
-            Buffer::operator=(rhs);
-        }
-        return *this;
-    }
-
-    BufferGL& operator = (const cl_mem& rhs)
-    {
-        Buffer::operator=(rhs);
-        return *this;
-    }
-
-    cl_int getObjectInfo(
-        cl_gl_object_type *type,
-        GLuint * gl_object_name)
-    {
-        return detail::errHandler(
-            ::clGetGLObjectInfo(object_,type,gl_object_name),
-            __GET_GL_OBJECT_INFO_ERR);
-    }
-};
-
-/*! \class BufferRenderGL
- * \brief Memory buffer interface for GL interop with renderbuffer.
- */
-class BufferRenderGL : public Buffer
-{
-public:
-    BufferRenderGL(
-        const Context& context,
-        cl_mem_flags flags,
-        GLuint bufobj,
-        cl_int * err = NULL)
-    {
-        cl_int error;
-        object_ = ::clCreateFromGLRenderbuffer(
-            context(),
-            flags,
-            bufobj,
-            &error);
-
-        detail::errHandler(error, __CREATE_GL_BUFFER_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
-    }
-
-    BufferRenderGL() : Buffer() { }
-
-    BufferRenderGL(const BufferGL& buffer) : Buffer(buffer) { }
-
-    BufferRenderGL(const cl_mem& buffer) : Buffer(buffer) { }
-
-    BufferRenderGL& operator = (const BufferRenderGL& rhs)
-    {
-        if (this != &rhs) {
-            Buffer::operator=(rhs);
-        }
-        return *this;
-    }
-
-    BufferRenderGL& operator = (const cl_mem& rhs)
-    {
-        Buffer::operator=(rhs);
-        return *this;
-    }
-
-    cl_int getObjectInfo(
-        cl_gl_object_type *type,
-        GLuint * gl_object_name)
-    {
-        return detail::errHandler(
-            ::clGetGLObjectInfo(object_,type,gl_object_name),
-            __GET_GL_OBJECT_INFO_ERR);
-    }
-};
-
 /*! \class Image
  * \brief Base class  interface for all images.
  */
@@ -2164,56 +2053,6 @@ public:
     }
 };
 
-/*! \class Image2DGL
- * \brief 2D image interface for GL interop.
- */
-class Image2DGL : public Image2D
-{
-public:
-    Image2DGL(
-        const Context& context,
-        cl_mem_flags flags,
-        GLenum target,
-        GLint  miplevel,
-        GLuint texobj,
-        cl_int * err = NULL)
-    {
-        cl_int error;
-        object_ = ::clCreateFromGLTexture2D(
-            context(),
-            flags,
-            target,
-            miplevel,
-            texobj,
-            &error);
-
-        detail::errHandler(error, __CREATE_GL_BUFFER_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
-    }
-
-    Image2DGL() : Image2D() { }
-
-    Image2DGL(const Image2DGL& image) : Image2D(image) { }
-
-    Image2DGL(const cl_mem& image) : Image2D(image) { }
-
-    Image2DGL& operator = (const Image2DGL& rhs)
-    {
-        if (this != &rhs) {
-            Image2D::operator=(rhs);
-        }
-        return *this;
-    }
-
-    Image2DGL& operator = (const cl_mem& rhs)
-    {
-        Image2D::operator=(rhs);
-        return *this;
-    }
-};
-
 /*! \class Image3D
  * \brief Image interface for 3D images.
  */
@@ -2260,56 +2099,6 @@ public:
     Image3D& operator = (const cl_mem& rhs)
     {
         Image::operator=(rhs);
-        return *this;
-    }
-};
-
-/*! \class Image2DGL
- * \brief 2D image interface for GL interop.
- */
-class Image3DGL : public Image3D
-{
-public:
-    Image3DGL(
-        const Context& context,
-        cl_mem_flags flags,
-        GLenum target,
-        GLint  miplevel,
-        GLuint texobj,
-        cl_int * err = NULL)
-    {
-        cl_int error;
-        object_ = ::clCreateFromGLTexture3D(
-            context(),
-            flags,
-            target,
-            miplevel,
-            texobj,
-            &error);
-
-        detail::errHandler(error, __CREATE_GL_BUFFER_ERR);
-        if (err != NULL) {
-            *err = error;
-        }
-    }
-
-    Image3DGL() : Image3D() { }
-
-    Image3DGL(const Image3DGL& image) : Image3D(image) { }
-
-    Image3DGL(const cl_mem& image) : Image3D(image) { }
-
-    Image3DGL& operator = (const Image3DGL& rhs)
-    {
-        if (this != &rhs) {
-            Image3D::operator=(rhs);
-        }
-        return *this;
-    }
-
-    Image3DGL& operator = (const cl_mem& rhs)
-    {
-        Image3D::operator=(rhs);
         return *this;
     }
 };
