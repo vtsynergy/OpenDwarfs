@@ -180,7 +180,7 @@
 #endif // linux
 #include <stdlib.h>
 #include <cstring>
-
+#include <stdlib.h>
 /*! \namespace cl
  *
  * \brief The OpenCL C++ bindings are defined within this namespace.

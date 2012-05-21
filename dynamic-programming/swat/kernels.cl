@@ -53,7 +53,8 @@ __kernel void  MatchStringGPUSync(__global char  *pathFlag,
 								  float          extensionPenalty,
 								  __global MAX_INFO *maxInfo,
 								  __global float *blosum62D,
-								  volatile __global int *mutexMem)
+								  volatile __global int *mutexMem,
+								  __local int* temp)
 {
 	int npos, ntablepos, tid;
 	int npreposngap, npreposhgap, npreposvgap;
@@ -76,7 +77,7 @@ __kernel void  MatchStringGPUSync(__global char  *pathFlag,
 	float ext_dist;
 	float fmaxdist;
 
-	__local float temp[10000];
+	//__local float temp[5000];
 	temp[0] = 0.0f;
 
 	for (launchNo = 2; launchNo < launchNum; launchNo++)
