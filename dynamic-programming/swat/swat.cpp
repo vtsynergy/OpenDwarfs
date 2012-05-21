@@ -637,7 +637,6 @@ int main(int argc, char ** argv)
 	clReleaseProgram(hProgram);
 	clReleaseCommandQueue(hCmdQueue);
 	clReleaseContext(hContext);
-        printf("Why isn't it getting here?\n");
         OCD_FINISH
 	return 0;
 }
