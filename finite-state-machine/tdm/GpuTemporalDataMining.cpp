@@ -10,6 +10,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
 // includes, project
@@ -887,17 +888,17 @@ main( int argc, char** argv)
 void
 runTest( int argc, char** argv)
 {
-	if ( argc != 8 && argc != 10)
+	ocd_init(&argc, &argv, NULL);
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	device_id = opts.device_id;
+	
+	if ( argc != 8)
 	{
 		printf("Usage: GpuTemporalDataMining <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic or (d)ynamic> <(m)ap and merge or (n)aive or (o)hybrid> [platform & device]\n");
 		return;
 	}
 
-    if(argc == 10)
-	{
-		platform_id = atoi(argv[8]);
-		n_device = atoi(argv[9]);
-	}
 //    CUT_DEVICE_INIT();
     initGpu();
 

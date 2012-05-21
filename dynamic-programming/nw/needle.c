@@ -6,6 +6,7 @@
 #include "needle.h"
 #include <sys/time.h>
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 #define CHECKERR(err) \
     if (err != CL_SUCCESS) \
@@ -101,7 +102,12 @@ void runTest( int argc, char** argv)
 	int size;
 	
     int i, j;
-    
+   
+	ocd_init(&argc, &argv, NULL);
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	n_device = opts.device_id;
+
     // the lengths of the two sequences should be able to divided by 16.
 	// And at current stage  max_rows needs to equal max_cols
 	if (argc == 3)
@@ -109,14 +115,6 @@ void runTest( int argc, char** argv)
 		max_rows = atoi(argv[1]);
 		max_cols = atoi(argv[1]);
 		penalty = atoi(argv[2]);
-	}
-	else if(argc == 5)
-	{
-		max_rows = atoi(argv[1]);
-		max_cols = atoi(argv[1]);
-		penalty = atoi(argv[2]);
-		platform_id = atoi(argv[3]);
-		n_device = atoi(argv[4]);
 	}
     else{
 	usage(argc, argv);

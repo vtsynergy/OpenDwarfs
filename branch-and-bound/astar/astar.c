@@ -3,6 +3,7 @@
 #include <assert.h>
 
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -135,11 +136,12 @@ int main(int argc, char** argv) {
     size_t kernelLength;
     size_t lengthRead;
     int start = 0, end = 1, result[CITIES * CITIES], traverse[CITIES * CITIES * CITIES], CPU_result[1];
-	if(argc == 3)
-	{
-		platform_id = atoi(argv[1]);
-		n_device = atoi(argv[2]);
-	}
+    
+    ocd_init(&argc, &argv, NULL);
+    ocd_options opts = ocd_get_options();
+    platform_id = opts.platform_id;
+    n_device = opts.device_id;
+    
     /* Fill input set with distance and heuristic value */
     int h[] = {0, 366, 272, 219, 139, 229, 389, 176, 90, 269, 166, 116, 79, 36,
         366, 0, 160, 242, 244, 178, 77, 241, 380, 98, 193, 253, 329, 374,

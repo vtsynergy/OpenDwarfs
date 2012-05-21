@@ -4,6 +4,7 @@
 #include <getopt.h>
 #include <assert.h>
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 
 #define CHKERR(err, str) \
@@ -58,7 +59,13 @@ int main(int argc, char** argv)
     size_t kernelLength;
     size_t lengthRead;
 
-    while ((opt = getopt_long(argc, argv, "::vc::p:d:", 
+
+    ocd_init(&argc, &argv, NULL);
+    ocd_options opts = ocd_get_options();
+    platform_id = opts.platform_id;
+    n_device = opts.device_id;
+
+    while ((opt = getopt_long(argc, argv, "::vc::", 
                             long_options, &option_index)) != -1 ) {
       switch(opt){
         //case 'i':
@@ -71,12 +78,6 @@ int main(int argc, char** argv)
         case 'c':
           fprintf(stderr, "using cpu\n");
           usegpu = 0;
-	  break;
-        case 'p':
-	  platform_id = atoi(optarg);
-	  break;
-        case 'd':
-	  n_device = atoi(optarg);
 	  break;
         default:
           fprintf(stderr, "Usage: %s [-v Warning: lots of output] [-c use CPU]\n",

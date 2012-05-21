@@ -79,6 +79,8 @@
 #include <omp.h>
 #include "kmeans.h"
 
+#include "../../include/common_args.h"
+
 extern double wtime(void);
 extern int platform_id;
 extern int device_id; 
@@ -130,8 +132,13 @@ int setup(int argc, char **argv) {
 		int		isOutput = 0;
 		//float	cluster_timing, io_timing;		
 
+	ocd_init(&argc, &argv, NULL);
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	device_id = opts.device_id;
+		
 		/* obtain command line arguments and change appropriate options */
-		while ( (opt=getopt(argc,argv,"i:t:m:n:l:brop:d:"))!= EOF) {
+		while ( (opt=getopt(argc,argv,"i:t:m:n:l:bro"))!= EOF) {
         switch (opt) {
             case 'i': filename=optarg;
                       break;
@@ -140,10 +147,6 @@ int setup(int argc, char **argv) {
             case 't': threshold=atof(optarg);
                       break;
             case 'm': max_nclusters = atoi(optarg);
-                      break;
-            case 'p': platform_id = atoi(optarg);
-                      break;
-            case 'd': device_id = atoi(optarg);
                       break;
             case 'n': min_nclusters = atoi(optarg);
                       break;

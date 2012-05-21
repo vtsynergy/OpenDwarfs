@@ -256,14 +256,17 @@ void setupGPU()
 {
 	cl_int err;
 	// Retrieve an OpenCL platform
+	printf("Getting Device %d %d \n", platform_id, n_device);
 	device_id = GetDevice(platform_id, n_device);
 
+	printf("Getting Device\n");
 	context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
 	CHKERR(err, "Failed to create a compute context!");
 
 	// Create a command queue
 	commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
 	CHKERR(err, "Failed to create a command queue!");
+	printf("Getting Device\n");
 
 	struct timeval compilation_st, compilation_et;
 	
@@ -279,6 +282,7 @@ void setupGPU()
 	fread((void *) kernelSource, kernelLength, 1, kernelFile);
 	kernelSource[kernelLength] = 0;
 	fclose(kernelFile);
+	printf("Getting Device\n");
 	
 	// Create the compute program from the source buffer
 	program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, NULL, &err);
@@ -340,7 +344,10 @@ int main(int argc, char** argv)
 	//ocd_register_arg(OTYPE_INT, 's', "seed", "Random Seed", &seed, NULL, NULL);
 	//ocd_register_arg(OTYPE_STR, 'i', "input-file", "CRC Input File", &file, NULL, NULL);
 
-	ocd_parse(&argc, &argv);
+	ocd_requirements req;
+	ocd_init(&argc, &argv, &req);
+	//if(!ocd_check_requirements(&req))
+	//	exit(0);
 	
 	int c;
 	while((c = getopt (argc, argv, "vn:s:i:p:w:h")) != -1)
@@ -396,8 +403,8 @@ int main(int argc, char** argv)
 	gettimeofday(&par_st, NULL);	
 	h_num = malloc(sizeof(*h_num) * N);
 
+	printf("Setting GPU up\n");
 	setupGPU();
-
 	//Generate Tables for the given size of N
 	int numTables = floor(log(N)/log(2)) + 1;
 	printf("num tables = %d\n", numTables);

@@ -11,6 +11,7 @@
 #include <string.h>
 #include <math.h>
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 #include <utility>
 #define __NO_STD_VECTOR // Use cl::vector and cl::string and 
@@ -161,16 +162,16 @@ int main(int argc, char** argv)
  *****************************************************************************/
 void BFSGraph(int argc, char ** argv)
 {
+	ocd_init(&argc, &argv, NULL);
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	n_device = opts.device_id;
+
     if(argc < 2)
     {
         printf("Usage: <filename> [platform & device].\n");
         exit(1);
     } 
-    if(argc == 4)
-    {
-	platform_id = atoi(argv[2]);
-	n_device = atoi(argv[3]);
-    }
     printf("Reading File\n");
     //Read in Graph from a file
     fp = fopen(argv[1], "r");

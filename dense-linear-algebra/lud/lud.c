@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <math.h>
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 #include "common.h"
 
@@ -57,17 +58,17 @@ main ( int argc, char *argv[] )
 
   cl_mem d_m;
 
-  while ((opt = getopt_long(argc, argv, "::vs:i:p:d:", 
+  ocd_init(&argc, &argv, NULL);
+  ocd_options opts = ocd_get_options();
+  platform_id = opts.platform_id;
+  device_id = opts.device_id;
+
+
+  while ((opt = getopt_long(argc, argv, "::vs:i:", 
                             long_options, &option_index)) != -1 ) {
       switch(opt){
         case 'i':
           input_file = optarg;
-          break;
-        case 'p':
-          platform_id = atoi(optarg);
-          break;
-        case 'd':
-          device_id = atoi(optarg);
           break;
         case 'v':
           do_verify = 1;
