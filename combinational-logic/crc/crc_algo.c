@@ -5,7 +5,7 @@
 #include <string.h>
 #include <math.h>
 #include "../../include/rdtsc.h"
-
+#include "../../include/common_args.h"
 
 
 #define CHKERR(err, str) \
@@ -35,17 +35,21 @@ int64_t kernelExecutionTime = 0;
 
 void usage()
 {
-	printf("graphCreator [hsivp]\n");
-	printf("h		 - print this help message\n");
-	printf("s <seed>  - set the seed for the vertex\n");
-	printf("i <file>  - take input from file instead of randomly generating code\n");
-	printf("v		 - verify parallel code with serial implementation of crc\n");
-	printf("p <int>   - change the last 8 bits of the crc polynomial\n");
-	printf("n <int>   - change the size of data blocks\n");
-	printf("q <int>   - change the number of times to run the kernel\n");
-	printf("w <int>   - change the maximum data size\n");
-	printf("e <int>   - change platform\n");
-	printf("d <int>   - change device\n");
+	printf("crc [pd][hsivpw]\n");
+	printf("Common arguments:\n");
+	ocd_usage();
+	printf("Program-specific arguments:\n");
+	printf("\t-h | 'Print this help message'\n");
+	printf("\t-s | 'Set random seed' [integer]\n");
+	printf("\t-i | 'Input file name' [string]\n");
+	printf("\t-v | 'Verify results on CPU'\n");
+	printf("\t-p | 'CRC Polynomial' [integer]\n");
+	printf("\t-n | 'Data size' [integer]\n");
+	printf("\t-q | 'Kernel iterations' [integer]\n");
+	printf("\t-w | 'Data block size' [integer]\n");
+
+	printf("\nNOTE: Seperate common arguments and program specific arguments with the '--' delimeter\n");
+	exit(0);
 }
 
 void printTimeDiff(struct timeval start, struct timeval end)
@@ -162,11 +166,10 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	struct timeval start_time, end_time;
 	gettimeofday(&start_time, NULL);
 	// Write our data set into the input array in device memory
-	 START_TIMER	
-	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CRC Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
 	gettimeofday(&end_time, NULL);
@@ -193,13 +196,12 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	// Execute the kernel over the entire range of our 1d input data set
 	// using the maximum number of work group items for this device
 	global_size = N + local_size - N%local_size;
-	gettimeofday(&start_time, NULL);
-	START_TIMER
-	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, &myEvent);
+	gettimeofday(&start_time, NULL);\
+	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CRC Kernel", ocdTempTimer)
 	CHKERR(err, "Failed to execute compute kernel!");
-	clFinish(commands);
-	END_TIMER
-	COUNT_K
+	END_TIMER(ocdTempTimer)
 	gettimeofday(&end_time, NULL);
 	kernelExecutionTime += computeTimeDiff(start_time, end_time);
 
@@ -207,11 +209,10 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	
 	gettimeofday(&start_time, NULL);
 	// Read back the results from the device to verify the output
-	START_TIMER
-	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_D2H
+	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "CRC Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to read output array!");
 	clFinish(commands);
 	gettimeofday(&end_time, NULL);
@@ -258,7 +259,7 @@ void setupGPU()
 	CHKERR(err, "Failed to create a compute context!");
 
 	// Create a command queue
-	commands = clCreateCommandQueue(context, device_id, TIMER_ENABLE, &err);
+	commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
 	CHKERR(err, "Failed to create a command queue!");
 
 	struct timeval compilation_st, compilation_et;
@@ -308,28 +309,38 @@ void setupGPU()
 
 int main(int argc, char** argv)
 {
-	INI_TIMER
+    OCD_INIT
 	cl_int err;
 
 	unsigned char* h_num;
 	unsigned char* h_answer;
 	unsigned char* data = NULL;
 	unsigned char crc = 0x9B;
-	unsigned long N = 0;
 	unsigned char finalCRC;
 	unsigned char* h_tables;
 	unsigned int run_serial = 0;
 	char* file = NULL;
 	size_t maxSize = DATA_SIZE;
+	unsigned long N = maxSize;
 	size_t read = 0;
 	FILE* fp = NULL;
 	unsigned int seed = time(NULL);
 
-	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;
-	srand(seed);
-		
+	struct timeval tables_st, tables_et, par_st, par_et, ser_st, ser_et;		
+	
+
+	//ocd_register_arg(OTYPE_INT, 'n', "size", "Problem Size", &N, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, 'w', "chunk-size", "Maximum Chunk Size", &maxSize, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, '\0', "polynomial", "CRC Polynomial", &crc, NULL, NULL);
+	//ocd_register_arg(OTYPE_NUL, 'h', "help", "Prints help message.", NULL, NULL, usage);
+	//ocd_register_arg(OTYPE_BOL, 'v', "verify", "Verify GPU Computation", &run_serial, NULL, NULL);
+	//ocd_register_arg(OTYPE_INT, 's', "seed", "Random Seed", &seed, NULL, NULL);
+	//ocd_register_arg(OTYPE_STR, 'i', "input-file", "CRC Input File", &file, NULL, NULL);
+
+	ocd_parse(&argc, &argv);
+	
 	int c;
-	while((c = getopt (argc, argv, "vn:s:i:p:w:h:e:d:")) != -1)
+	while((c = getopt (argc, argv, "vn:s:i:p:w:h")) != -1)
 	{
 		switch(c)
 		{
@@ -357,23 +368,27 @@ int main(int argc, char** argv)
 			case 'w':
 				maxSize = atoi(optarg);
 				break;
-			case 'e':
-				platform_id = atoi(optarg);
-				break;
-			case 'd':
-				n_device = atoi(optarg);
-				break;
 			default:
 				abort();
 		}	
 	}
 	if(N == 0)	
 		N = maxSize;
+
 	
+
+
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	n_device = opts.device_id;
+
+	printf("Common Arguments: p=%d d=%d\n", platform_id, n_device);
+	printf("Program Arguments: p=%d v=%d i=%s s=%d n=%lu w=%d\n", crc, run_serial, file, seed, N, (int)maxSize);
+
+	srand(seed);
 
 	size_t global_size;
 	size_t local_size;
-
 	
 	gettimeofday(&par_st, NULL);	
 	h_num = malloc(sizeof(*h_num) * N);
@@ -401,11 +416,10 @@ int main(int argc, char** argv)
 	
 	gettimeofday(&tables_st, NULL);
 	// Write our data set into the input array in device memory
-	START_TIMER	
-	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, &myEvent);
-	CL_FINISH(commands)
-	END_TIMER
-	COUNT_H2D
+	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CRC Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
 	gettimeofday(&tables_et, NULL);
@@ -483,5 +497,5 @@ int main(int argc, char** argv)
 
 	printf("Done\n");
 		
-	PRINT_COUNT
+        OCD_FINISH
 }

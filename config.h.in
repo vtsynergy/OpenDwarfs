@@ -1,5 +1,8 @@
 /* config.h.in.  Generated from configure.ac by autoheader.  */
 
+/* Enable the OCD suite of automatic timing and output macros. */
+#undef ENABLE_TIMER
+
 /* define if the compiler defines __FUNC__ */
 #undef HAVE_CAP__FUNC__
 

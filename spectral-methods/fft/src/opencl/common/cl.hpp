@@ -177,7 +177,7 @@
 #if defined(linux) || defined(__APPLE__) || defined(__MACOSX)
 # include <alloca.h>
 #endif // linux
-
+#include <stdlib.h>
 #include <cstring>
 #include <stdlib.h>
 /*! \namespace cl

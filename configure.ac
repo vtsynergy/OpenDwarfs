@@ -76,6 +76,14 @@ if test ! -z "$OPENCL_PREFIX" ; then
    PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_PREFIX}],[LDFLAGS])
 fi
 
+AC_ARG_WITH([opts], AC_HELP_STRING([--with-opts],[path to Opts argument library]),
+	[OPTS_PREFIX=$withval],[OPTS_PREFIX=])
+if test ! -z "$OPTS_PREFIX" ; then
+   PAC_APPEND_FLAG([-L${OPTS_PREFIX}],[LDFLAGS])
+   PAC_APPEND_FLAG([-I${OPTS_PREFIX}],[CPPFLAGS])
+fi
+AC_CHECK_LIB(opts,optsload,[PAC_PREPEND_FLAG([-lopts],[LIBS])],
+	AC_MSG_ERROR([opts library not found]))
 
 ### Check for the libraries that we need
 AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
@@ -219,6 +227,13 @@ for app in ${app_names}; do
 		;;
     esac
 done
+
+#Enable or disable the OCD Timer Suite from ./include/rdtsc.h
+#Still doesn't seem to be taking effect
+AC_ARG_ENABLE([timing], 
+	AC_HELP_STRING([--enable-timing], [Enable automatic macro-based timing (disabled by default])
+	AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
+)
 
 AC_MSG_RESULT([building applications... ${selected_apps}])
 AM_CONDITIONAL([build_gem], [$build_gem])

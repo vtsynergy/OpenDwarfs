@@ -1,12 +1,13 @@
+#include <config.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-
 #ifdef __APPLE__
 #include <OpenCL/opencl.h>
 #else
 #include <CL/opencl.h>
 #endif
+#include "../include/rdtsc.h"
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -18,14 +19,14 @@
 #define EPSILON 0.0001
 
 #define USEGPU 1
-#define DATA_SIZE 1024
+#define DATA_SIZE 1048576
 
 int main(int argc, char** argv)
 {
+    OCD_INIT
     cl_int err;
-
-    float input[DATA_SIZE];
-    float output[DATA_SIZE];
+    float *input = (float*)malloc(DATA_SIZE*sizeof(float));
+    float *output = (float*)malloc(DATA_SIZE*sizeof(float));
     unsigned int correct;
 
     size_t global_size;
@@ -65,7 +66,7 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to create a compute context!");
 
     /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, 0, &err);
+    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
     CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
@@ -109,9 +110,15 @@ int main(int argc, char** argv)
     dev_output = clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(float)*count, NULL, &err);
     CHKERR(err, "Failed to allocate device memory!");
 
+    cl_event writeEvent;
     /* Write our data set into the input array in device memory */
-    err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(float)*count, input, 0, NULL, NULL);
+    err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(float)*count, input, 0, NULL, &writeEvent);
     CHKERR(err, "Failed to write to source array!");
+    clFinish(commands);
+    struct ocdTimer * writeTimer;
+    //The event must have actually started or else START_TIMER will fail
+    //This is why we use clFinish
+    START_TIMER(writeEvent, OCD_TIMER_H2D, NULL, writeTimer)
 
     /* Set the arguments to our compute kernel */
     err = 0;
@@ -126,16 +133,23 @@ int main(int argc, char** argv)
 
     /* Execute the kernel over the entire range of our 1d input data set */
     /* using the maximum number of work group items for this device */
+    cl_event kernEvent;
     global_size = count;
-    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, NULL);
+    err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &kernEvent);
     CHKERR(err, "Failed to execute kernel!");
 
     /* Wait for the command commands to get serviced before reading back results */
     clFinish(commands);
+    struct ocdTimer * kernTimer;
+    START_TIMER(kernEvent, OCD_TIMER_KERNEL, NULL, kernTimer)
 
     /* Read back the results from the device to verify the output */
-    err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(float)*count, output, 0, NULL, NULL);
+    cl_event readEvent;
+    err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(float)*count, output, 0, NULL, &readEvent);
     CHKERR(err, "Failed to read output array!");
+    clFinish(commands);
+    struct ocdTimer * readTimer;
+    START_TIMER(readEvent, OCD_TIMER_D2H, NULL, readTimer);
 
     /* Validate our results */
     correct = 0;
@@ -144,9 +158,21 @@ int main(int argc, char** argv)
         if (fabs(output[i] - input[i]) < EPSILON)
             correct++;
     }
+    //Clock in end times for each event
+    START_DUAL_TIMER(writeEvent, readEvent, NULL, ocdTempDualTimer)
+    //The event must have actually finished before END_TIMER
+    //or else the call will fail
+    END_DUAL_TIMER(ocdTempDualTimer)
+    END_TIMER(writeTimer)
+    END_TIMER(kernTimer)
+    END_TIMER(readTimer)
 
     /* Print a brief summary detailing the results */
     printf("Computed '%d/%d' correct values!\n", correct, count);
+    
+    clReleaseEvent(writeEvent);
+    clReleaseEvent(kernEvent);
+    clReleaseEvent(readEvent);
 
     /* Shutdown and cleanup */
     clReleaseMemObject(dev_input);
@@ -155,6 +181,12 @@ int main(int argc, char** argv)
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
+    
+    free(input);
+    free(output);
+    
+    //Finalize the timer suite
+    OCD_FINISH
 
     return 0;
 }
