@@ -227,11 +227,11 @@ int main(int argc, char** argv) {
     /* Write our data set into the input array in device memory */
    
 	err = clEnqueueWriteBuffer(commands, h_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, h, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "AStar Data Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
     err = clEnqueueWriteBuffer(commands, city_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, city, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "AStar Data Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
@@ -259,7 +259,8 @@ int main(int argc, char** argv) {
     global_size = CITIES*CITIES;
     local_size = CITIES;
     err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+    clFinish(commands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "AStar Kernel", ocdTempTimer)
     CHKERR(err, "Failed to execute kernel!");
     /* Wait for the command commands to get serviced before reading back results */
     clFinish(commands);
@@ -268,12 +269,12 @@ int main(int argc, char** argv) {
     /* Read back the results from the device to verify the output */
     
 	err = clEnqueueReadBuffer(commands, result_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, result, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "AStar Data Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to read output array!");
     err = clEnqueueReadBuffer(commands, traverse_mem, CL_TRUE, 0, sizeof (int) *CITIES * CITIES*CITIES, traverse, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "AStar Data Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to read output array!");
     /* Validate our results */
@@ -307,7 +308,7 @@ int main(int argc, char** argv) {
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-	PRINT_CORE_TIMERS
+    OCD_FINISH
     return 0;
 }
 

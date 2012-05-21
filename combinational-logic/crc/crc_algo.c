@@ -167,8 +167,8 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	gettimeofday(&start_time, NULL);
 	// Write our data set into the input array in device memory
 	int err = clEnqueueWriteBuffer(commands, dev_input, CL_TRUE, 0, sizeof(char)*N, h_num, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(commands);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CRC Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);
@@ -198,9 +198,9 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	global_size = N + local_size - N%local_size;
 	gettimeofday(&start_time, NULL);\
 	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CRC Kernel", ocdTempTimer)
 	CHKERR(err, "Failed to execute compute kernel!");
-	clFinish(commands);
 	END_TIMER(ocdTempTimer)
 	gettimeofday(&end_time, NULL);
 	kernelExecutionTime += computeTimeDiff(start_time, end_time);
@@ -208,10 +208,10 @@ unsigned char computeCRCGPU(unsigned char* h_num, unsigned long N, unsigned char
 	unsigned char* h_answer = malloc(sizeof(*h_answer)*N);
 	
 	gettimeofday(&start_time, NULL);
-	// Read back the results from the device to verify the output\
-	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, &myEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-	clFinish(commands);
+	// Read back the results from the device to verify the output
+	err = clEnqueueReadBuffer(commands, dev_output, CL_TRUE, 0, sizeof(char)*N, h_answer, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "CRC Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to read output array!");
 	clFinish(commands);
@@ -383,7 +383,7 @@ int main(int argc, char** argv)
 	n_device = opts.device_id;
 
 	printf("Common Arguments: p=%d d=%d\n", platform_id, n_device);
-	printf("Program Arguments: p=%d v=%d i=%s s=%d n=%lu w=%d\n", crc, run_serial, file, seed, N, maxSize);
+	printf("Program Arguments: p=%d v=%d i=%s s=%d n=%lu w=%d\n", crc, run_serial, file, seed, N, (int)maxSize);
 
 	srand(seed);
 
@@ -417,8 +417,8 @@ int main(int argc, char** argv)
 	gettimeofday(&tables_st, NULL);
 	// Write our data set into the input array in device memory
 	err = clEnqueueWriteBuffer(commands, dev_table, CL_TRUE, 0, sizeof(char)*256*numTables, h_tables, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(commands);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CRC Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to write to source array!");
 	clFinish(commands);

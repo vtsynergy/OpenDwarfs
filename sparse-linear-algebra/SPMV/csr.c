@@ -170,29 +170,29 @@ int main(int argc, char** argv)
    
     /* Write our data set into the input array in device memory */
 	err = clEnqueueWriteBuffer(commands, csr_ap, CL_TRUE, 0, sizeof(unsigned int)*csr.num_rows+4, csr.Ap, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(commands);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CSR Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
     err = clEnqueueWriteBuffer(commands, csr_aj, CL_TRUE, 0, sizeof(unsigned int)*csr.num_nonzeros, csr.Aj, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(commands);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CSR Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
     err = clEnqueueWriteBuffer(commands, csr_ax, CL_TRUE, 0, sizeof(float)*csr.num_nonzeros, csr.Ax, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(commands);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CSR Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
     err = clEnqueueWriteBuffer(commands, x_loc, CL_TRUE, 0, sizeof(float)*csr.num_cols, x_host, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(commands);
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CSR Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
     err = clEnqueueWriteBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, y_host, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CSR Data Copy", ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-	clFinish(commands);
 	END_TIMER(ocdTempTimer)
     /* Set the arguments to our compute kernel */
     err = 0;
@@ -212,9 +212,9 @@ int main(int argc, char** argv)
     /* using the maximum number of work group items for this device */
     global_size = csr.num_rows;
     err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+        clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CSR Kernel", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to execute kernel!");
 
     /* Wait for the command commands to get serviced before reading back results */
@@ -222,9 +222,9 @@ int main(int argc, char** argv)
     
     /* Read back the results from the device to verify the output */
 	err = clEnqueueReadBuffer(commands, y_loc, CL_TRUE, 0, sizeof(float)*csr.num_rows, output, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-	clFinish(commands);
-    	END_TIMER(ocdTempTimer)
+        clFinish(commands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "CSR Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Failed to read output array!");
 
     /* end of timing point */

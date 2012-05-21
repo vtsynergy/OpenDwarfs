@@ -6,6 +6,7 @@
 #else
 #include <CL/cl.h>
 #endif
+#define ENABLE_TIMER
 #include "../../include/rdtsc.h"
 
 /*************************************************************
@@ -150,7 +151,7 @@ int main(int argc, char ** argv)
 	hContext = clCreateContext(0, 1, &deviceID, 0, 0, &err);
 	CHECK_ERR(err, "Create context from type error");
 	
-	hCmdQueue = clCreateCommandQueue(hContext, deviceID, 0, &err);
+	hCmdQueue = clCreateCommandQueue(hContext, deviceID, CL_QUEUE_PROFILING_ENABLE, &err);
 	CHECK_ERR(err, "Create command queue error");
 	
 	//load the source file
@@ -300,7 +301,7 @@ int main(int argc, char ** argv)
 	err = clEnqueueWriteBuffer(hCmdQueue, blosum62D, CL_TRUE, 0,
 							   nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62[0], 0, NULL, &ocdTempEvent);
         clFinish(hCmdQueue);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "blosum62 write", ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Scoring Matrix Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
 	CHECK_ERR(err, "copy blosum62 to device");
 	cl_mem mutexMem;
@@ -394,13 +395,13 @@ int main(int argc, char ** argv)
 		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "DPmatrix zero-initialization", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&extFlagD);
 		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "DPmatrix zero-initialization", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Initialize flag matrice");
 
@@ -411,19 +412,19 @@ int main(int argc, char ** argv)
 		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "Dist matrix zero-initialization", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&hGapDistD);
 		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(&ocdTempEvent, OCD_TIMER_KERN, "Dist matrix zero-initialization", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&vGapDistD);
 		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "Dist matrix zero-initialization", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Initialize dist matrice");
 
@@ -434,7 +435,7 @@ int main(int argc, char ** argv)
 		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "max info zero-initialization", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Max Info Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Initialize max info");
 
@@ -445,28 +446,28 @@ int main(int argc, char ** argv)
 		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "mutex zero-initialization", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Mutex Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Initialize mutex variable");
 
 		//copy input sequences to device
 		err  = clEnqueueWriteBuffer(hCmdQueue, seq1D, CL_FALSE, 0, (rowNum - 1) * sizeof(cl_char), seq1, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "sequence write", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clEnqueueWriteBuffer(hCmdQueue, seq2D, CL_FALSE, 0, (columnNum - 1) * sizeof(cl_char), seq2, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "sequence write", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "copy input sequence");
 
 		err  = clEnqueueWriteBuffer(hCmdQueue, diffPosD, CL_FALSE, 0, launchNum * sizeof(cl_int), diffPos, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clEnqueueWriteBuffer(hCmdQueue, threadNumD, CL_FALSE, 0, launchNum * sizeof(cl_int), threadNum, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "copy diffpos and/or threadNum mutexMem info error!");
 		
@@ -500,7 +501,7 @@ int main(int argc, char ** argv)
 		err = clEnqueueNDRangeKernel(hCmdQueue, hMatchStringKernel, 1, NULL, &mfThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "Match String", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Launch kernel match string error");
 
@@ -525,7 +526,7 @@ int main(int argc, char ** argv)
 		err = clEnqueueNDRangeKernel(hCmdQueue, hTraceBackKernel, 1, NULL, tbGlobalSize,
 									 tbLocalSize, 0, NULL, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERN, "Back Trace", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Launch kernel trace back error");
 		clFinish(hCmdQueue);
@@ -539,7 +540,7 @@ int main(int argc, char ** argv)
 		err = clEnqueueReadBuffer(hCmdQueue, maxInfoD, CL_FALSE, 0, sizeof(MAX_INFO),
 								  maxInfo, 0, 0, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "max info read", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Max Info Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Read maxInfo buffer error!");
 
@@ -547,12 +548,12 @@ int main(int argc, char ** argv)
 		err  = clEnqueueReadBuffer(hCmdQueue, outSeq1D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
 								   outSeq1, 0, 0, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "sequence1 read", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err != clEnqueueReadBuffer(hCmdQueue, outSeq2D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
 								   outSeq2, 0, 0, &ocdTempEvent);
                 clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "sequence2 read", ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHECK_ERR(err, "Read output sequence error!");
 		//record time
@@ -630,6 +631,7 @@ int main(int argc, char ** argv)
 	clReleaseProgram(hProgram);
 	clReleaseCommandQueue(hCmdQueue);
 	clReleaseContext(hContext);
+        printf("Why isn't it getting here?\n");
         OCD_FINISH
 	return 0;
 }

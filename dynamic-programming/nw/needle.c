@@ -231,13 +231,13 @@ void runTest( int argc, char** argv)
     CHECKERR(errcode);
     errcode = clEnqueueWriteBuffer(clCommands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &ocdTempEvent);
 
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Reference Copy", ocdTempTimer)
     END_TIMER(ocdTempTimer)
     CHECKERR(errcode);
     errcode = clEnqueueWriteBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) input_itemsets, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(clCommands);
-    CHECKERR(errcode);
+    clFinish(clCommands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Item Set Copy", ocdTempTimer)
+	CHECKERR(errcode);
 	END_TIMER(ocdTempTimer)
     size_t localWorkSize[2] = {BLOCK_SIZE, 1};
     size_t globalWorkSize[2];
@@ -257,9 +257,9 @@ void runTest( int argc, char** argv)
         errcode |= clSetKernelArg(clKernel_nw1, 6, sizeof(int), (void *) &block_width);
         CHECKERR(errcode);
         errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
         clFinish(clCommands);
-	END_TIMER(ocdTempTimer)
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernels", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 	}
 	printf("Processing bottom-right matrix\n");
@@ -276,16 +276,16 @@ void runTest( int argc, char** argv)
         errcode |= clSetKernelArg(clKernel_nw2, 6, sizeof(int), (void *) &block_width);
         CHECKERR(errcode);
 	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
         clFinish(clCommands);
-	END_TIMER(ocdTempTimer)
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernels", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
         CHECKERR(errcode);
 	}
 
     errcode = clEnqueueReadBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-	clFinish(clCommands);
-    	END_TIMER(ocdTempTimer)
+    clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "NW Item Set Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 	
 	

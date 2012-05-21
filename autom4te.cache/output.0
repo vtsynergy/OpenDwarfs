@@ -776,6 +776,7 @@ enable_cache
 enable_silent_rules
 with_opencl_sdk
 with_opencl
+with_opts
 with_apps
 enable_timing
 '
@@ -1440,6 +1441,7 @@ Optional Packages:
                         (or the compiler's sysroot if not specified).
   --with-opencl-sdk       path to the OpenCL SDK
   --with-opencl           path to OpenCL
+  --with-opts             path to Opts argument library
   --with-apps             Applications to build
                           (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar)
 
@@ -17208,6 +17210,87 @@ else
 	
 fi
 
+fi
+
+
+@%:@ Check whether --with-opts was given.
+if test "${with_opts+set}" = set; then :
+  withval=$with_opts; OPTS_PREFIX=$withval
+else
+  OPTS_PREFIX=
+fi
+
+if test ! -z "$OPTS_PREFIX" ; then
+   
+	
+	if echo "$LDFLAGS" | $FGREP -e '-L${OPTS_PREFIX}' >/dev/null 2>&1; then :
+  echo "LDFLAGS(='$LDFLAGS') contains '-L${OPTS_PREFIX}', not appending" >&5
+else
+  echo "LDFLAGS(='$LDFLAGS') does not contain '-L${OPTS_PREFIX}', appending" >&5
+		LDFLAGS="$LDFLAGS -L${OPTS_PREFIX}"
+	
+fi
+
+   
+	
+	if echo "$CPPFLAGS" | $FGREP -e '-I${OPTS_PREFIX}' >/dev/null 2>&1; then :
+  echo "CPPFLAGS(='$CPPFLAGS') contains '-I${OPTS_PREFIX}', not appending" >&5
+else
+  echo "CPPFLAGS(='$CPPFLAGS') does not contain '-I${OPTS_PREFIX}', appending" >&5
+		CPPFLAGS="$CPPFLAGS -I${OPTS_PREFIX}"
+	
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for optsload in -lopts" >&5
+$as_echo_n "checking for optsload in -lopts... " >&6; }
+if ${ac_cv_lib_opts_optsload+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lopts  $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char optsload ();
+int
+main ()
+{
+return optsload ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_opts_optsload=yes
+else
+  ac_cv_lib_opts_optsload=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_opts_optsload" >&5
+$as_echo "$ac_cv_lib_opts_optsload" >&6; }
+if test "x$ac_cv_lib_opts_optsload" = xyes; then :
+  
+        
+        if echo "$LIBS" | $FGREP -e '-lopts' >/dev/null 2>&1; then :
+  echo "LIBS(='$LIBS') contains '-lopts', not prepending" >&5
+else
+  echo "LIBS(='$LIBS') does not contain '-lopts', prepending" >&5
+                LIBS="-lopts $LIBS"
+        
+fi
+
+else
+  as_fn_error $? "opts library not found" "$LINENO" 5
 fi
 
 

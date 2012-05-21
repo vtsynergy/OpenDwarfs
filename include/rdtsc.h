@@ -19,6 +19,10 @@
 #include <string.h>
 #endif
 
+#include "../build/config.h"
+
+#define ENABLE_TIMER
+
 
 
 //#define ENABLE_TIMER
@@ -34,7 +38,7 @@ enum timer_types {
 
 struct ocdTimer {
     enum timer_types type;
-    char * name;
+    const char * name;
     int nlen;
     //char name[TIMER_NAME_LEN]; //Optional timer name, can be searched for grouping
     cl_ulong starttime, endtime;
@@ -47,7 +51,7 @@ struct ocdTimer * ocdTempTimer;
 
 struct ocdDualTimer {
     enum timer_types type;
-    char * name;
+    const char * name;
     int nlen;
     //char name[TIMER_NAME_LEN];
     cl_ulong starttime, endtime;
@@ -64,7 +68,7 @@ struct ocdDualTimer * ocdTempDualTimer;
 //CL-based timers
 struct ocdHostTimer {
     enum timer_types type;
-    char * name;
+    const char * name;
     int nlen;
     cl_ulong starttime, endtime;
     struct timeval timer;
@@ -76,7 +80,7 @@ struct ocdHostTimer * ocdTempHostTimer;
 //bit field for faster ops
 #ifdef ENABLE_TIMER
 
-#define TIMER_TEST
+//#define TIMER_TEST
 #ifdef TIMER_TEST
 //number of fake names to generate
 #define TIMER_TEST_NAME_COUNT 200
@@ -85,7 +89,7 @@ struct ocdHostTimer * ocdTempHostTimer;
 #define TIMER_TEST_MAX_LENG 30
 #endif
 //#define TIMER_WORLD 0
-#define TIMER_NAME_LEN 16
+//#define TIMER_NAME_LEN 16
 
 
 
@@ -105,12 +109,12 @@ struct timer_group_mem {
 
 struct timer_group_mem * tail;
 
-char rootStr[2] = {(char)1, (char)0};
+char rootStr[1] = { (char)0};
 cl_ulong rootTimes[7] = {0, 0, 0, 0, 0, 0, 0};
 cl_ulong totalTimes[7] = {0, 0, 0, 0, 0, 0, 0};
 
 struct timer_name_tree_node {
-    char * string; //the first character is hijacked as a flag for pointer ownership
+    const char * string; //the first character is hijacked as a flag for pointer ownership
     //to make sense of who is responsible for freeing at the end
     //this lets one descendant branch reuse our space
     int len; //length, not counting flag and zero-byte
@@ -136,21 +140,22 @@ struct timer_name_tree_node {
 //        return (void *) curr;
 //    }
 //    return (void *) - 1;
-//}
+//}TIMER
 
 //returns 0 for a perfect match
 //-1 if either pointer is null
 //or the positive int index of the mismatched character (including null terminator)
-
-int checkName(char * n1, char * n2, int len) {
+//Still skips the first byte of the name, will need to deal with that
+//DEPRECATED
+/*int checkName(const char * n1, const char * n2, int len) {
     int i;
     if (n1 == 0 || n2 == 0)
         return -1;
-    for (i = 1; i <= len + 1; i++) {
-        if (n1[i] != n2[i]) return i;
+    for (i = 0; i <= len ; i++) {
+        if (n1[i] != n2[i]) return i+1;
     }
     return 0;
-}
+}*/
 
 //descends the name tree as far as possible, either until an exact match or
 // nearest insertion point is found, and returns a pointer to it
@@ -305,10 +310,10 @@ struct timer_name_tree_node * descendTree(char*str, struct timer_name_tree_node 
 //returns a pointer to the correct time array, or -1 if none exists yet
 //rather inefficient if many names are used, but the tree will take care of
 // speeding lookups, and we'll switch to alpha sort by default as a sideffect
-void * checkSimpleNameList(char * s, int len) {
+void * checkSimpleNameList(const char * s, int len) {
     struct timer_name_tree_node * curr = root.next;
     while (curr != NULL) { //still unique names to be checked
-        if (checkName(s, curr->string, len) == 0) {
+        if (strcmp(s, curr->string) == 0) {
             return curr->times;
         }
         curr = curr->next;
@@ -383,20 +388,22 @@ void simpleNameTally() {
 }
 
 //assumes simpleNameTally was already called (once) to add up timers
+//now culls off zero-value timers
 void simpleNamePrint() {
     struct timer_name_tree_node * curr = &root;
     while (curr != NULL) { //still unique names to be checked
-        if (checkName(curr->string, rootStr, 0) != 0) {// if the string isn't empty
+        if (curr->times[0] > 0) {if (strcmp(curr->string, rootStr) != 0) {// if the string isn't empty
         printf("Timer [%s]: \t %lu\n", curr->string, curr->times[0]);
         } else {
         printf("Unnamed Timers: \t %lu\n", curr->times[0]);
         }
-        printf("\tD2H:    \t %lu\n", curr->times[1]);
-        printf("\tH2D:    \t %lu\n", curr->times[2]);
-        printf("\tD2D:    \t %lu\n", curr->times[3]);
-        printf("\tKernel: \t %lu\n", curr->times[4]);
-        printf("\tHost:   \t %lu\n", curr->times[5]);
-        printf("\tDual:   \t %lu\n", curr->times[6]);
+        if (curr->times[1] > 0) printf("\tD2H:    \t %lu\n", curr->times[1]);
+        if (curr->times[2] > 0) printf("\tH2D:    \t %lu\n", curr->times[2]);
+        if (curr->times[3] > 0) printf("\tD2D:    \t %lu\n", curr->times[3]);
+        if (curr->times[4] > 0) printf("\tKernel: \t %lu\n", curr->times[4]);
+        if (curr->times[5] > 0) printf("\tHost:   \t %lu\n", curr->times[5]);
+        if (curr->times[6] > 0) printf("\tDual:   \t %lu\n", curr->times[6]);
+        }
         curr = curr->next;
     }
 }
@@ -415,7 +422,7 @@ void * searchAllByName(char * name, int len) {
 
 //returns total time taken by all timers of a given type
 
-cl_ulong aggregateTimesFromType(int type) {
+/*cl_ulong aggregateTimesFromType(int type) {
     //always skip sentinel
     struct timer_group_mem * curr = head.next;
     cl_ulong time = 0;
@@ -426,7 +433,7 @@ cl_ulong aggregateTimesFromType(int type) {
         curr = curr->next;
     }
     return time;
-}
+}*/
 //Adds a new timer_group object to the groups list, and returns its integer ID
 
 //int newTimerGroup() {
@@ -546,7 +553,7 @@ void dfsWalkTree(struct timer_name_tree_node * r, int depth) {
 //USE AT YOUR OWN PERIL DURING A REAL RUN, IT MAY BREAK THE REAL TIMERS
 // AND IT *WILL* ADD MASSIVE POSTPROCESSING TIME
 
-void testRandomNames() {
+/*void testRandomNames() {
     struct timer_name_tree_node * qhead, *qtail, *temp;
     qhead = qtail = (struct timer_name_tree_node *) calloc(sizeof (struct timer_name_tree_node), 1);
     qhead->next = qhead;
@@ -595,7 +602,7 @@ void testRandomNames() {
             curr = curr->next;
         }
     }
-}
+}*/
 #endif
 
 
@@ -671,11 +678,15 @@ temp->endtime = 1000 * (t->timer.tv_sec*1000000L + t->timer.tv_usec);\
 #define OCD_INIT {\
 gettimeofday(&fullExecTimer.timer, NULL);\
 fullExecTimer.starttime = 1000 * (fullExecTimer.timer.tv_sec*1000000L + fullExecTimer.timer.tv_usec);\
+ocdTempTimer = (struct ocdTimer *) calloc(sizeof(struct ocdTimer), 1);\
+ocdTempDualTimer = (struct ocdDualTimer *) calloc(sizeof(struct ocdDualTimer), 1);\
+ocdTempHostTimer = (struct ocdHostTimer *) calloc(sizeof(struct ocdHostTimer), 1);\
 }
 
 //and absolutely everything needed to finalize them
 // performs timer aggregation and printing
 // deconstructs timer list and name tree/list
+    //TODO-free all our data structures
 #define OCD_FINISH {\
 gettimeofday(&fullExecTimer.timer, NULL);\
 fullExecTimer.endtime = 1000 * (fullExecTimer.timer.tv_sec*1000000L + fullExecTimer.timer.tv_usec);\

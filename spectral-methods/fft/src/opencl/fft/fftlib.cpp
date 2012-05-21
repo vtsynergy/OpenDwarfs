@@ -433,17 +433,17 @@ forward(void* workp, void *temp, int n_ffts, int fftn)
 			err = clEnqueueNDRangeKernel(fftQueue, fftKrnl1, 1, NULL, 
 					&globalsz0, &localsz0, 0, 
 					NULL, &ocdTempEvent);
-                        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-			err = clWaitForEvents(1, &ocdTempEvent);
-                        END_TIMER(ocdTempTimer)
+                        err = clWaitForEvents(1, &ocdTempEvent);
+                        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
 
 		}
 	//	printf("local size: %d global size %d \n",localsz,globalsz);
 	err = clEnqueueNDRangeKernel(fftQueue, fftKrnl, 1, NULL, 
 			&globalsz, &localsz, 0, 
 			NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-	err = clWaitForEvents(1, &ocdTempEvent);
+        err = clWaitForEvents(1, &ocdTempEvent);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 		CL_CHECK_ERROR(err);
 	END_KERNEL
@@ -507,9 +507,9 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 					&globalsz0, &localsz0, 0,
 					NULL, &fftEvent.CLEvent());
                         firstEvent = &fftEvent.CLEvent();
-                        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-			err = clWaitForEvents(1, &fftEvent.CLEvent());
-                        END_TIMER(ocdTempTimer)
+                        err = clWaitForEvents(1, &fftEvent.CLEvent());
+                        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
 			CL_CHECK_ERROR(err);
 		}
 
@@ -518,18 +518,18 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 			&globalsz, &localsz, 0, 
 			NULL, &fftEvent.CLEvent());
         if (fftn1<4096) firstEvent = &fftEvent.CLEvent();//inserted for dual timer support
-        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-	err = clWaitForEvents(1, &fftEvent.CLEvent());
-        END_TIMER(ocdTempTimer)
+        err = clWaitForEvents(1, &fftEvent.CLEvent());
+        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CL_CHECK_ERROR(err);
 
 	//	printf("local size1: %d global size1: %d \n",localsz1,globalsz1);
 	err = clEnqueueNDRangeKernel(fftQueue, fftKrnl1, 1, NULL, 
 			&globalsz1, &localsz1, 0, 
 			NULL, &fftEvent.CLEvent());
-        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-	err = clWaitForEvents(1, &fftEvent.CLEvent());
-        END_TIMER(ocdTempTimer)
+        err = clWaitForEvents(1, &fftEvent.CLEvent());
+        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CL_CHECK_ERROR(err);
 
 	if(fftn2>128){
@@ -537,13 +537,13 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 		err = clEnqueueNDRangeKernel(fftQueue, fftKrnl2, 1, NULL, 
 				&globalsz2, &localsz2, 0, 
 				NULL, &fftEvent.CLEvent());
-                START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-		err = clWaitForEvents(1, &fftEvent.CLEvent());
-                END_TIMER(ocdTempTimer)
+                err = clWaitForEvents(1, &fftEvent.CLEvent());
+                START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
 		CL_CHECK_ERROR(err);
 	}
         //set a dual timer to check the entire range
-        START_DUAL_TIMER(*firstEvent, fftEvent.CLEvent(), NULL, ocdTempDualTimer)
+        START_DUAL_TIMER(*firstEvent, fftEvent.CLEvent(), "FFT Kernels (Span)", ocdTempDualTimer)
 	END_DUAL_TIMER(ocdTempDualTimer)
 		END_KERNEL
 }
@@ -611,9 +611,9 @@ copyToDevice(void* to_device, void* from_host, unsigned long bytes)
 {
 		cl_int err = clEnqueueWriteBuffer(fftQueue, *(cl_mem*)to_device, CL_TRUE, 
 				0, bytes, from_host, 0, NULL, &ocdTempEvent);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(fftQueue);
-		END_TIMER(ocdTempTimer)
+                clFinish(fftQueue);
+		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "FFT Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 		CL_CHECK_ERROR(err);
 }
 
@@ -623,9 +623,9 @@ copyFromDevice(void* to_host, void* from_device, unsigned long bytes)
 {
 		cl_int err = clEnqueueReadBuffer(fftQueue, *(cl_mem*)from_device, CL_TRUE, 
 				0, bytes, to_host, 0, NULL, &ocdTempEvent);
-                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-	clFinish(fftQueue);
-		END_TIMER(ocdTempTimer)
+                clFinish(fftQueue);
+		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "FFT Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 		CL_CHECK_ERROR(err);
                 OCD_FINISH
 }

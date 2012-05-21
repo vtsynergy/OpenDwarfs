@@ -673,9 +673,9 @@ void countCandidates(size_t* globalWork, size_t* localWork, cl_mem episodeSuppor
     CHKERR(errcode, "Unable to set arguments for countCandidates");
     
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidates, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+    	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     CHKERR(errcode, "Error running countCandidates");
 }
 
@@ -698,9 +698,9 @@ void countCandidatesMapMerge(size_t* globalWork, size_t* localWork, cl_mem episo
     CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
     
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMerge, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+    	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     CHKERR(errcode, "Error running countCandidatesMapMerge");
 }
 void countCandidatesStatic(size_t* globalWork, size_t* localWork, cl_mem episodeSupport, long eventSize, int level, int sType, int numCandidates,
@@ -720,9 +720,9 @@ void countCandidatesStatic(size_t* globalWork, size_t* localWork, cl_mem episode
     CHKERR(errcode, "Unable to set arguments for countCandidates");
     
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesStatic, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+    	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     CHKERR(errcode, "Error running countCandidatesStatic");
 }
 
@@ -745,9 +745,9 @@ void countCandidatesMapMergeStatic(size_t* globalWork, size_t* localWork, cl_mem
     CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
     
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMergeStatic, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+    	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     CHKERR(errcode, "Error running countCandidatesMapMergeStatic");
 }
 
@@ -995,12 +995,12 @@ runTest( int argc, char** argv)
 		// Copy candidates to GPU
 #ifdef CPU_EPISODE_GENERATION
 		clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &ocdTempEvent);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
                 clFinish(commands);
-		END_TIMER(ocdTempTimer)
+		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
+                END_TIMER(ocdTempTimer)
 #endif
 
         bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
@@ -1070,9 +1070,9 @@ runTest( int argc, char** argv)
 
             int err;
             err = clEnqueueReadBuffer(commands,d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
-            START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
             clFinish(commands);
-            	END_TIMER(ocdTempTimer)
+            	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
+            END_TIMER(ocdTempTimer)
 		CHKERR(err, "Unable to read buffer from device.");
 		
 			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE) );
@@ -1097,14 +1097,14 @@ runTest( int argc, char** argv)
 
 #ifdef CPU_EPISODE_GENERATION
             err = clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)	
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)	
             END_TIMER(ocdTempTimer)
             CHKERR(err, "Unable to write buffer 1.");
             if(numCandidates * (level - 1) * 2 * sizeof(float) != 0)
             err = clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
         clFinish(commands);
-            CHKERR(err, "Unable to write buffer 2.");
+            START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
+        CHKERR(err, "Unable to write buffer 2.");
 		END_TIMER(ocdTempTimer)
 #endif
             bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
@@ -1147,13 +1147,13 @@ runTest( int argc, char** argv)
 		//printf("Copying result back to host...\n\n");
 		
         int err = clEnqueueReadBuffer(commands, d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
         clFinish(commands);
-		END_TIMER(ocdTempTimer)
+		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 		CHKERR(err, "Unable to read memory 1.");
 		err = clEnqueueReadBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
                 clFinish(commands);
+                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		CHKERR(err, "Unable to read memory 2.");
 		//CUDA_SAFE_CALL( cudaMemcpy( h_mapRecords, d_mapRecords, 3 * numSections * maxLevel * maxCandidates * sizeof(float), cudaMemcpyDeviceToHost ));

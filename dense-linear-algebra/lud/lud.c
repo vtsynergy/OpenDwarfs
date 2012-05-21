@@ -175,9 +175,9 @@ clDevice = GetDevice(platform_id, device_id);
 	 
   errcode = clEnqueueWriteBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &ocdTempEvent);
 
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(clCommands);
-  	END_TIMER(ocdTempTimer)
+  clFinish(clCommands);
+  	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Matrix Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
   int i=0;
@@ -198,9 +198,9 @@ clDevice = GetDevice(platform_id, device_id);
       globalWorkSize[0] = BLOCK_SIZE;
       	 
 	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-	clFinish(clCommands);
-      	END_TIMER(ocdTempTimer)
+        clFinish(clCommands);
+      	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
       errcode = clSetKernelArg(clKernel_perimeter, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_perimeter, 1, sizeof(int), (void *) &matrix_dim);
@@ -210,9 +210,9 @@ clDevice = GetDevice(platform_id, device_id);
       globalWorkSize[0] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[0];
       	 
 	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_perimeter, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-	clFinish(clCommands);
-      CHECKERR(errcode);
+        clFinish(clCommands);
+      START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Perimeter Kernel", ocdTempTimer)
+	CHECKERR(errcode);
 	END_TIMER(ocdTempTimer)
       errcode = clSetKernelArg(clKernel_internal, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_internal, 1, sizeof(int), (void *) &matrix_dim);
@@ -224,9 +224,9 @@ clDevice = GetDevice(platform_id, device_id);
       globalWorkSize[1] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[1];
       	 
 	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_internal, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-	clFinish(clCommands);
-      	END_TIMER(ocdTempTimer)
+        clFinish(clCommands);
+      	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Internal Kernel", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
   }
   errcode = clSetKernelArg(clKernel_diagonal, 0, sizeof(cl_mem), (void *) &d_m);
@@ -237,15 +237,15 @@ clDevice = GetDevice(platform_id, device_id);
   globalWorkSize[0] = BLOCK_SIZE;
   	 
 	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        clFinish(clCommands);
+ 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
 	 CHECKERR(errcode);
 
-  clFinish(clCommands);
- 	END_TIMER(ocdTempTimer)
+  END_TIMER(ocdTempTimer)
 	 
   errcode = clEnqueueReadBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-	clFinish(clCommands);
+        clFinish(clCommands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Matrix copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
   /* end of timing point */
   stopwatch_stop(&sw);
@@ -270,6 +270,6 @@ clDevice = GetDevice(platform_id, device_id);
   clReleaseContext(clContext);
 
   free(m);
-	PRINT_CORE_TIMERS
+  OCD_FINISH
   return EXIT_SUCCESS;
 }				/* ----------  end of function main  ---------- */

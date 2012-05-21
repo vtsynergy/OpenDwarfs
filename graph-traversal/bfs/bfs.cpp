@@ -266,26 +266,26 @@ cl_mem  d_graph_visited =   clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(in
 	    //sizeof(int) * no_of_nodes, h_graph_visited, &err);
     //Allocate memory for the result on host side
 	clEnqueueWriteBuffer(commands, d_graph_nodes, CL_TRUE, 0, sizeof(Node) * no_of_nodes, h_graph_nodes, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-    clFinish(commands);
-        END_TIMER(ocdTempTimer)
+         clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
+   END_TIMER(ocdTempTimer)
 	clEnqueueWriteBuffer(commands, d_graph_edges, CL_TRUE, 0, sizeof(int) * edge_list_size, h_graph_edges, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-    clFinish(commands);
-        END_TIMER(ocdTempTimer)
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 clEnqueueWriteBuffer(commands, d_graph_mask, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_graph_mask, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
     clFinish(commands);
-        END_TIMER(ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     
 	clEnqueueWriteBuffer(commands, d_updating_graph_mask, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_updating_graph_mask, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
     clFinish(commands);
-        END_TIMER(ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 	clEnqueueWriteBuffer(commands, d_graph_visited, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_graph_visited, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
     clFinish(commands);
-        END_TIMER(ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 	int* h_cost = (int*) malloc(sizeof(int) * no_of_nodes);
     for(unsigned int i = 0; i < no_of_nodes; i++)
     	h_cost[i] = -1;
@@ -297,9 +297,9 @@ cl_mem d_cost =    clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * no_o
  cl_mem d_over =   clCreateBuffer(context, CL_MEM_WRITE_ONLY, sizeof(int), NULL, &err);
 	   // sizeof(int), NULL, &err);
 	clEnqueueWriteBuffer(commands, d_cost, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_cost, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
     clFinish(commands);
-        END_TIMER(ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
         
 	
     printf("Copied Everything to GPU memory\n");
@@ -381,31 +381,31 @@ cl_mem d_cost =    clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * no_o
 	stop = 0;
 	//Copy stop to device
 	clEnqueueWriteBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Stop Flag Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 	//Run Kernel1 and Kernel2
 	cl_int err = clEnqueueNDRangeKernel(commands, kernel1, 1, NULL,
 		WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernels", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 	if(err != CL_SUCCESS)
 	    printf("Error occurred running kernel1.(%d)\n", err);
 	err = clEnqueueNDRangeKernel(commands, kernel2, 1, NULL,
 		WorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "BFS Kernels", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 	if(err != CL_SUCCESS)
 	    printf("Error occurred running kernel2.\n");
 	
 	//Copy stop from device
 	
 	clEnqueueReadBuffer(commands, d_over, CL_TRUE, 0, sizeof(int), (void*)&stop, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "BFS Stop Flag Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 	k++;
     }while(stop == 1);
 
@@ -414,9 +414,9 @@ cl_mem d_cost =    clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int) * no_o
     //copy result form device to host
     	
 	clEnqueueReadBuffer(commands, d_cost, CL_TRUE, 0, sizeof(int)*no_of_nodes, (void*)h_cost, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "BFS Cost Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
 
     //Store the result into a file
     FILE* fpo = fopen("result.txt", "w");

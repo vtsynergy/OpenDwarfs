@@ -151,8 +151,8 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	 
     errcode = clEnqueueWriteBuffer(clCommands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, &ocdTempEvent);
     
-    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(clCommands);
+    clFinish(clCommands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Point/Feature Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
     feature_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, npoints*nfeatures*sizeof(float), NULL, &errcode);
@@ -169,9 +169,9 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
     localWorkSize = num_threads;
 	 
     errcode = clEnqueueNDRangeKernel(clCommands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
-    START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-	clFinish(clCommands);
-    	END_TIMER(ocdTempTimer)
+    clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Invert Mapping Kernel", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 		
 	/* allocate memory for membership_d[] and clusters_d[][] (device) */
@@ -265,17 +265,17 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	/* copy membership (host to device) */
     	 
 	errcode = clEnqueueWriteBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
-	clFinish(clCommands);
-    	END_TIMER(ocdTempTimer)
+        clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Membership Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 	/* copy clusters (host to device) */
     	 
 	errcode = clEnqueueWriteBuffer(clCommands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
         clFinish(clCommands);
-	END_TIMER(ocdTempTimer)
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Cluster Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 	/* set up texture */
@@ -332,17 +332,17 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	 
     errcode = clEnqueueNDRangeKernel(clCommands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	CHECKERR(errcode);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        errcode = clFinish(clCommands);
+   	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Point Kernel", ocdTempTimer)
 
-    errcode = clFinish(clCommands);
-   	END_TIMER(ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     CHECKERR(errcode);
 	/* copy back membership (device to host) */
     	 
 	errcode = clEnqueueReadBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-	clFinish(clCommands);
-    	END_TIMER(ocdTempTimer)
+        clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Membership Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 #ifdef BLOCK_CENTER_REDUCE

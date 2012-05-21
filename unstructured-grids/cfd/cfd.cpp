@@ -77,7 +77,7 @@ template <typename T>
 void upload(cl_command_queue commands, cl_mem dst, T* src, int N)
 {
 	int err = clEnqueueWriteBuffer(commands, dst, CL_TRUE, 0, sizeof(T) * N, src, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "CFD Data Copy", ocdTempTimer)
 	clFinish(commands);
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Unable to write memory to device");
@@ -87,7 +87,7 @@ template <typename T>
 void download(cl_command_queue commands, T* dst, cl_mem src, int N)
 {
 	int err = clEnqueueReadBuffer(commands, src, CL_TRUE, 0, sizeof(T)*N, dst, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "CFD Data Copy", ocdTempTimer)
 	clFinish(commands);
 	END_TIMER(ocdTempTimer)
 	CHKERR(err, "Unable to read memory from device");
@@ -396,9 +396,9 @@ int main(int argc, char** argv)
     local_size = 1;//std::min(local_size, (size_t)nelr);
     global_size = nelr;
     err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 0");
     err = clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
+    CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 0");
 	END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to execute kernel [kernel_test]!");
 
@@ -423,9 +423,9 @@ int main(int argc, char** argv)
     err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
     CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
 	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 1");
-    clFinish(commands);
 	END_TIMER(ocdTempTimer)
     err = 0;
     err = clSetKernelArg(kernel_initialize_variables, 0, sizeof(int), &nelr);
@@ -437,11 +437,11 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
     	
 	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
     CHKERR(err, "Failed to execute kernel [kernel_initialize_variables]! 2");
 
-    clFinish(commands);
-	END_TIMER(ocdTempTimer)
+    	END_TIMER(ocdTempTimer)
     std::cout << "About to memcopy" << std::endl;
     err = clReleaseMemObject(step_factors);
     float temp[nelr];
@@ -477,9 +477,9 @@ int main(int argc, char** argv)
         err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
         CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
 	err = clEnqueueNDRangeKernel(commands, kernel_compute_step_factor, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Step Factor Kernel", ocdTempTimer)
         CHKERR(err, "Failed to execute kernel[kernel_compute_step_factor]!");
-		clFinish(commands);
 	END_TIMER(ocdTempTimer)
 		for(int j = 0; j < RK; j++)
         {
@@ -495,10 +495,10 @@ int main(int argc, char** argv)
             err = clGetKernelWorkGroupInfo(kernel_compute_flux_contributions, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
             CHKERR(err, "Failed to retrieve kernel_compute_flux_contributions work group info!");
 		err = clEnqueueNDRangeKernel(commands, kernel_compute_flux_contributions, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        		clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Flux Contribution Kernel", ocdTempTimer)
             CHKERR(err, "Failed to execute kernel [kernel_compute_flux_contributions]!");
 			//compute_flux_contributions(nelr, variables, fc_momentum_x, fc_momentum_y, fc_momentum_z, fc_density_energy);
-			clFinish(commands);
 	END_TIMER(ocdTempTimer)
             err = 0;
             err = clSetKernelArg(kernel_compute_flux, 0, sizeof(int), &nelr);
@@ -520,9 +520,9 @@ int main(int argc, char** argv)
             err = clGetKernelWorkGroupInfo(kernel_compute_flux, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
             CHKERR(err, "Failed to retrieve kernel_compute_flux work group info!");
 		err = clEnqueueNDRangeKernel(commands, kernel_compute_flux, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        	clFinish(commands);
+		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Flux Kernel", ocdTempTimer)
             CHKERR(err, "Failed to execute kernel [kernel_compute_flux]!");
-			clFinish(commands);
 		END_TIMER(ocdTempTimer)
             err = 0;
             err = clSetKernelArg(kernel_time_step, 0, sizeof(int), &j);
@@ -536,9 +536,9 @@ int main(int argc, char** argv)
             err = clGetKernelWorkGroupInfo(kernel_time_step, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
             CHKERR(err, "Failed to retrieve kernel_time_step work group info!");
 		err = clEnqueueNDRangeKernel(commands, kernel_time_step, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
+        	clFinish(commands);
+		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Time Step Kernel", ocdTempTimer)
             CHKERR(err, "Failed to execute kernel [kernel_time_step]!");
-			clFinish(commands);
 		END_TIMER(ocdTempTimer)
 		}
 	}

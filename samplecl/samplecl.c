@@ -116,6 +116,8 @@ int main(int argc, char** argv)
     CHKERR(err, "Failed to write to source array!");
     clFinish(commands);
     struct ocdTimer * writeTimer;
+    //The event must have actually started or else START_TIMER will fail
+    //This is why we use clFinish
     START_TIMER(writeEvent, OCD_TIMER_H2D, NULL, writeTimer)
 
     /* Set the arguments to our compute kernel */
@@ -158,6 +160,8 @@ int main(int argc, char** argv)
     }
     //Clock in end times for each event
     START_DUAL_TIMER(writeEvent, readEvent, NULL, ocdTempDualTimer)
+    //The event must have actually finished before END_TIMER
+    //or else the call will fail
     END_DUAL_TIMER(ocdTempDualTimer)
     END_TIMER(writeTimer)
     END_TIMER(kernTimer)

@@ -392,6 +392,7 @@ void calc_potential_single_step(residue *residues,
     int *i,
     int step_size)
 {
+    OCD_INIT
   int it, eye, bound;
   //residue *residues_s;
   float *res_c, *res_x, *res_y, *res_z,
@@ -590,55 +591,55 @@ void calc_potential_single_step(residue *residues,
 
   
   clEnqueueWriteBuffer ( commandQueue, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Address Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   clEnqueueWriteBuffer ( commandQueue, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, &ocdTempEvent);
-  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, NULL, ocdTempTimer)
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Length Copy", ocdTempTimer)
 END_TIMER(ocdTempTimer)
   // clSetKernelArg( kernel, 0, sizeof(cl_mem), (void *)&outputBuffer);
   clSetKernelArg( kernel, 0, sizeof(cl_int), (void *)&    nres);// int nres,
@@ -734,8 +735,7 @@ END_TIMER(ocdTempTimer)
         0,
         NULL,
         &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, NULL, ocdTempTimer)
-    if(status != CL_SUCCESS) 
+        if(status != CL_SUCCESS) 
     { 
       std::cout<<
         "Error: Enqueueing kernel onto command queue. \
@@ -746,6 +746,7 @@ END_TIMER(ocdTempTimer)
 
     /* wait for the kernel call to finish execution */
     status = clWaitForEvents(1, &ocdTempEvent);
+    START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "GEM Kernel", ocdTempTimer)
     END_TIMER(ocdTempTimer)
 	if(status != CL_SUCCESS) 
     { 
@@ -797,8 +798,7 @@ END_TIMER(ocdTempTimer)
       NULL,
       &ocdTempEvent);
 	clFinish(commandQueue);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, NULL, ocdTempTimer)
-  if(status != CL_SUCCESS) 
+        if(status != CL_SUCCESS) 
   { 
     std::cout << 
       "Error: clEnqueueReadBuffer failed. \
@@ -809,6 +809,7 @@ END_TIMER(ocdTempTimer)
 
   /* Wait for the read buffer to finish execution */
   status = clWaitForEvents(1, &ocdTempEvent);
+  START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Vertex Copy", ocdTempTimer)
   END_TIMER(ocdTempTimer)
   if(status != CL_SUCCESS) 
   { 
@@ -856,6 +857,6 @@ END_TIMER(ocdTempTimer)
   //cudaFree(atoms_s);
 
   *i = eye;
-	PRINT_CORE_TIMERS
+  OCD_FINISH
 }
 
