@@ -8,6 +8,7 @@
 #include "OpenCLDeviceInfo.h"
 #include <math.h>
 #include "../../../../include/rdtsc.h"
+#include "../../../../include/common_args.h"
 cl_device_id fftDev;
 cl_context fftCtx;
 cl_command_queue fftQueue;
@@ -229,8 +230,8 @@ getGlobalRadix(int n, int *radix, int *Radix1, int *Radix2, int *num_radix)
 init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 {
 	cl_int err;
-        OCD_INIT
-		do_dp = _do_dp;
+		
+	do_dp = _do_dp;
 
 	if (!fftCtx) {
 		// first get the device
@@ -316,7 +317,6 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 init(OptionParser& op, bool _do_dp, int fftn)
 {
 	cl_int err;
-        OCD_INIT
 		do_dp = _do_dp;
 
 	if (!fftCtx) {
@@ -627,6 +627,5 @@ copyFromDevice(void* to_host, void* from_device, unsigned long bytes)
 		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "FFT Data Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 		CL_CHECK_ERROR(err);
-                OCD_FINISH
 }
 

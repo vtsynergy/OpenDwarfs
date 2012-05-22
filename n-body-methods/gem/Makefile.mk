@@ -15,10 +15,10 @@ gemnoui_SOURCES = n-body-methods/gem/dump_vertices.c n-body-methods/gem/floating
 	n-body-methods/gem/write_avs.c n-body-methods/gem/write_xyzr.c \
 	n-body-methods/gem/calculate_potential.cpp n-body-methods/gem/check_cmdline.cpp \
 	n-body-methods/gem/estimate_a.cpp n-body-methods/gem/gem_no_ui.cpp \
-	n-body-methods/gem/open_pqr_run_msms.cpp
+	n-body-methods/gem/open_pqr_run_msms.cpp 
 
 gemnoui_CPPFLAGS = $(AM_CPPFLAGS) -I$(top_srcdir)/n-body-methods/gem/include \
-	-I$(top_srcdir)/n-body-methods/gem/include/visualize/dialogs -DNO_UI
+	-I$(top_srcdir)/n-body-methods/gem/include/visualize/dialogs -DNO_UI 
 
 all_local += gem-all-local
 exec_local += gem-exec-local

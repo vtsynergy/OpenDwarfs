@@ -8,6 +8,7 @@
 
 int  BLOCK_SIZE = 16;
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 int platform_id = PLATFORM_ID, device_id = DEVICE_ID;
 // includes, project
 
@@ -43,10 +44,10 @@ void usage(int argc, char **argv)
 int
 main( int argc, char** argv) 
 {
-    OCD_INIT
-		runTest( argc, argv);
-    OCD_FINISH
-    return EXIT_SUCCESS;
+	ocd_init(&argc, &argv, NULL);	
+	runTest( argc, argv);
+	ocd_finalize();
+	return EXIT_SUCCESS;
 }
 
 
@@ -82,10 +83,10 @@ runTest( int argc, char** argv)
     FILE *kernelFile;
     char *kernelSource;
     size_t kernelLength;
-	if(argc == 11){
-	platform_id=atoi(argv[9]);
-	device_id = atoi(argv[10]);
-	}
+	ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	device_id = opts.device_id;
+
 	clDevice = GetDevice(platform_id, device_id);
     	size_t max_worksize[3];
 errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);

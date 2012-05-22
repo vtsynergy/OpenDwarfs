@@ -34,7 +34,6 @@ static struct option long_options[] = {
 int
 main ( int argc, char *argv[] )
 {
-    OCD_INIT
   int matrix_dim = 32; /* default matrix_dim */
   int opt, option_index=0;
   func_ret_t ret;
@@ -271,6 +270,6 @@ clDevice = GetDevice(platform_id, device_id);
   clReleaseContext(clContext);
 
   free(m);
-  OCD_FINISH
+  ocd_finalize();
   return EXIT_SUCCESS;
 }				/* ----------  end of function main  ---------- */

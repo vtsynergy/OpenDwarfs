@@ -4,6 +4,7 @@
 #include <math.h>
 #include <assert.h>
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 #include <omp.h>
 
@@ -67,6 +68,10 @@ void initCL()
     size_t kernelLength;
 
     cl_int errcode;
+	
+    ocd_options opts = ocd_get_options();
+	platform_id = opts.platform_id;
+	device_id = opts.device_id;
 
 clDevice = GetDevice(platform_id, device_id);
 	size_t max_worksize[3];
@@ -234,9 +239,9 @@ int
 main( int argc, char** argv) 
 {
 	// as done in the CUDA start/help document provided
-    OCD_INIT
-	setup(argc, argv);    
-    OCD_FINISH
+	ocd_init(&argc, &argv, NULL);
+	setup(argc, argv);   
+	ocd_finalize();
 }
 
 //																			  //

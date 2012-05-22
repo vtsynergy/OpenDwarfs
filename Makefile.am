@@ -14,6 +14,9 @@ bin_PROGRAMS =
 all_local =
 exec_local =
 
+SOURCES = include/common_args.c include/rdtsc.c
+LDADD = include/common_args.o include/rdtsc.o
+
 if build_gem
 include n-body-methods/gem/Makefile.mk
 endif

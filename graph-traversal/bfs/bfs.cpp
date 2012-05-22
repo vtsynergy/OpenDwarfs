@@ -149,12 +149,12 @@ void BFSGraph(int argc, char** argv);
  *****************************************************************************/
 int main(int argc, char** argv)
 {
-    OCD_INIT
+	ocd_init(&argc, &argv, NULL);
 	no_of_nodes = 0;
     edge_list_size = 0;
     BFSGraph(argc, argv);
-    OCD_FINISH
-	return 0;
+	ocd_finalize();	
+    return 0;
 }
 
 /******************************************************************************
@@ -162,7 +162,6 @@ int main(int argc, char** argv)
  *****************************************************************************/
 void BFSGraph(int argc, char ** argv)
 {
-	ocd_init(&argc, &argv, NULL);
 	ocd_options opts = ocd_get_options();
 	platform_id = opts.platform_id;
 	n_device = opts.device_id;

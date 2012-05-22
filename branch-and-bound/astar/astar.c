@@ -113,7 +113,7 @@ void CPUsearch(
 }
 
 int main(int argc, char** argv) {
-    OCD_INIT
+	ocd_init(&argc, &argv, NULL);
 	cl_int err;
     int i, j, k;
 
@@ -137,7 +137,6 @@ int main(int argc, char** argv) {
     size_t lengthRead;
     int start = 0, end = 1, result[CITIES * CITIES], traverse[CITIES * CITIES * CITIES], CPU_result[1];
     
-    ocd_init(&argc, &argv, NULL);
     ocd_options opts = ocd_get_options();
     platform_id = opts.platform_id;
     n_device = opts.device_id;
@@ -310,7 +309,7 @@ int main(int argc, char** argv) {
     clReleaseKernel(kernel);
     clReleaseCommandQueue(commands);
     clReleaseContext(context);
-    OCD_FINISH
+    ocd_finalize();
     return 0;
 }
 

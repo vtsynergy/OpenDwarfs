@@ -11,12 +11,14 @@
 #include "partitioned_open.h"
 #include "gem.h"
 
+#include <include/common_args.h>
 
 using namespace std;
 extern int platform_id, device_id;
 
 int main (int argc, char **argv)
 {
+	ocd_init(&argc, &argv, NULL);
    // local variables
    partitioned_open_struct open_dat;
    double A(0),
@@ -155,6 +157,6 @@ int main (int argc, char **argv)
              open_dat.vert
           );
    }
-
+	ocd_finalize();
    return 0;
 }

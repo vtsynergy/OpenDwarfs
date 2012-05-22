@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -183,7 +184,7 @@ inline void compute_flux_contribution(float* density, float3* momentum, float* d
 
 int main(int argc, char** argv)
 {
-    OCD_INIT
+	ocd_init(&argc, &argv, NULL);
 	cl_int err;
 
     size_t global_size;
@@ -212,11 +213,10 @@ int main(int argc, char** argv)
 	}
 	const char* data_file_name = argv[1];
 	int n_platform=PLATFORM_ID, n_device=DEVICE_ID;
-	if(argc == 4)
-	{
-		n_platform = atoi(argv[2]);
-		n_device = atoi(argv[3]);
-	}
+	
+	ocd_options opts = ocd_get_options();
+	n_platform = opts.platform_id;
+	n_device = opts.device_id;
 
 	device_id = GetDevice(n_platform, n_device);
         // Create a compute context
@@ -581,6 +581,6 @@ int main(int argc, char** argv)
 	dealloc<float>(fc_density_energy);
 
 	std::cout << "Done..." << std::endl;
-        OCD_FINISH
+	ocd_finalize();
 	return 0;
 }

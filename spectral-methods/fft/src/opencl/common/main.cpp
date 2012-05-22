@@ -31,7 +31,7 @@
 #include <NodeInfo.h>
 #endif
 
-
+#include <include/common_args.h>
 using namespace std;
 using namespace SHOC;
 
@@ -74,6 +74,7 @@ void RunBenchmark(OptionParser &op);
 // ****************************************************************************
 int main(int argc, char *argv[])
 {
+	ocd_init(&argc, &argv, NULL);
     int ret = 0;
 
     try
@@ -194,6 +195,9 @@ int main(int argc, char *argv[])
             device = 0;
         }
 
+	ocd_options opts = ocd_get_options();
+	platform = opts.platform_id;
+	device = opts.device_id;
         // Initialization
 //        if (verbose) cout << ">> initializing\n";
 //        cl::Device     id    = ListDevicesAndGetDevice(platform, device);
@@ -242,6 +246,6 @@ int main(int argc, char *argv[])
 #ifdef PARALLEL
     MPI_Finalize();
 #endif
-
+	ocd_finalize();
     return ret;
 }

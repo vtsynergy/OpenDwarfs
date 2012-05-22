@@ -8,6 +8,7 @@
 #include <CL/opencl.h>
 #endif
 #include "../include/rdtsc.h"
+#include "../include/common_args.h"
 
 #define CHKERR(err, str) \
     if (err != CL_SUCCESS) \
@@ -23,8 +24,8 @@
 
 int main(int argc, char** argv)
 {
-    OCD_INIT
-    cl_int err;
+	ocd_init(&argc, &argv, NULL);
+	cl_int err;
     float *input = (float*)malloc(DATA_SIZE*sizeof(float));
     float *output = (float*)malloc(DATA_SIZE*sizeof(float));
     unsigned int correct;
@@ -53,14 +54,11 @@ int main(int argc, char** argv)
     for (i = 0; i < count; i++)
         input[i] = rand() / (float)RAND_MAX;
 
-    /* Retrieve an OpenCL platform */
-    err = clGetPlatformIDs(1, &platform_id, NULL);
-    CHKERR(err, "Failed to get a platform!");
+	ocd_options opts = ocd_get_options();
+	int n_platform_id = opts.platform_id;
+	int n_device_id = opts.device_id;
 
-    /* Connect to a compute device */
-    err = clGetDeviceIDs(platform_id, USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &device_id, NULL);
-    CHKERR(err, "Failed to create a device group!");
-
+	device_id = GetDevice(n_platform_id, n_device_id);
     /* Create a compute context */
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
     CHKERR(err, "Failed to create a compute context!");
@@ -186,7 +184,7 @@ int main(int argc, char** argv)
     free(output);
     
     //Finalize the timer suite
-    OCD_FINISH
+    ocd_finalize();
 
     return 0;
 }

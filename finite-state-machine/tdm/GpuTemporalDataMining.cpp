@@ -877,9 +877,9 @@ void calculateLevelParameters(int level, size_t* block, size_t* grid, int& secti
 int
 main( int argc, char** argv)
 {
-    OCD_INIT
+	ocd_init(&argc, &argv, NULL);
 	runTest( argc, argv);
-    OCD_FINISH
+	ocd_finalize();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -888,10 +888,9 @@ main( int argc, char** argv)
 void
 runTest( int argc, char** argv)
 {
-	ocd_init(&argc, &argv, NULL);
 	ocd_options opts = ocd_get_options();
 	platform_id = opts.platform_id;
-	device_id = opts.device_id;
+	n_device = opts.device_id;
 	
 	if ( argc != 8)
 	{

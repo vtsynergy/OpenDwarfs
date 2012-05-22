@@ -26,7 +26,9 @@
 #include <cstring>
 #include <sys/time.h>
 
-#include "../../../include/rdtsc.h"
+#include <include/rdtsc.h>
+#include <include/common_args.h>
+
 //#define USEGPU 1
 typedef long long int64;
 static struct timeval start_time;
@@ -105,6 +107,9 @@ initializeCL(void)
   cl_int status = 0;
   size_t deviceListSize;
 
+  ocd_options opts = ocd_get_options();
+  platform_id = opts.platform_id;
+  device_id = opts.device_id;
   /*
    * Have a look at the available platforms and pick either
    * the AMD one if available or a reasonable default.
@@ -392,8 +397,7 @@ void calc_potential_single_step(residue *residues,
     int *i,
     int step_size)
 {
-    OCD_INIT
-  int it, eye, bound;
+	int it, eye, bound;
   //residue *residues_s;
   float *res_c, *res_x, *res_y, *res_z,
         *at_c, *at_x, *at_y, *at_z,
@@ -857,6 +861,5 @@ END_TIMER(ocdTempTimer)
   //cudaFree(atoms_s);
 
   *i = eye;
-  OCD_FINISH
 }
 

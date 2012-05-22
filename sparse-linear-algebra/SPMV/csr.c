@@ -29,7 +29,6 @@ static struct option long_options[] = {
 int platform_id=PLATFORM_ID, n_device=DEVICE_ID;
 int main(int argc, char** argv)
 {
-    OCD_INIT
 	cl_int err;
 	int usegpu = USEGPU;
     int do_verify = 0;
@@ -261,7 +260,7 @@ int main(int argc, char** argv)
     }
 
     /* Print a brief summary detailing the results */
-   OCD_FINISH
+    ocd_finalize();
 
     /* Shutdown and cleanup */
     clReleaseMemObject(csr_ap);

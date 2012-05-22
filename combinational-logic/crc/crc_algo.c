@@ -313,7 +313,6 @@ void setupGPU()
 
 int main(int argc, char** argv)
 {
-    OCD_INIT
 	cl_int err;
 
 	unsigned char* h_num;
@@ -503,6 +502,5 @@ int main(int argc, char** argv)
 	printf("Kernel Execution Time: %f\n", kernelExecutionTime / 1000000.0);
 
 	printf("Done\n");
-		
-        OCD_FINISH
+	ocd_finalize();		
 }

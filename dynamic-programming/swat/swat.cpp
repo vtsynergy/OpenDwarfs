@@ -8,6 +8,7 @@
 #endif
 #define ENABLE_TIMER
 #include "../../include/rdtsc.h"
+#include "../../include/common_args.h"
 
 /*************************************************************
  **************** Version 1 **********************************
@@ -68,7 +69,7 @@ char * loadSource(char *filePathName, size_t *fileSize)
 
 int main(int argc, char ** argv)
 {
-    OCD_INIT
+	ocd_init(&argc, &argv, NULL);
 	if (argc < 3)
 	{
 		printf("Calculate similarities between two strings.\n");
@@ -637,7 +638,7 @@ int main(int argc, char ** argv)
 	clReleaseProgram(hProgram);
 	clReleaseCommandQueue(hCmdQueue);
 	clReleaseContext(hContext);
-        OCD_FINISH
+	ocd_finalize();
 	return 0;
 }
 
