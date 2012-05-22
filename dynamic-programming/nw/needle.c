@@ -78,9 +78,9 @@ return(k);
 int
 main( int argc, char** argv) 
 {
-    INI_TIMER
+    OCD_INIT
 	runTest( argc, argv);
-	PRINT_COUNT
+        OCD_FINISH
     return EXIT_SUCCESS;
 }
 
@@ -185,7 +185,7 @@ void runTest( int argc, char** argv)
     clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
     CHECKERR(errcode);
 
-    clCommands = clCreateCommandQueue(clContext, clDevice, TIMER_ENABLE, &errcode);
+    clCommands = clCreateCommandQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE, &errcode);
     CHECKERR(errcode);
 
     kernelFile = fopen("needle_kernel.cl", "r");
@@ -227,16 +227,16 @@ void runTest( int argc, char** argv)
     CHECKERR(errcode);
     matrix_cuda_out = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(int)*size, NULL, &errcode);
     CHECKERR(errcode);
-	START_TIMER	
-    errcode = clEnqueueWriteBuffer(clCommands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &myEvent);
-	END_TIMER
-	COUNT_H2D
+    errcode = clEnqueueWriteBuffer(clCommands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &ocdTempEvent);
+
+    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Reference Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
     CHECKERR(errcode);
-    errcode = clEnqueueWriteBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) input_itemsets, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-    CHECKERR(errcode);
-	END_TIMER
-	COUNT_H2D
+    errcode = clEnqueueWriteBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) input_itemsets, 0, NULL, &ocdTempEvent);
+    clFinish(clCommands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Item Set Copy", ocdTempTimer)
+	CHECKERR(errcode);
+	END_TIMER(ocdTempTimer)
     size_t localWorkSize[2] = {BLOCK_SIZE, 1};
     size_t globalWorkSize[2];
 	int block_width = ( max_cols - 1 )/BLOCK_SIZE;
@@ -254,11 +254,10 @@ void runTest( int argc, char** argv)
         errcode |= clSetKernelArg(clKernel_nw1, 5, sizeof(int), (void *) &i);
         errcode |= clSetKernelArg(clKernel_nw1, 6, sizeof(int), (void *) &block_width);
         CHECKERR(errcode);
-	START_TIMER
-        errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+        errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
         clFinish(clCommands);
-	END_TIMER
-	COUNT_K
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernels", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 	}
 	printf("Processing bottom-right matrix\n");
@@ -274,19 +273,17 @@ void runTest( int argc, char** argv)
         errcode |= clSetKernelArg(clKernel_nw2, 5, sizeof(int), (void *) &i);
         errcode |= clSetKernelArg(clKernel_nw2, 6, sizeof(int), (void *) &block_width);
         CHECKERR(errcode);
-        START_TIMER
-	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_nw2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
         clFinish(clCommands);
-	END_TIMER
-	COUNT_K
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "NW Kernels", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
         CHECKERR(errcode);
 	}
 
-	START_TIMER
-    errcode = clEnqueueReadBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-    	END_TIMER
-	COUNT_D2H
+    errcode = clEnqueueReadBuffer(clCommands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &ocdTempEvent);
+    clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "NW Item Set Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 	
 	

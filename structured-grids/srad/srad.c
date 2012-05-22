@@ -43,9 +43,9 @@ void usage(int argc, char **argv)
 int
 main( int argc, char** argv) 
 {
-	INI_TIMER
+    OCD_INIT
 		runTest( argc, argv);
-	PRINT_COUNT
+    OCD_FINISH
     return EXIT_SUCCESS;
 }
 
@@ -96,7 +96,7 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
     CHECKERR(errcode);
 
-    clCommands = clCreateCommandQueue(clContext, clDevice, TIMER_ENABLE, &errcode);
+    clCommands = clCreateCommandQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE, &errcode);
     CHECKERR(errcode);
 
     kernelFile = fopen("srad_kernel.cl", "r");
@@ -303,11 +303,11 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
 
 
 	//Copy data from main memory to device memory
-    	START_TIMER
-	errcode = clEnqueueWriteBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-    	END_TIMER
-	COUNT_H2D
+	errcode = clEnqueueWriteBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
+
+        clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SRAD Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 	//Run kernels
@@ -321,11 +321,10 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     errcode |= clSetKernelArg(clKernel_srad1, 7, sizeof(int), (void *) &rows);
     errcode |= clSetKernelArg(clKernel_srad1, 8, sizeof(float), (void *) &q0sqr);
     CHECKERR(errcode);
-	START_TIMER
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-        END_TIMER
-        COUNT_K
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+    clFinish(clCommands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernels", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
     errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
     errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);
@@ -338,19 +337,17 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     errcode |= clSetKernelArg(clKernel_srad2, 8, sizeof(float), (void *) &lambda);
     errcode |= clSetKernelArg(clKernel_srad2, 9, sizeof(float), (void *) &q0sqr);
     CHECKERR(errcode);
-	START_TIMER
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
-    	clFinish(clCommands);
-	END_TIMER
-		COUNT_K
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+    clFinish(clCommands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernels", ocdTempTimer)
+    	END_TIMER(ocdTempTimer)
 		CHECKERR(errcode);
 
 	//Copy data from device memory to main memory
-    	START_TIMER
-	errcode = clEnqueueReadBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-    	END_TIMER
-	COUNT_D2H
+	errcode = clEnqueueReadBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
+        clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 #endif   

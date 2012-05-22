@@ -228,6 +228,13 @@ for app in ${app_names}; do
     esac
 done
 
+#Enable or disable the OCD Timer Suite from ./include/rdtsc.h
+#Still doesn't seem to be taking effect
+AC_ARG_ENABLE([timing], 
+	AC_HELP_STRING([--enable-timing], [Enable automatic macro-based timing (disabled by default])
+	AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
+)
+
 AC_MSG_RESULT([building applications... ${selected_apps}])
 AM_CONDITIONAL([build_gem], [$build_gem])
 #AM_CONDITIONAL([build_matmult], [$build_matmult])

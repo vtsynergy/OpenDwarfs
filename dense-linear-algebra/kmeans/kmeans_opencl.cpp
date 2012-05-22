@@ -80,7 +80,7 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
     CHECKERR(errcode);
 
-    clCommands = clCreateCommandQueue(clContext, clDevice, TIMER_ENABLE, &errcode);
+    clCommands = clCreateCommandQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE, &errcode);
     CHECKERR(errcode);
 
     kernelFile = fopen("kmeans_opencl_kernel.cl", "r");
@@ -149,10 +149,11 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
     feature_flipped_d = clCreateBuffer(clContext, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
     CHECKERR(errcode);
 	 
-    errcode = clEnqueueWriteBuffer(clCommands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-	END_TIMER
-	COUNT_H2D
+    errcode = clEnqueueWriteBuffer(clCommands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, &ocdTempEvent);
+    
+    clFinish(clCommands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Point/Feature Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
     feature_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, npoints*nfeatures*sizeof(float), NULL, &errcode);
     CHECKERR(errcode);
@@ -167,10 +168,10 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
     globalWorkSize = num_blocks*num_threads;
     localWorkSize = num_threads;
 	 
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-    	END_TIMER
-	COUNT_K
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
+    clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Invert Mapping Kernel", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 		
 	/* allocate memory for membership_d[] and clusters_d[][] (device) */
@@ -233,9 +234,9 @@ int
 main( int argc, char** argv) 
 {
 	// as done in the CUDA start/help document provided
-	INI_TIMER
+    OCD_INIT
 	setup(argc, argv);    
-	PRINT_COUNT
+    OCD_FINISH
 }
 
 //																			  //
@@ -263,18 +264,18 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 	/* copy membership (host to device) */
     	 
-	errcode = clEnqueueWriteBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-    	END_TIMER
-	COUNT_H2D
+	errcode = clEnqueueWriteBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
+        clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Membership Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 	/* copy clusters (host to device) */
     	 
-	errcode = clEnqueueWriteBuffer(clCommands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-	END_TIMER
-	COUNT_H2D
+	errcode = clEnqueueWriteBuffer(clCommands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, &ocdTempEvent);
+        clFinish(clCommands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Cluster Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 	/* set up texture */
@@ -329,19 +330,19 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     
 	/* execute the kernel */
 	 
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &myEvent);
+    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	CHECKERR(errcode);
+        errcode = clFinish(clCommands);
+   	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Point Kernel", ocdTempTimer)
 
-    errcode = clFinish(clCommands);
-	COUNT_K 
-   	END_TIMER
+    END_TIMER(ocdTempTimer)
     CHECKERR(errcode);
 	/* copy back membership (device to host) */
     	 
-	errcode = clEnqueueReadBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
-    	END_TIMER
-	COUNT_D2H
+	errcode = clEnqueueReadBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
+        clFinish(clCommands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Membership Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
 	CHECKERR(errcode);
 
 #ifdef BLOCK_CENTER_REDUCE
@@ -350,8 +351,8 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
         num_blocks_perdim * num_blocks_perdim * 
         nclusters * nfeatures * sizeof(float));
          
-    errcode = clEnqueueReadBuffer(clCommands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
+    errcode = clEnqueueReadBuffer(clCommands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &ocdTempEvent);
+	clFinish(clCommands)
 		END_TIMER
 		COUNT_D2H
 	    CHECKERR(errcode);
@@ -360,8 +361,8 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
     int * block_deltas_h = (int *) malloc(
         num_blocks_perdim * num_blocks_perdim * sizeof(int));
          
-    errcode = clEnqueueReadBuffer(clCommands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &myEvent);
-	CL_FINISH(clCommands)
+    errcode = clEnqueueReadBuffer(clCommands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &ocdTempEvent);
+	clFinish(clCommands)
     	END_TIMER
 	COUNT_D2H
 	CHECKERR(errcode);
