@@ -14,7 +14,11 @@ bin_PROGRAMS =
 all_local =
 exec_local =
 
-SOURCES = include/common_args.c include/rdtsc.c
+
+bin_PROGRAMS += ocd
+ocd_SOURCES = include/common_args.c include/rdtsc.c
+ocd_LINK = true
+
 LDADD = include/common_args.o include/rdtsc.o
 
 if build_gem
