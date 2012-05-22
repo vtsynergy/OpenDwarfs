@@ -36,7 +36,7 @@ mkdir ../testout
 ./swat ../test/dynamic-programming/swat/query2K1 ../test/dynamic-programming/swat/sampledb2K1 10.0 0.5 14 >>../testout/swat.out 2>>../testout/swat.err
 
 #run tdm test
-./tdm ../test/finite-state-machine/tdm/stream-new-1.csv ../test/finite-state-machine/tdm/streamIntervals.txt 100 0.5 r s n 0 0 >../testout/tdm.out 2>../testout/tdm.err
+./tdm 0 0 -- ../test/finite-state-machine/tdm/stream-new-1.csv ../test/finite-state-machine/tdm/streamIntervals.txt 100 0.5 r s n >../testout/tdm.out 2>../testout/tdm.err
 
 #run bfs test
 ./bfs ../test/graph-traversal/bfs/medium.txt >../testout/bfs.out 2>../testout/bfs.err
