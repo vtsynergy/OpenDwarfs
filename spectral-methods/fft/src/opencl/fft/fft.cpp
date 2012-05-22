@@ -217,7 +217,7 @@ void dump1D(OptionParser& op)
 	int n_ffts = 1;
 	double N = fftn;
 
-	fprintf(stderr, "used_bytes=%lu, N=%g\n", used_bytes, N);
+	fprintf(stdout, "used_bytes=%lu, N=%g\n", used_bytes, N);
 
 	// allocate host and device memory
 	allocHostBuffer((void**)&source, used_bytes);

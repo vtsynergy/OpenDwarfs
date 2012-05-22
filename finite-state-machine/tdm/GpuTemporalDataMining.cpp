@@ -892,7 +892,6 @@ runTest( int argc, char** argv)
 	platform_id = opts.platform_id;
 	n_device = opts.device_id;
 	
-printf("Argc: %d\n", argc);
 	if ( argc != 8)
 	{
 		printf("Usage: GpuTemporalDataMining [<platform> <device> --] <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic | (d)ynamic> <(m)ap and merge | (n)aive | (o)hybrid> \n");
