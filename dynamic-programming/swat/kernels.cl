@@ -30,7 +30,7 @@ void __barrier_opencl_lock_based(int localID, int goalValue, volatile __global i
     {
         atom_add(g_mutexOpencl, 1);
         mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
-        while (*g_mutexOpencl < goalValue)
+        while (atom_add(g_mutexOpencl,0) < goalValue)
         { }
     }
 
