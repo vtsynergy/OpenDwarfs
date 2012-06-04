@@ -6,7 +6,7 @@ extern "C" {
 #endif
 
 
-#include <opts.h>
+#include <opts/opts.h>
 #include <CL/cl.h>
 #include <string.h>
 #include "rdtsc.h"

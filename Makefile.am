@@ -19,7 +19,10 @@ bin_PROGRAMS += ocd
 ocd_SOURCES = include/common_args.c include/rdtsc.c
 ocd_LINK = true
 
-LDADD = include/common_args.o include/rdtsc.o
+noinst_LIBRARIES = libopts.a
+libopts_a_SOURCES = opts/opts.c 
+
+LDADD = include/common_args.o include/rdtsc.o libopts.a
 
 if build_gem
 include n-body-methods/gem/Makefile.mk

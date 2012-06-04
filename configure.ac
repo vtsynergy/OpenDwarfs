@@ -76,14 +76,14 @@ if test ! -z "$OPENCL_PREFIX" ; then
    PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_PREFIX}],[LDFLAGS])
 fi
 
-AC_ARG_WITH([opts], AC_HELP_STRING([--with-opts],[path to Opts argument library]),
-	[OPTS_PREFIX=$withval],[OPTS_PREFIX=])
-if test ! -z "$OPTS_PREFIX" ; then
-   PAC_APPEND_FLAG([-L${OPTS_PREFIX}],[LDFLAGS])
-   PAC_APPEND_FLAG([-I${OPTS_PREFIX}],[CPPFLAGS])
-fi
-AC_CHECK_LIB(opts,optsload,[PAC_PREPEND_FLAG([-lopts],[LIBS])],
-	AC_MSG_ERROR([opts library not found]))
+###AC_ARG_WITH([opts], AC_HELP_STRING([--with-opts],[path to Opts argument library]),
+###	[OPTS_PREFIX=$withval],[OPTS_PREFIX=])
+###if test ! -z "$OPTS_PREFIX" ; then
+###   PAC_APPEND_FLAG([-L${OPTS_PREFIX}],[LDFLAGS])
+###   PAC_APPEND_FLAG([-I${OPTS_PREFIX}],[CPPFLAGS])
+###fi
+###AC_CHECK_LIB(opts,optsload,[PAC_PREPEND_FLAG([-lopts],[LIBS])],
+###	AC_MSG_ERROR([opts library not found]))
 
 ### Check for the libraries that we need
 AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
