@@ -727,7 +727,7 @@ END_TIMER(ocdTempTimer)
     //for(it=0; it<3; it++)
   {
     clSetKernelArg( kernel, 9, sizeof(cl_int), (void *)&    eye);// int eye,
-    fprintf(stderr,"finished first %d of %d\n", eye, nvert);
+    fprintf(stdout,"finished first %d of %d\n", eye, nvert);
     /* copy the vert data of the current block to device */
 	status = clEnqueueNDRangeKernel(
         commandQueue,
