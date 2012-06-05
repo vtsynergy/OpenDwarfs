@@ -1,15 +1,14 @@
 #include "rdtsc.h"
 
 cl_event ocdTempEvent;
+#ifdef ENABLE_TIMER
 cl_ulong startTime, endTime;
-unsigned long long int h2d_t = 0, k_t = 0, d2h_t = 0;
 
 struct ocdTimer * ocdTempTimer;
 struct ocdDualTimer * ocdTempDualTimer;
 struct ocdHostTimer * ocdTempHostTimer;
 struct ocdHostTimer fullExecTimer = {OCD_TIMER_HOST, NULL, 0, 0, 0, {0, 0}};
 
-#ifdef ENABLE_TIMER
 struct timer_group_mem head = {NULL, NULL, NULL};
 struct timer_group_mem * tail;
 
@@ -92,8 +91,7 @@ void simpleNameTally() {
                 break;
                 }
                 ((cl_ulong *) time)[0] += curr->timer->s.endtime - curr->timer->s.starttime;
-            //no longer just adds it up, this is for the special purpose full execution timer
-                //totalTimes[0] +=curr->timer->s.endtime - curr->timer->s.starttime;
+            
                 }
         
         curr = curr->next;
@@ -101,6 +99,7 @@ void simpleNameTally() {
     totalTimes[0] = fullExecTimer.endtime - fullExecTimer.starttime;
 
 }
+
 
 //assumes simpleNameTally was already called (once) to add up timers
 //now culls off zero-value timers
@@ -120,6 +119,41 @@ void simpleNamePrint() {
         if (curr->times[6] > 0) printf("\tDual:   \t %lu\n", curr->times[6]);
         }
         curr = curr->next;
+    }
+}
+
+//chews up the timer list from head to tail, deallocating all nodes
+void destTimerList() {
+    struct timer_group_mem * temp, * curr = head.next;
+    temp = curr;
+    //make sure we can't try to do another cleanup
+    head.next = NULL;
+    while (curr != NULL) {
+        //slide the window
+        curr = curr->next;
+        //cleanup behind
+        if (temp != NULL) {
+            if (temp->timer !=NULL) free(temp->timer);
+            free(temp);
+        }
+        //catch up
+        temp = curr;
+    }
+}
+
+//chews up the simpleNameList from root to atail, deallocating all nodes
+void destNameList() {
+    struct timer_name_tree_node * temp, * curr = root.next;
+    temp = curr;
+    //make sure we can't try to do another cleanup
+    root.next = NULL;
+    while (curr != NULL) {
+        curr=curr->next;
+        if (temp !=NULL) {
+            if (temp->times != NULL) free(temp->times);
+            free(temp);
+        }
+        temp = curr;
     }
 }
 
@@ -202,21 +236,6 @@ void walkList() {
     }
 }
 
-
-
-//Debug call for checking tree construction recursively
-
-void dfsWalkTree(struct timer_name_tree_node * r, int depth) {
-    int i;
-    struct timer_name_tree_node * curr = r;
-    while (curr != NULL) {
-        for (i = depth; i > 0; i--) printf(" ");
-        printf("[%s]\n", &curr->string[1]);
-        //always descend, the NULL check will kick us back up as needed
-        dfsWalkTree(curr->child, depth + curr->len);
-        curr = curr->next;
-    }
-}
 #endif //TIMER_TEST
 
 #endif //ENABLE_TIMER

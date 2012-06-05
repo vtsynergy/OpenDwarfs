@@ -2,7 +2,7 @@
 rm -Rf build
 mkdir build
 cd build
-../configure --enable-timing=yes --with-opts="../opts-0.9.10/" CPPFLAGS="-g -I/usr/local/cuda/include"
+../configure CPPFLAGS="-g -I/usr/local/cuda/include"
 make
 
 rm -Rf ../testout

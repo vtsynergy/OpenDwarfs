@@ -579,7 +579,7 @@ void setupGpu()
     char options[200];
     snprintf(options, 200, "-I . -D IMAGE_MAX_WIDTH=%lu -D IMAGE_MAX_HEIGHT=%lu", (unsigned long)MaxImageWidth, (unsigned long)MaxImageHeight);
     err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
-    if (err == CL_BUILD_PROGRAM_FAILURE)
+    if (err != CL_SUCCESS)
     {
         char *log;
         size_t logLen;

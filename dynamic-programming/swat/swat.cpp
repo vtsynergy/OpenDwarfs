@@ -6,7 +6,6 @@
 #else
 #include <CL/cl.h>
 #endif
-#define ENABLE_TIMER
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 

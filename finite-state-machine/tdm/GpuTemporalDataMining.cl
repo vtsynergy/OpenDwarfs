@@ -768,11 +768,11 @@ triangleToArray( int triangle, int* base, int* compare, int numCandidates )
 	int Temp = triangle + 1;
 	while (Temp > 0)
 	{
-   		Temp = Temp - (numCandidates - *base - 1);
+   		Temp = Temp - (numCandidates - (*base) - 1);
    		(*base)++;
 	}
 
-	Temp += numCandidates - *base - 1;
+	Temp += numCandidates - (*base) - 1;
 	*compare = Temp + (*base);
 	(*base)--;
 }

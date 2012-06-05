@@ -231,8 +231,7 @@ done
 #Enable or disable the OCD Timer Suite from ./include/rdtsc.h
 #Still doesn't seem to be taking effect
 AC_ARG_ENABLE([timing], 
-	AC_HELP_STRING([--enable-timing], [Enable automatic macro-based timing (disabled by default])
-	AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
+	AC_HELP_STRING([--disable-timing], [Disable automatic macro-based timing (enabled by default)]),	, AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
 )
 
 AC_MSG_RESULT([building applications... ${selected_apps}])

@@ -1,7 +1,7 @@
-OpenCL Dwarfs
+OpenDwarfs
 =============
 
-A suite of applications categorized under the 13 Berkeley Dwarfs
+A suite of OpenCL applications categorized under the 13 Berkeley Dwarfs
 (http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
 
 Benchmark status
@@ -33,13 +33,13 @@ Packages and libraries needed to build and run the applications.
 
 To build:
 
-    opencl >= 1.0 (some apps require 1.1)
+    opencl >= 1.0 (some apps require 1.1, but we do not yet guarantee support for 1.2 in all applications.)
     autoconf >= 2.63
     autoheader
     automake
     libtool
     gcc
-    make
+    maker
 
 To run:
 

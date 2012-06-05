@@ -194,10 +194,14 @@ void ocd_init(int* argc, char*** argv, ocd_requirements* reqs)
 {
 	ocd_parse(argc, argv);
 	ocd_check_requirements(reqs);
+	#ifdef ENABLE_TIMER
 	TIMER_INIT;
+	#endif
 }
 
 void ocd_finalize()
 {
+	#ifdef ENABLE_TIMER
 	TIMER_FINISH;
+	#endif
 }

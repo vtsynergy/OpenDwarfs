@@ -7,6 +7,9 @@ The Temporal Data Mining(TDM) code is a restricted variant of association rule
 data mining.  In this case, temporal data is also considered as part of the
 association process.
 
+Due to deprecation of the clCreateImage2d command, TDM is known to lack support
+for OpenCL specification 1.2
+
 Running
 -------
 
