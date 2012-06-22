@@ -1,7 +1,6 @@
 OpenDwarfs
 =============
-
-OpenDwarfs projects aims to develop a benchmark suite consisting of different computation/communication idioms for state-of-art multicore and GPU systems using the OpenCL programming model. 
+The OpenDwarfs project provides a benchmark suite consisting of different computation/communication idioms, i.e., dwarfs, for state-of-art multicore and GPU systems.  The first instantiation of the OpenDwarfs has been realized in OpenCL
 
 The computation/communication idioms are based on the 13 Berkeley Dwarfs: (http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
 
