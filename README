@@ -1,8 +1,9 @@
 OpenDwarfs
 =============
 
-A suite of OpenCL applications categorized under the 13 Berkeley Dwarfs
-(http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
+OpenDwarfs projects aims to develop a benchmark suite consisting of different computation/communication idioms for state-of-art multicore and GPU systems using the OpenCL programming model. 
+
+The computation/communication idioms are based on the 13 Berkeley Dwarfs: (http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
 
 Benchmark status
 ----------------
