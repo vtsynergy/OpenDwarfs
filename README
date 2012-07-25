@@ -1,7 +1,14 @@
 OpenDwarfs
 =============
+The OpenDwarfs project provides a benchmark suite consisting of different
+computation/communication idioms, i.e., dwarfs, for state-of-art multicore and
+GPU systems.  The first instantiation of the OpenDwarfs has been realized in
+OpenCL, as described in part in "OpenCL and the 13 Dwarfs: A Work in Progress"
+by Feng, Lin, Scogland, and Zhang in the 3rd ACM/SPEC International Conference
+on Performance Engineering, April 2012.
 
-A suite of OpenCL applications categorized under the 13 Berkeley Dwarfs
+
+The computation/communication idioms are based on the 13 Berkeley Dwarfs:
 (http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
 
 Benchmark status
