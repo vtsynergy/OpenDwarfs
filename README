@@ -73,7 +73,8 @@ See the application-specific README file in each application's directory.
 Acknowledgements
 ----------------
 
-This project was supported in part by AMD, Air Force Research Lab, Department
-of Defense, Harris, Los Alamos National Laboratory, and Xilinx via the NSF
-Center for High-Performance Reconfigurable Computing (CHREC). 
+This project was supported in part by AMD, Air Force Research Lab, Department of
+Defense, Harris, Los Alamos National Laboratory, and Xilinx via the NSF Center
+for High-Performance Reconfigurable Computing (CHREC) under NSF grant
+IIP-0804155 and indirectly via a NSF Major Research Instrumentation grant 0960081.
 
