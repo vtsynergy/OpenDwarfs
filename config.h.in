@@ -6,9 +6,6 @@
 /* define if the compiler defines __FUNC__ */
 #undef HAVE_CAP__FUNC__
 
-/* Define to 1 if you have the <dlfcn.h> header file. */
-#undef HAVE_DLFCN_H
-
 /* Define if GNU __attribute__ is supported */
 #undef HAVE_GCC_ATTRIBUTE
 
@@ -47,10 +44,6 @@
 
 /* define if the compiler defines __func__ */
 #undef HAVE__FUNC__
-
-/* Define to the sub-directory in which libtool stores uninstalled libraries.
-   */
-#undef LT_OBJDIR
 
 /* Define to 1 if your C compiler doesn't accept -c and -o together. */
 #undef NO_MINUS_C_MINUS_O

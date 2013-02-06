@@ -10,7 +10,7 @@ AC_PREREQ(2.63)
 AC_INIT([opencl-apps], [0])
 AC_CONFIG_AUX_DIR([m4])
 AC_CONFIG_MACRO_DIR([m4])
-AM_INIT_AUTOMAKE([-Wall -Werror foreign 1.10])
+AM_INIT_AUTOMAKE([-Wall foreign 1.10])
 
 PAC_PUSH_ALL_FLAGS
 LT_INIT
