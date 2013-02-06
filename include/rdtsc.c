@@ -107,16 +107,16 @@ void simpleNamePrint() {
     struct timer_name_tree_node * curr = &root;
     while (curr != NULL) { //still unique names to be checked
         if (curr->times[0] > 0) {if (strcmp(curr->string, rootStr) != 0) {// if the string isn't empty
-        printf("Timer [%s]: \t %lu\n", curr->string, curr->times[0]);
+        printf("Timer [%s]: \t %llu\n", curr->string, curr->times[0]);
         } else {
-        printf("Unnamed Timers: \t %lu\n", curr->times[0]);
+        printf("Unnamed Timers: \t %llu\n", curr->times[0]);
         }
-        if (curr->times[1] > 0) printf("\tD2H:    \t %lu\n", curr->times[1]);
-        if (curr->times[2] > 0) printf("\tH2D:    \t %lu\n", curr->times[2]);
-        if (curr->times[3] > 0) printf("\tD2D:    \t %lu\n", curr->times[3]);
-        if (curr->times[4] > 0) printf("\tKernel: \t %lu\n", curr->times[4]);
-        if (curr->times[5] > 0) printf("\tHost:   \t %lu\n", curr->times[5]);
-        if (curr->times[6] > 0) printf("\tDual:   \t %lu\n", curr->times[6]);
+        if (curr->times[1] > 0) printf("\tD2H:    \t %llu\n", curr->times[1]);
+        if (curr->times[2] > 0) printf("\tH2D:    \t %llu\n", curr->times[2]);
+        if (curr->times[3] > 0) printf("\tD2D:    \t %llu\n", curr->times[3]);
+        if (curr->times[4] > 0) printf("\tKernel: \t %llu\n", curr->times[4]);
+        if (curr->times[5] > 0) printf("\tHost:   \t %llu\n", curr->times[5]);
+        if (curr->times[6] > 0) printf("\tDual:   \t %llu\n", curr->times[6]);
         }
         curr = curr->next;
     }

@@ -7,7 +7,12 @@ extern "C" {
 
 
 #include <opts/opts.h>
+#ifdef OPENCL_HEADER_CL_CL
 #include <CL/cl.h>
+#endif
+#ifdef OPENCL_HEADER_LONG
+#include <OpenCL/opencl.h>
+#endif
 #include <string.h>
 #include "rdtsc.h"
 #include <stdio.h>

@@ -164,8 +164,12 @@ int bindTexture(int offset, cl_mem* texture, cl_mem memory, size_t size, cl_chan
     format.image_channel_order = CL_R;
     format.image_channel_data_type = dataType;
 
+    cl_image_desc desc = {0};
+    desc.image_width = region[0];
+    desc.image_height = region[1];
+
     int err = CL_SUCCESS;
-    *texture = clCreateImage2D(context, CL_MEM_READ_ONLY, &format, region[0], region[1], 0, NULL, &err);//region[0], region[1], 0, NULL, &err);
+    *texture = clCreateImage(context, CL_MEM_READ_ONLY, &format, &desc, NULL, &err);
     CHKERR(err, "Unable to create texture!");
 
     if(size != 0)
@@ -541,7 +545,7 @@ void initGpu()
     /////////////////////////////////////////////////////////////
     // Basic OpenCL Setup
 
-	device_id = GetDevice(platform_id, n_device);
+    device_id = GetDevice(platform_id, n_device);
 
     // Create a compute context
     context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
@@ -573,19 +577,20 @@ void setupGpu()
      // Create the compute program from the source buffer
     program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, NULL, &err);
     CHKERR(err, "Failed to create a compute program!");
-    
+
 	printf("MaxImageWidth: %d, MaxImageHeight: %d\n",(int)MaxImageWidth, (int)MaxImageHeight);
     // Build the program executable
     char options[200];
     snprintf(options, 200, "-I . -D IMAGE_MAX_WIDTH=%lu -D IMAGE_MAX_HEIGHT=%lu", (unsigned long)MaxImageWidth, (unsigned long)MaxImageHeight);
-    err = clBuildProgram(program, 0, NULL, options, NULL, NULL);
+    err = clBuildProgram(program, 1, &device_id, options, NULL, NULL);
     if (err != CL_SUCCESS)
     {
         char *log;
         size_t logLen;
-        err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLen);
+        int err2;
+        err2 = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLen);
         log = (char *) malloc(sizeof(char)*logLen);
-        err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) log, NULL);
+        err2 = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) log, NULL);
         fprintf(stderr, "CL Error %d: Failed to build program! Log:\n%s", err, log);
         free(log);
         exit(1);
@@ -672,7 +677,7 @@ void countCandidates(size_t* globalWork, size_t* localWork, cl_mem episodeSuppor
     errcode |= clSetKernelArg(kernel_countCandidates, 8, sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidates, 9, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidates");
-    
+
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidates, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
     	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
@@ -697,7 +702,7 @@ void countCandidatesMapMerge(size_t* globalWork, size_t* localWork, cl_mem episo
     errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 10,sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 11, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
-    
+
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMerge, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
     	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
@@ -719,7 +724,7 @@ void countCandidatesStatic(size_t* globalWork, size_t* localWork, cl_mem episode
     errcode |= clSetKernelArg(kernel_countCandidatesStatic, 8, sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidatesStatic, 9, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidates");
-    
+
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesStatic, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
     	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
@@ -744,7 +749,7 @@ void countCandidatesMapMergeStatic(size_t* globalWork, size_t* localWork, cl_mem
     errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 10,sizeof(cl_mem), (void *) &timeTex);
     errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 11, sharedMemNeeded, NULL);
     CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
-    
+
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMergeStatic, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
     	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
@@ -891,7 +896,7 @@ runTest( int argc, char** argv)
 	ocd_options opts = ocd_get_options();
 	platform_id = opts.platform_id;
 	n_device = opts.device_id;
-	
+
 	if ( argc != 8)
 	{
 		printf("Usage: GpuTemporalDataMining [<platform> <device> --] <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic | (d)ynamic> <(m)ap and merge | (n)aive | (o)hybrid> \n");
@@ -1004,7 +1009,7 @@ runTest( int argc, char** argv)
 #endif
 
         bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
-        
+
 		bindTexture( 0, &intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float), CL_FLOAT );
 
 		//printf("Executing kernel on %i candidates...\n", numCandidates, level);
@@ -1062,7 +1067,7 @@ runTest( int argc, char** argv)
 			if ( aType == NAIVE )
                 countCandidatesStatic(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates, candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed  );
 			else
-                countCandidatesMapMergeStatic(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates, 
+                countCandidatesMapMergeStatic(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates,
                     candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 			clFinish(commands);
 
@@ -1074,7 +1079,7 @@ runTest( int argc, char** argv)
             	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
             END_TIMER(ocdTempTimer)
 		CHKERR(err, "Unable to read buffer from device.");
-		
+
 			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE) );
 			unbindTexture(&intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float));
 
@@ -1097,7 +1102,7 @@ runTest( int argc, char** argv)
 
 #ifdef CPU_EPISODE_GENERATION
             err = clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)	
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
             END_TIMER(ocdTempTimer)
             CHKERR(err, "Unable to write buffer 1.");
             if(numCandidates * (level - 1) * 2 * sizeof(float) != 0)
@@ -1145,7 +1150,7 @@ runTest( int argc, char** argv)
 		//CUT_CHECK_ERROR("Kernel execution failed");
 
 		//printf("Copying result back to host...\n\n");
-		
+
         int err = clEnqueueReadBuffer(commands, d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
         clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)

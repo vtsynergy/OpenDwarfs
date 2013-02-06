@@ -7,14 +7,17 @@ extern "C" {
 
 
 #include <sys/time.h>
+#include "config.h"
 #define CHECK_ERROR(err) {if (err != CL_SUCCESS) { \
 	fprintf(stderr, "Error: %d\n", err);\
 	exit(1); \
 }}
-#ifdef __APPLE__
+
+#ifdef OPENCL_HEADER_CL_CL
+#include <CL/cl.h>
+#endif
+#ifdef OPENCL_HEADER_LONG
 #include <OpenCL/opencl.h>
-#else
-#include <CL/opencl.h>
 #endif
 
 #define USEGPU 1
@@ -27,7 +30,7 @@ extern "C" {
 #include <stdio.h>
 
 
-#include "../build/config.h"
+#include "config.h"
 
 
 
@@ -235,13 +238,13 @@ temp->endtime = 1000 * (t->timer.tv_sec*1000000L + t->timer.tv_usec);\
 #define OCD_PRINT_TIMERS {printf("********************************************************************************\n"\
 "OCD Core Timers (nanoseconds)\n"\
 "********************************************************************************\n"\
-"Total Execution Time:  \t[%lu]\n"\
-"\tHost to Device Time:   [%lu]\n"\
-"\tDevice to Host Time:   [%lu]\n"\
-"\tDevice to Device Time: [%lu]\n"\
-"\tDevice Kernel Time:    [%lu]\n"\
-"\tUser Timer Total:      [%lu]\n"\
-"\tComposed Timer Total:  [%lu]\n"\
+"Total Execution Time:  \t[%llu]\n"\
+"\tHost to Device Time:   [%llu]\n"\
+"\tDevice to Host Time:   [%llu]\n"\
+"\tDevice to Device Time: [%llu]\n"\
+"\tDevice Kernel Time:    [%llu]\n"\
+"\tUser Timer Total:      [%llu]\n"\
+"\tComposed Timer Total:  [%llu]\n"\
 "********************************************************************************\n"\
 ,TOTAL_EXEC, TOTAL_H2D, TOTAL_D2H, TOTAL_D2D, TOTAL_KERNEL, TOTAL_HOST, TOTAL_DUAL);}
 

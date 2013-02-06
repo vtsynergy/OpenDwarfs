@@ -26,8 +26,10 @@ AC_CONFIG_HEADER(config.h)
 PAC_ARG_STRICT
 
 AM_PROG_CC_C_O
-AM_PROG_MKDIR_P
+AM_PROG_AR
 AC_PROG_INSTALL
+AC_PROG_MKDIR_P
+AC_PROG_RANLIB
 AC_C_INLINE
 AC_C_CONST
 AC_C_RESTRICT
@@ -76,6 +78,24 @@ if test ! -z "$OPENCL_PREFIX" ; then
    PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_PREFIX}],[LDFLAGS])
 fi
 
+AC_CHECK_HEADER([CL/cl.h], [HEADER_LINUX=1], [])
+AC_CHECK_HEADER([OpenCL/OpenCL.h], [HEADER_APPLE=1], [])
+
+if test ! -z "$HEADER_LINUX" ; then
+    AC_DEFINE(OPENCL_HEADER_CL_CL, 1, [use non-apple header])
+    ### Check for the libraries that we need
+    AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
+            AC_MSG_ERROR([OpenCL library not found]))
+else
+    if test ! -z "$HEADER_APPLE" ; then
+        AC_DEFINE(OPENCL_HEADER_LONG, 1 , [use apple header])
+        PAC_PREPEND_FLAG([-framework OpenCL],[LIBS])
+    else
+        AC_MSG_ERROR([OpenCL header not found])
+    fi
+fi
+
+
 ###AC_ARG_WITH([opts], AC_HELP_STRING([--with-opts],[path to Opts argument library]),
 ###	[OPTS_PREFIX=$withval],[OPTS_PREFIX=])
 ###if test ! -z "$OPTS_PREFIX" ; then
@@ -85,9 +105,6 @@ fi
 ###AC_CHECK_LIB(opts,optsload,[PAC_PREPEND_FLAG([-lopts],[LIBS])],
 ###	AC_MSG_ERROR([opts library not found]))
 
-### Check for the libraries that we need
-AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
-	AC_MSG_ERROR([OpenCL library not found]))
 
 AC_LANG_PUSH([C++])
 PAC_PUSH_FLAG([LIBS])
@@ -230,7 +247,7 @@ done
 
 #Enable or disable the OCD Timer Suite from ./include/rdtsc.h
 #Still doesn't seem to be taking effect
-AC_ARG_ENABLE([timing], 
+AC_ARG_ENABLE([timing],
 	AC_HELP_STRING([--disable-timing], [Disable automatic macro-based timing (enabled by default)]),	, AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
 )
 
