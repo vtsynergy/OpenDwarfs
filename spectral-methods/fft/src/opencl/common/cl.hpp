@@ -140,6 +140,7 @@
 #ifndef CL_HPP_
 #define CL_HPP_
 
+#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
 #ifdef _WIN32
 #include <windows.h>
 #include <malloc.h>
