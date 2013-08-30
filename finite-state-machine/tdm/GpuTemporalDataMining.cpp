@@ -4,6 +4,7 @@
  */
 
 // includes, system
+#define CL_USE_DEPRECATED_OPENCL_1_1_APIS
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -165,15 +166,15 @@ int bindTexture(int offset, cl_mem* texture, cl_mem memory, size_t size, cl_chan
     format.image_channel_data_type = dataType;
 
     int err = CL_SUCCESS;
-#ifdef CL_VERSION_1_2
-    cl_image_desc desc = {0};
-    desc.image_width = region[0];
-    desc.image_height = region[1];
-
-    *texture = clCreateImage(context, CL_MEM_READ_ONLY, &format, &desc, NULL, &err);
-#else
+//#ifdef CL_VERSION_1_2
+//    cl_image_desc desc = {0};
+//    desc.image_width = region[0];
+//    desc.image_height = region[1];
+//
+//    *texture = clCreateImage(context, CL_MEM_READ_ONLY, &format, &desc, NULL, &err);
+//#else
     *texture = clCreateImage2D(context, CL_MEM_READ_ONLY, &format, region[0], region[1], 0, NULL, &err);
-#endif
+//#endif
     CHKERR(err, "Unable to create texture!");
 
     if(size != 0)
