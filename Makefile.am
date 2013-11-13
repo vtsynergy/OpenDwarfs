@@ -138,40 +138,40 @@ test-run:
 define run_dwarf_test
 	if [ $(1) = "gem" ]; then \
 	echo "Running gem..."; \
-	./gemnoui -p $(platform_n) -d $(device_n) -t $(device_t) -- ../../test/n-body-methods/gem/nucleosome 80 1 0; \
+	./gemnoui -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/n-body-methods/gem/nucleosome 80 1 0; \
 	elif [ $(1) = "nw" ]; then \
 	echo "Running nw..."; \
 	./needle -p $(platform_n) -d $(device_n) -t $(device_t) -- 2048 10; \
 	elif [ $(1) = "swat" ]; then \
 	echo "Running swat..."; \
-	./swat -p $(platform_n) -d $(device_n) -t $(device_t) -- ../../test/dynamic-programming/swat/query1K1 ../../test/dynamic-programming/swat/sampledb1K1; \
+	./swat -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/dynamic-programming/swat/query1K1 ../../test/dynamic-programming/swat/sampledb1K1; \
 	elif [ $(1) = "srad" ]; then \
 	echo "Running srad..."; \
 	./srad -p $(platform_n) -d $(device_n) -t $(device_t) -- 256 256 0 127 0 127 0.5 2; \
 	elif [ $(1) = "lud" ]; then \
 	echo "Running lud..."; \
-	./lud -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../../test/dense-linear-algebra/lud/512.dat; \
+	./lud -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/dense-linear-algebra/lud/512.dat; \
 	elif [ $(1) = "kmeans" ]; then \
 	echo "Running kmeans..."; \
-	./kmeans -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../../test/dense-linear-algebra/kmeans/204800.txt; \
+	./kmeans -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/dense-linear-algebra/kmeans/204800.txt; \
 	elif [ $(1) = "fft" ]; then \
 	echo "Running fft..."; \
 	./clfft -p $(platform_n) -d $(device_n) -t $(device_t) -- --pts 1; \
 	##elif [ $(1) = "csr" ]; then \
 	##echo "Running csr..."; \
-	##./csr -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../../test/sparse-linear-algebra/SPMV/csr_65536.txt; \
+	##./csr -p $(platform_n) -d $(device_n) -t $(device_t) -- -i ../test/sparse-linear-algebra/SPMV/csr_65536.txt; \
 	##elif [ $(1) = "crc" ]; then \
 	##echo "Running crc..."; \
 	##./crc -p $(platform_n) -d $(device_n) -t $(device_t) --; \
 	elif [ $(1) = "cfd" ]; then \
 	echo "Running cfd..."; \
-	./cfd -p $(platform_n) -d $(device_n) -t $(device_t) -- ../../test/unstructured-grids/cfd/fvcorr.domn.097K; \
+	./cfd -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/unstructured-grids/cfd/fvcorr.domn.097K; \
 	elif [ $(1) = "bfs" ]; then \
 	echo "Running bfs..."; \
-	./bfs -p $(platform_n) -d $(device_n) -t $(device_t) -- ../../test/graph-traversal/bfs/graph65536.txt; \
+	./bfs -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/graph-traversal/bfs/graph65536.txt; \
 	elif [ $(1) = "tdm" ]; then \
 	echo "Running tdm..."; \
-	./tdm -p $(platform_n) -d $(device_n) -t $(device_t) -- ../../test/finite-state-machine/tdm/stream-new-1.csv streamIntervals.txt 100 0.5 r s n; \
+	./tdm -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/finite-state-machine/tdm/stream-new-1.csv streamIntervals.txt 100 0.5 r s n; \
 	##elif [ $(1) = "astar" ]; then \
 	##echo "Running astar..."; \
 	##./astar -p $(platform_n) -d $(device_n) -t $(device_t) --; \
