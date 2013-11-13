@@ -177,8 +177,10 @@ define run_dwarf_test
 	##./astar -p $(platform_n) -d $(device_n) -t $(device_t) --; \
 	elif [ $(1) = "nqueens" ]; then \
 	echo "Running nqueens..."; \
+	./nqueens 16; \
 	elif [ $(1) = "bwa_hmm" ]; then \
 	echo "Running bwa_hmm..."; \
+	./bwa_hmm -n 30 -v n; \
 	fi
 
 endef
