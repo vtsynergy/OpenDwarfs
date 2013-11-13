@@ -49,7 +49,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES([yes])])
 # installed the system OpenCL library deleted his/her SDK source, we
 # will be in trouble.
 AC_ARG_WITH([opencl-sdk],
-	AC_HELP_STRING([--with-opencl-sdk],[path to the OpenCL SDK]),
+	AS_HELP_STRING([--with-opencl-sdk],[path to the OpenCL SDK]),
 	[OPENCL_SDK_PREFIX=$withval],[OPENCL_SDK_PREFIX=])
 
 if test ! -z "$OPENCL_SDK_PREFIX" ; then
@@ -58,33 +58,56 @@ if test ! -z "$OPENCL_SDK_PREFIX" ; then
    PAC_APPEND_FLAG([-I${OPENCL_SDK_PREFIX}/samples/opencl/SDKUtil/include],[CPPFLAGS])
 
    PAC_APPEND_FLAG([-L${OPENCL_SDK_PREFIX}/lib/x86_64],[LDFLAGS])
+   PAC_APPEND_FLAG([-L${OPENCL_SDK_PREFIX}/lib64],[LDFLAGS])
    PAC_APPEND_FLAG([-L${OPENCL_SDK_PREFIX}/samples/opencl/SDKUtil/build/debug/x86_64],[LDFLAGS])
 
    # Use rpath to force the use of these libraries
    PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_SDK_PREFIX}/lib/x86_64],[LDFLAGS])
-   PAC_APPEND_FLAG(
-	[-Wl,-rpath=${OPENCL_SDK_PREFIX}/samples/opencl/SDKUtil/build/debug/x86_64],
-	[LDFLAGS])
+   PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_SDK_PREFIX}/lib64],[LDFLAGS])
+   PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_SDK_PREFIX}/samples/opencl/SDKUtil/build/debug/x86_64],[LDFLAGS])
 fi
 AC_SUBST(OPENCL_SDK_PREFIX)
 
 
 ### We need OpenCL
-AC_ARG_WITH([opencl], AC_HELP_STRING([--with-opencl],[path to OpenCL]),
+AC_ARG_WITH([opencl], AS_HELP_STRING([--with-opencl],[path to OpenCL]),
 	[OPENCL_PREFIX=$withval],[OPENCL_PREFIX=])
 if test ! -z "$OPENCL_PREFIX" ; then
    PAC_APPEND_FLAG([-L${OPENCL_PREFIX}],[LDFLAGS])
    PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_PREFIX}],[LDFLAGS])
 fi
 
+###Specify build with Altera OpenCL SDK
+AC_ARG_WITH([AOCL], AS_HELP_STRING([--with-AOCL],[path to Altera OpenCl SDK]),
+	[AOCL_ROOT=$withval],[AOCL_ROOT=])
+
+
 AC_CHECK_HEADER([CL/cl.h], [HEADER_LINUX=1], [])
 AC_CHECK_HEADER([OpenCL/OpenCL.h], [HEADER_APPLE=1], [])
-
-if test ! -z "$HEADER_LINUX" ; then
+	
+if test ! -z "$HEADER_LINUX";
+then
     AC_DEFINE(OPENCL_HEADER_CL_CL, 1, [use non-apple header])
+    if test -n "$AOCL_ROOT";
+    then	###If AOCL option passed (build for Altera FPGA)
+    	PAC_APPEND_FLAG([-I${AOCL_ROOT}/host/include],[CPPFLAGS])
+		PAC_APPEND_FLAG([-L${AOCL_ROOT}/linux64/lib],[LDFLAGS])	
+		PAC_APPEND_FLAG([-L${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
+		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/linux64/lib],[LDFLAGS])
+		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
+		PAC_APPEND_FLAG([-lalterahalmmd],[LIBS])
+		PAC_APPEND_FLAG([-lalterammdpcie],[LIBS])
+		PAC_APPEND_FLAG([-lpkg_editor],[LIBS])
+		PAC_APPEND_FLAG([-lalteracl],[LIBS])
+		PAC_APPEND_FLAG([-lelf],[LIBS])
+		PAC_APPEND_FLAG([-lrt],[LIBS])
+		PAC_APPEND_FLAG([-lstdc++],[LIBS])
+    	###AC_DEFINE(USE_AFPGA,1,[Use Altera FPGA])
+    else	### default (CPU or GPU)
     ### Check for the libraries that we need
-    AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
-            AC_MSG_ERROR([OpenCL library not found]))
+    	AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
+        AC_MSG_ERROR([OpenCL library not found]))
+    fi
 else
     if test ! -z "$HEADER_APPLE" ; then
         AC_DEFINE(OPENCL_HEADER_LONG, 1 , [use apple header])
@@ -127,8 +150,8 @@ AC_LANG_POP([C++])
 #	AC_HELP_STRING([--with-apps],[Applications to build (gem,matmult,mattran,swat)]),
 #	[app_list=$withval],[app_list=gem,matmult,mattran,swat])
 AC_ARG_WITH([apps],
-	AC_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar)]),
-	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar])
+	AS_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar,nqueens,bwa_hmm)]),
+	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar,nqueens,bwa_hmm])
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
 build_gem=false
@@ -143,6 +166,7 @@ build_lud=false
 build_kmeans=false
 build_samplecl=false
 build_csr=false
+#build_createcsr=false
 build_crc=false
 build_cfd=false
 #build_bsort=false
@@ -150,6 +174,8 @@ build_cfd=false
 build_bfs=false
 build_tdm=false
 build_astar=false
+build_nqueens=false
+build_bwa_hmm=false
 
 selected_apps=""
 for app in ${app_names}; do
@@ -227,7 +253,7 @@ for app in ${app_names}; do
         selected_apps="$selected_apps swat"
         ;;
       tdm)
-	build_tdm=true
+		build_tdm=true
         selected_apps="$selected_apps tdm"
         ;;
      csr)
@@ -238,6 +264,14 @@ for app in ${app_names}; do
         build_astar=true
         selected_apps="$selected_apps astar"
         ;;
+     nqueens)
+    	build_nqueens=true
+    	selected_apps="$selected_apps nqueens"
+    	;;
+     bwa_hmm)
+     	build_bwa_hmm=true
+     	selected_apps="$selected_apps bwa_hmm"
+     	;;
 	 *)
 		AC_MSG_ERROR([unrecognized application $app])
 		;;
@@ -247,7 +281,7 @@ done
 #Enable or disable the OCD Timer Suite from ./include/rdtsc.h
 #Still doesn't seem to be taking effect
 AC_ARG_ENABLE([timing],
-	AC_HELP_STRING([--disable-timing], [Disable automatic macro-based timing (enabled by default)]),	, AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
+	AS_HELP_STRING([--disable-timing], [Disable automatic macro-based timing (enabled by default)]),	, AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
 )
 
 AC_MSG_RESULT([building applications... ${selected_apps}])
@@ -270,6 +304,8 @@ AM_CONDITIONAL([build_cfd], [$build_cfd])
 AM_CONDITIONAL([build_bfs], [$build_bfs])
 AM_CONDITIONAL([build_tdm], [$build_tdm])
 AM_CONDITIONAL([build_astar], [$build_astar])
+AM_CONDITIONAL([build_nqueens], [$build_nqueens])
+AM_CONDITIONAL([build_bwa_hmm], [$build_bwa_hmm])
 
 # Final output
 AC_OUTPUT(Makefile)

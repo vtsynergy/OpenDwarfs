@@ -6,14 +6,24 @@
 #
 
 bin_PROGRAMS += csr
+bin_PROGRAMS += createcsr
 
-csr_SOURCES = sparse-linear-algebra/SPMV/csr.c
+csr_LDFLAGS = -lm 
+csr_SOURCES = sparse-linear-algebra/SPMV/src/csr.c sparse-linear-algebra/SPMV/src-common/sparse_formats.c sparse-linear-algebra/SPMV/src-common/ziggurat.c sparse-linear-algebra/SPMV/src-common/common.c
+createcsr_SOURCES = sparse-linear-algebra/SPMV/src-test/createcsr.c sparse-linear-algebra/SPMV/src-common/sparse_formats.c sparse-linear-algebra/SPMV/src-common/ziggurat.c sparse-linear-algebra/SPMV/src-common/common.c
+
+##createcsr does not need to be linked with any of the opencl common files
+createcsr_LDADD = include/common_args.o include/rdtsc.o opts/opts.o
+createcsr_LINK = $(CCLD) -lm -o $@
 
 all_local += csr-all-local
 exec_local += csr-exec-local
 
 csr-all-local:
-	cp $(top_srcdir)/sparse-linear-algebra/SPMV/spmv_csr_kernel.cl .
+	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel.cl .
+	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel_fpga_optimized.aocx .
 
 csr-exec-local:
-	cp $(top_srcdir)/sparse-linear-algebra/SPMV/spmv_csr_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel_fpga_optimized.aocx .
+	

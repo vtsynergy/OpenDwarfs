@@ -17,7 +17,7 @@ Note: This application was ported from the Rodinia Suite
 Running
 -------
 
-Usage: kmeans [options] -i <filename>
+Usage: kmeans [<platform> <device> | <type> --] [options] -i <filename>
 
     -i filename      :file containing data to be clustered
     -m max_nclusters :maximum number of clusters allowed    [default=5]
@@ -28,4 +28,8 @@ Usage: kmeans [options] -i <filename>
     -r               :calculate RMSE                        [default=off]
     -o               :output cluster center coordinates     [default=off]
 
+	<platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+    
 Example: kmeans -o -i test/dense-linear-algebra/kmeans/100

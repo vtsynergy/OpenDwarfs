@@ -9,17 +9,10 @@
 
 #include "common.h"
 
-#define CHECKERR(err) \
-    if (err != CL_SUCCESS) \
-    { \
-        fprintf(stderr, "Error: %d\n", err);\
-        exit(1); \
-    }
-
 //#define USEGPU 1
 int BLOCK_SIZE = 16;
-int platform_id=PLATFORM_ID, device_id=DEVICE_ID;
 static int do_verify = 0;
+
 
 static struct option long_options[] = {
       /* name, has_arg, flag, val */
@@ -41,13 +34,14 @@ main ( int argc, char *argv[] )
   float *m, *mm;
   stopwatch sw;
 
-  cl_device_id clDevice;
-  cl_context clContext;
-  cl_command_queue clCommands;
+  //cl_device_id device_id;
+  //cl_context context;
+  //cl_command_queue commands;
   cl_program clProgram;
   cl_kernel clKernel_diagonal;
   cl_kernel clKernel_perimeter;
   cl_kernel clKernel_internal;
+  cl_int dev_type;
 
   cl_int errcode;
 
@@ -58,11 +52,8 @@ main ( int argc, char *argv[] )
   cl_mem d_m;
 
   ocd_init(&argc, &argv, NULL);
-  ocd_options opts = ocd_get_options();
-  platform_id = opts.platform_id;
-  device_id = opts.device_id;
-
-
+  ocd_initCL();
+  
   while ((opt = getopt_long(argc, argv, "::vs:i:", 
                             long_options, &option_index)) != -1 ) {
       switch(opt){
@@ -82,9 +73,9 @@ main ( int argc, char *argv[] )
           break;
         case ':':
           fprintf(stderr, "missing argument\n");
-          break;
+          //break;
         default:
-          fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file||-p platform|-d device]\n",
+          fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n",
                   argv[0]);
           exit(EXIT_FAILURE);
       }
@@ -113,25 +104,14 @@ main ( int argc, char *argv[] )
     print_matrix(m, matrix_dim);
     matrix_duplicate(m, &mm, matrix_dim);
   }
-
-//  errcode = clGetPlatformIDs(NUM_PLATFORM, clPlatform, NULL);
-//  CHECKERR(errcode);
-//
-//  errcode = clGetDeviceIDs(clPlatform[PLATFORM_ID], USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 1, &clDevice, NULL);
-//  CHECKERR(errcode);
-clDevice = GetDevice(platform_id, device_id);
- size_t max_worksize[3];
- errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
- CHECKERR(errcode);
-	while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
+  	
+  size_t max_worksize[3];
+  errcode = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
+  CHKERR(errcode, "Failed to get device info!");
+  //Start by 16*16, but if not allowed divide by two until MAX_WORK_ITEM_SIZES is less or equal than what we are going to ask for.
+  while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
 		BLOCK_SIZE = BLOCK_SIZE/2;
 	
-  clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
-  CHECKERR(errcode);
-
-  clCommands = clCreateCommandQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE, &errcode);
-  CHECKERR(errcode);
-
   kernelFile = fopen("lud_kernel.cl", "r");
   fseek(kernelFile, 0, SEEK_END);
   kernelLength = (size_t) ftell(kernelFile);
@@ -140,45 +120,45 @@ clDevice = GetDevice(platform_id, device_id);
   fread((void *) kernelSource, kernelLength, 1, kernelFile);
   fclose(kernelFile);
 
-  clProgram = clCreateProgramWithSource(clContext, 1, (const char **) &kernelSource, &kernelLength, &errcode);
-  CHECKERR(errcode);
+  clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
+  CHKERR(errcode, "Failed to create program with source!");
 
   free(kernelSource);
-	char arg[100];
-	sprintf(arg,"-D BLOCK_SIZE=%d", (int)BLOCK_SIZE);
-  errcode = clBuildProgram(clProgram, 1, &clDevice, arg, NULL, NULL);
+  char arg[100];
+  sprintf(arg,"-D BLOCK_SIZE=%d", (int)BLOCK_SIZE);
+  errcode = clBuildProgram(clProgram, 1, &device_id, arg, NULL, NULL);
   if (errcode == CL_BUILD_PROGRAM_FAILURE)                                                                                                                                       
   {
     char *log;
     size_t logLength;
-    errcode = clGetProgramBuildInfo(clProgram, clDevice, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
+    errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
     log = (char *) malloc(sizeof(char)*logLength);
-    errcode = clGetProgramBuildInfo(clProgram, clDevice, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
+    errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
     fprintf(stderr, "Kernel build error! Log:\n%s", log);
     free(log);
-    return;
+    return 0;
   }
-  CHECKERR(errcode);
+  CHKERR(errcode, "Failed to build program!");
 
   clKernel_diagonal = clCreateKernel(clProgram, "lud_diagonal", &errcode);
-  CHECKERR(errcode);
+  CHKERR(errcode, "Failed to create kernel!");
   clKernel_perimeter = clCreateKernel(clProgram, "lud_perimeter", &errcode);
-  CHECKERR(errcode);
+  CHKERR(errcode, "Failed to create kernel!");
   clKernel_internal = clCreateKernel(clProgram, "lud_internal", &errcode);
-  CHECKERR(errcode);
+  CHKERR(errcode, "Failed to create kernel!");
 
-  d_m = clCreateBuffer(clContext, CL_MEM_READ_WRITE, matrix_dim*matrix_dim*sizeof(float), NULL, &errcode);
-  CHECKERR(errcode);
+  d_m = clCreateBuffer(context, CL_MEM_READ_WRITE, matrix_dim*matrix_dim*sizeof(float), NULL, &errcode);
+  CHKERR(errcode, "Failed to create buffer!");
 
   /* beginning of timing point */
   stopwatch_start(&sw);
 	 
-  errcode = clEnqueueWriteBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &ocdTempEvent);
+  errcode = clEnqueueWriteBuffer(commands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &ocdTempEvent);
 
-  clFinish(clCommands);
-  	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Matrix Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+  clFinish(commands);
+  START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Matrix Copy", ocdTempTimer)
+  END_TIMER(ocdTempTimer)
+  CHKERR(errcode, "Failed to enqueue write buffer!");
 
   int i=0;
   size_t localWorkSize[2];
@@ -192,61 +172,60 @@ clDevice = GetDevice(platform_id, device_id);
       errcode = clSetKernelArg(clKernel_diagonal, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_diagonal, 1, sizeof(int), (void *) &matrix_dim);
       errcode |= clSetKernelArg(clKernel_diagonal, 2, sizeof(int), (void *) &i);
-      CHECKERR(errcode);
+  	  CHKERR(errcode, "Failed to set kernel arguments!");
       
       localWorkSize[0] = BLOCK_SIZE;
       globalWorkSize[0] = BLOCK_SIZE;
       	 
-	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
-      	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+	  errcode = clEnqueueNDRangeKernel(commands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+      clFinish(commands);
+      START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
+	  END_TIMER(ocdTempTimer)
+  	  CHKERR(errcode, "Failed to enqueue kernel!");
       errcode = clSetKernelArg(clKernel_perimeter, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_perimeter, 1, sizeof(int), (void *) &matrix_dim);
       errcode |= clSetKernelArg(clKernel_perimeter, 2, sizeof(int), (void *) &i);
-      CHECKERR(errcode);
+  	  CHKERR(errcode, "Failed to set kernel arguments!");
       localWorkSize[0] = BLOCK_SIZE*2;
       globalWorkSize[0] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[0];
       	 
-	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_perimeter, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
+	  errcode = clEnqueueNDRangeKernel(commands, clKernel_perimeter, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+      clFinish(commands);
       START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Perimeter Kernel", ocdTempTimer)
-	CHECKERR(errcode);
-	END_TIMER(ocdTempTimer)
+  	  CHKERR(errcode, "Failed to enqueue kernel!");
+	  END_TIMER(ocdTempTimer)
       errcode = clSetKernelArg(clKernel_internal, 0, sizeof(cl_mem), (void *) &d_m);
       errcode |= clSetKernelArg(clKernel_internal, 1, sizeof(int), (void *) &matrix_dim);
       errcode |= clSetKernelArg(clKernel_internal, 2, sizeof(int), (void *) &i);
-      CHECKERR(errcode);
+  	  CHKERR(errcode, "Failed to set kernel arguments!");
       localWorkSize[0] = BLOCK_SIZE;
       localWorkSize[1] = BLOCK_SIZE;
       globalWorkSize[0] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[0];
       globalWorkSize[1] = ((matrix_dim-i)/BLOCK_SIZE-1)*localWorkSize[1];
       	 
-	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_internal, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
-      	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Internal Kernel", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+	  errcode = clEnqueueNDRangeKernel(commands, clKernel_internal, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+      clFinish(commands);
+      START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Internal Kernel", ocdTempTimer)
+	  END_TIMER(ocdTempTimer)
+  	  CHKERR(errcode, "Failed to enqueue kernel!");
   }
   errcode = clSetKernelArg(clKernel_diagonal, 0, sizeof(cl_mem), (void *) &d_m);
   errcode |= clSetKernelArg(clKernel_diagonal, 1, sizeof(int), (void *) &matrix_dim);
   errcode |= clSetKernelArg(clKernel_diagonal, 2, sizeof(int), (void *) &i);
-  CHECKERR(errcode);
+  CHKERR(errcode, "Failed to set kernel arguments!");
   localWorkSize[0] = BLOCK_SIZE;
   globalWorkSize[0] = BLOCK_SIZE;
   	 
-	errcode = clEnqueueNDRangeKernel(clCommands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
- 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
-	 CHECKERR(errcode);
-
+  errcode = clEnqueueNDRangeKernel(commands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+  clFinish(commands);
+  START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
+  CHKERR(errcode, "Failed to enqueue kernel!");
   END_TIMER(ocdTempTimer)
 	 
-  errcode = clEnqueueReadBuffer(clCommands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Matrix copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
+  errcode = clEnqueueReadBuffer(commands, d_m, CL_TRUE, 0, matrix_dim*matrix_dim*sizeof(float), (void *) m, 0, NULL, &ocdTempEvent);
+  clFinish(commands);
+  START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Matrix copy", ocdTempTimer)
+  END_TIMER(ocdTempTimer)
   /* end of timing point */
   stopwatch_stop(&sw);
   printf("Time consumed(ms): %lf\n", 1000*get_interval_by_sec(&sw));
@@ -266,8 +245,8 @@ clDevice = GetDevice(platform_id, device_id);
   clReleaseKernel(clKernel_perimeter);
   clReleaseKernel(clKernel_internal);
   clReleaseProgram(clProgram);
-  clReleaseCommandQueue(clCommands);
-  clReleaseContext(clContext);
+  clReleaseCommandQueue(commands);
+  clReleaseContext(context);
 
   free(m);
   ocd_finalize();

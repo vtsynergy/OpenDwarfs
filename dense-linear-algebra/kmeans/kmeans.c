@@ -82,14 +82,14 @@
 #include "../../include/common_args.h"
 
 extern double wtime(void);
-extern int platform_id;
-extern int device_id; 
 
 
 /*---< usage() >------------------------------------------------------------*/
 void usage(char *argv0) {
     char *help =
-        "\nUsage: %s [switches] -i filename\n\n"
+        "\nUsage: %s [common options (-p/-d) --] [switches] -i filename\n\n"
+        "    -p               :platform\n   "
+		"    -d               :device\n"
 		"    -i filename      :file containing data to be clustered\n"		
 		"    -m max_nclusters :maximum number of clusters allowed    [default=5]\n"
         "    -n min_nclusters :minimum number of clusters allowed    [default=5]\n"
@@ -98,10 +98,9 @@ void usage(char *argv0) {
 		"    -b               :input file is in binary format\n"
         "    -r               :calculate RMSE                        [default=off]\n"
 		"    -o               :output cluster center coordinates     [default=off]\n  "
-	"  -p               :platform\n   "
-	" -d               :device\n";
-    fprintf(stderr, help, argv0);
-    exit(-1);
+		;
+    	fprintf(stderr, help, argv0);
+    	exit(-1);
 }
 
 /*---< main() >-------------------------------------------------------------*/
@@ -132,10 +131,10 @@ int setup(int argc, char **argv) {
 		int		isOutput = 0;
 		//float	cluster_timing, io_timing;		
 
-	ocd_init(&argc, &argv, NULL);
-	ocd_options opts = ocd_get_options();
-	platform_id = opts.platform_id;
-	device_id = opts.device_id;
+		//ocd_init(&argc, &argv, NULL);
+		//ocd_options opts = ocd_get_options();
+		//platform_id = opts.platform_id;
+		//device_id = opts.device_id;
 		
 		/* obtain command line arguments and change appropriate options */
 		while ( (opt=getopt(argc,argv,"i:t:m:n:l:bro"))!= EOF) {
@@ -281,7 +280,7 @@ int setup(int argc, char **argv) {
 	
 	len = (float) ((max_nclusters - min_nclusters + 1)*nloops);
 
-	printf("Number of Iteration: %d\n", nloops);
+//	printf("Number of Iteration: %d\n", nloops);
 	//printf("Time for I/O: %.5fsec\n", io_timing);
 	//printf("Time for Entire Clustering: %.5fsec\n", cluster_timing);
 	

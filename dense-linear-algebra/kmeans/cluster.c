@@ -146,9 +146,8 @@ int cluster(int      npoints,				/* number of data points */
 			}			
 		}
 		
-		deallocateMemory();							/* free device memory (@ kmeans_cuda.cu) */
 	}
-
+	deallocateMemory();							/* free device memory (@ kmeans_cuda.cu) */
     free(membership);
 
     return index;

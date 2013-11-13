@@ -20,9 +20,9 @@ extern "C" {
 #include <OpenCL/opencl.h>
 #endif
 
-#define USEGPU 1
-#define PLATFORM_ID 0
-#define DEVICE_ID 0
+//#define USEGPU 1
+//#define PLATFORM_ID 0
+//#define DEVICE_ID 0
 #include <stdint.h>
 #ifndef _STRING_H
 #include <string.h>
@@ -132,11 +132,6 @@ struct timer_name_tree_node {
 
 extern struct timer_name_tree_node root;
 
-
-
-
-
-
 //linear search of the Name List.
 //returns a pointer to the correct time array, or -1 if none exists yet
 //rather inefficient if many names are used, but the tree will take care of
@@ -154,6 +149,8 @@ extern void simpleNameTally();
 //assumes simpleNameTally was already called (once) to add up timers
 //now culls off zero-value timers
 extern void simpleNamePrint();
+
+extern void resetNameList();
 
 //chews up the timer list from head to tail, deallocating all nodes
 extern void destTimerList();
@@ -253,21 +250,35 @@ temp->endtime = 1000 * (t->timer.tv_sec*1000000L + t->timer.tv_usec);\
 #define TIMER_INIT {\
 gettimeofday(&fullExecTimer.timer, NULL);\
 fullExecTimer.starttime = 1000 * (fullExecTimer.timer.tv_sec*1000000L + fullExecTimer.timer.tv_usec);\
+TOTAL_EXEC = 0; \
+TOTAL_D2H = 0; \
+TOTAL_H2D = 0; \
+TOTAL_D2D = 0; \
+TOTAL_KERNEL = 0; \
+TOTAL_HOST = 0; \
+TOTAL_DUAL = 0; \
+}
+
+#define TIMER_STOP {\
+	gettimeofday(&fullExecTimer.timer, NULL);\
+	fullExecTimer.endtime = 1000 * (fullExecTimer.timer.tv_sec*1000000L + fullExecTimer.timer.tv_usec);\
 }
 
 //and absolutely everything needed to finalize them
 // performs timer aggregation and printing
 // deconstructs timer list and name tree/list
     //TODO-free all our data structures
-#define TIMER_FINISH {\
-gettimeofday(&fullExecTimer.timer, NULL);\
-fullExecTimer.endtime = 1000 * (fullExecTimer.timer.tv_sec*1000000L + fullExecTimer.timer.tv_usec);\
+#define TIMER_PRINT {\
     simpleNameTally();\
     OCD_PRINT_TIMERS\
     simpleNamePrint();\
-    destNameList();\
+    resetNameList();\
     destTimerList();\
     }
+
+#define TIMER_DEST {\
+	    destNameList();\
+}
 //starts the dual timer specified by events a and b, assumes a is the "first" event
 #define START_DUAL_TIMER(a, b, n, p) {void * ptr = getDualTimePtr(a, b); \
                         if (ptr == (void *) -1) {\
@@ -313,8 +324,6 @@ fullExecTimer.endtime = 1000 * (fullExecTimer.timer.tv_sec*1000000L + fullExecTi
 #define START_KERNEL
 #define END_KERNEL
 #endif
-
-extern cl_device_id GetDevice(int platform, int device);
 
 #ifdef __cplusplus
 }

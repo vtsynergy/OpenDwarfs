@@ -47,7 +47,7 @@ __kernel void invert_mapping(__global float *input,			/* original */
 /* to turn on the GPU delta and center reduction */
 //#define GPU_DELTA_REDUCTION
 //#define GPU_NEW_CENTER_REDUCTION
-
+//#define THREADS_PER_BLOCK 256
 
 /* ----------------- kmeansPoint() --------------------- */
 /* find the index of nearest cluster centers and change membership*/
@@ -126,7 +126,7 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 
 #ifdef GPU_DELTA_REDUCTION
 	// make sure all the deltas have finished writing to shared memory
-	__syncthreads();
+	barrier(CLK_LOCAL_MEM_FENCE);
 
 	// now let's count them
 	// primitve reduction follows
@@ -135,10 +135,10 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
    		if(get_local_id(0) < threadids_participating) {
 			deltas[get_local_id(0)] += deltas[get_local_id(0) + threadids_participating];
 		}
-   		__syncthreads();
+   		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 	if(get_local_id(0) < 1)	{deltas[get_local_id(0)] += deltas[get_local_id(0) + 1];}
-	__syncthreads();
+	barrier(CLK_LOCAL_MEM_FENCE);
 		// propagate number of changes to global counter
 	if(get_local_id(0) == 0) {
 		block_deltas[get_group_id(1) * get_num_groups(0) + get_group_id(0)] = deltas[0];
@@ -156,7 +156,7 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 	__local int new_center_ids[THREADS_PER_BLOCK];
 
 	new_center_ids[get_local_id(0)] = index;
-	__syncthreads();
+	barrier(CLK_LOCAL_MEM_FENCE);
 
 	/***
 	determine which dimension calculte the sum for

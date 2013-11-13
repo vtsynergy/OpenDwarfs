@@ -13,12 +13,10 @@ for OpenCL specification 1.2
 Running
 -------
 
-Usage: tdm [<platform> <device> --] <filepath> <temporal constraints path> <threads> <support>
+Usage: tdm [<platform> <device> | <type> --] <filepath> <temporal constraints path> <threads> <support>
        <(a)bsolute | (r)atio> <(s)tatic |(d)ynamic>
        <(m)ap and merge | (n)aive | (h)ybrid>
 
-    <platform>                  :integer ID of platform to use
-    <device>                    :integer ID of device in <platform> to use
     <filepath>                  :file containing temporal database
     <temporal constraints path> :path containing temporal constraints  
     <threads>                   :maximum number of threads to use      
@@ -27,5 +25,9 @@ Usage: tdm [<platform> <device> --] <filepath> <temporal constraints path> <thre
     <(s)tatic | (d)ynamic>      :static or dynamic memory management
     <(m)ap and merge | (n)aive  :algorithm type to use
         | (h)ybrid>           
+
+	<platform>                  :integer ID of platform to use
+    <device>                    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
 
 Example: tdm 0 0 -- test/finite-state-machine/tdm/stream-new-1.csv test/finite-state-machine/tdm/streamIntervals.txt 100 0.5 r s n   

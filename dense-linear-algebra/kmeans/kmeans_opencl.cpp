@@ -8,17 +8,9 @@
 
 #include <omp.h>
 
-
-#define CHECKERR(err) \
-    if (err != CL_SUCCESS) \
-    { \
-        fprintf(stderr, "Error: %d\n", err);\
-        exit(1); \
-    }
-
 #define THREADS_PER_DIM 16
 #define BLOCKS_PER_DIM 16
-//#define USEGPU 1
+
 
 //#define BLOCK_DELTA_REDUCE
 //#define BLOCK_CENTER_REDUCE
@@ -28,17 +20,12 @@
 
 extern "C"
 int setup(int argc, char** argv);									/* function prototype */
-int platform_id=PLATFORM_ID, device_id=DEVICE_ID;
 // GLOBAL!!!!!
 unsigned int num_threads_perdim = THREADS_PER_DIM;					/* sqrt(256) -- see references for this choice */
 unsigned int num_blocks_perdim = BLOCKS_PER_DIM;					/* temporary */
 unsigned int num_threads = num_threads_perdim*num_threads_perdim;	/* number of threads */
 unsigned int num_blocks = num_blocks_perdim*num_blocks_perdim;		/* number of blocks */
 
-/* Global variables for OpenCL */
-cl_device_id clDevice;
-cl_context clContext;
-cl_command_queue clCommands;
 cl_program clProgram;
 cl_kernel clKernel_invert_mapping;
 cl_kernel clKernel_kmeansPoint;
@@ -69,24 +56,17 @@ void initCL()
 
     cl_int errcode;
 	
-    ocd_options opts = ocd_get_options();
-	platform_id = opts.platform_id;
-	device_id = opts.device_id;
-
-clDevice = GetDevice(platform_id, device_id);
+	ocd_initCL();
+    
 	size_t max_worksize[3];
-errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
- CHECKERR(errcode);
-        while(num_threads_perdim*num_threads_perdim>max_worksize[0])
+	errcode = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
+ 	CHKERR(errcode, "Failed to get device info!");
+    while(num_threads_perdim*num_threads_perdim>max_worksize[0])
                 num_threads_perdim = num_threads_perdim/2;
 
 	num_threads = num_threads_perdim*num_threads_perdim;
 	
-    clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
-    CHECKERR(errcode);
-
-    clCommands = clCreateCommandQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE, &errcode);
-    CHECKERR(errcode);
+    
 
     kernelFile = fopen("kmeans_opencl_kernel.cl", "r");
     fseek(kernelFile, 0, SEEK_END);
@@ -96,29 +76,29 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     fread((void *) kernelSource, kernelLength, 1, kernelFile);
     fclose(kernelFile);
 
-    clProgram = clCreateProgramWithSource(clContext, 1, (const char **) &kernelSource, &kernelLength, &errcode);
-    CHECKERR(errcode);
+    clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
+    CHKERR(errcode, "Failed to create program with source!");
 
     free(kernelSource);
 
-    errcode = clBuildProgram(clProgram, 1, &clDevice, NULL, NULL, NULL);
+    errcode = clBuildProgram(clProgram, 1, &device_id, NULL, NULL, NULL);
     if (errcode == CL_BUILD_PROGRAM_FAILURE)
     {
         char *log;
         size_t logLength;
-        errcode = clGetProgramBuildInfo(clProgram, clDevice, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
+        errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
         log = (char *) malloc(sizeof(char)*logLength);
-        errcode = clGetProgramBuildInfo(clProgram, clDevice, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
+        errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
         fprintf(stderr, "Kernel build error! Log:\n%s", log);
         free(log);
         return;
     }
-    CHECKERR(errcode);
+    CHKERR(errcode, "Failed to build program!");
 
     clKernel_invert_mapping = clCreateKernel(clProgram, "invert_mapping", &errcode);
-    CHECKERR(errcode);
+    CHKERR(errcode, "Failed to create kernel!");
     clKernel_kmeansPoint = clCreateKernel(clProgram, "kmeansPoint", &errcode);
-    CHECKERR(errcode);
+    CHKERR(errcode, "Failed to create kernel!");
 }
 /* -------------- initCL() end -------------- */
 
@@ -151,17 +131,17 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	block_new_centers = (float *) malloc(nclusters*nfeatures*sizeof(float));
 	
 	/* allocate memory for feature_flipped_d[][], feature_d[][] (device) */
-    feature_flipped_d = clCreateBuffer(clContext, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
-    CHECKERR(errcode);
+    feature_flipped_d = clCreateBuffer(context, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
+    CHKERR(errcode, "Failed to create buffer!");
 	 
-    errcode = clEnqueueWriteBuffer(clCommands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, &ocdTempEvent);
+    errcode = clEnqueueWriteBuffer(commands, feature_flipped_d, CL_TRUE, 0, npoints*nfeatures*sizeof(float), features[0], 0, NULL, &ocdTempEvent);
     
-    clFinish(clCommands);
+    clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Point/Feature Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
-    feature_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, npoints*nfeatures*sizeof(float), NULL, &errcode);
-    CHECKERR(errcode);
+	CHKERR(errcode, "Failed to create buffer!");
+    feature_d = clCreateBuffer(context, CL_MEM_READ_WRITE, npoints*nfeatures*sizeof(float), NULL, &errcode);
+    CHKERR(errcode, "Failed to create buffer!");
 		
 	/* invert the data array (kernel execution) */	
     unsigned int arg = 0;
@@ -169,35 +149,34 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
     errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(cl_mem), (void *) &feature_d);
     errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &npoints);
     errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &nfeatures);
-    CHECKERR(errcode);
+    CHKERR(errcode, "Failed to set kernel arg!");
     globalWorkSize = num_blocks*num_threads;
     localWorkSize = num_threads;
 	 
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
-    clFinish(clCommands);
+    errcode = clEnqueueNDRangeKernel(commands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
+    clFinish(commands);
     	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Invert Mapping Kernel", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+	CHKERR(errcode, "Failed to enqueue kernel!");
 		
 	/* allocate memory for membership_d[] and clusters_d[][] (device) */
-    membership_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, npoints*sizeof(int), NULL, &errcode);
-    CHECKERR(errcode);
-    clusters_d = clCreateBuffer(clContext, CL_MEM_READ_ONLY, nclusters*nfeatures*sizeof(float), NULL, &errcode);
-    CHECKERR(errcode);
-
+    membership_d = clCreateBuffer(context, CL_MEM_READ_WRITE, npoints*sizeof(int), NULL, &errcode);
+    CHKERR(errcode, "Failed to create buffer!");
+    clusters_d = clCreateBuffer(context, CL_MEM_READ_ONLY, nclusters*nfeatures*sizeof(float), NULL, &errcode);
+	CHKERR(errcode, "Failed to create buffer!");
 	
 #ifdef BLOCK_DELTA_REDUCE
 	// allocate array to hold the per block deltas on the gpu side
 	
-    block_deltas_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, num_blocks_perdim*num_blocks_perdim*sizeof(int), NULL, &errcode);
-    CHECKERR(errcode);
+    block_deltas_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_blocks_perdim*num_blocks_perdim*sizeof(int), NULL, &errcode);
+    CHKERR(errcode, "Failed to create buffer!");
 	//cudaMemcpy(block_delta_d, &delta_h, sizeof(int), cudaMemcpyHostToDevice);
 #endif
 
 #ifdef BLOCK_CENTER_REDUCE
 	// allocate memory and copy to card cluster  array in which to accumulate center points for the next iteration
-    block_clusters_d = clCreateBuffer(clContext, CL_MEM_READ_WRITE, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), NULL, &errcode);
-    CHECKERR(errcode);
+    block_clusters_d = clCreateBuffer(context, CL_MEM_READ_WRITE, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), NULL, &errcode);
+    CHKERR(errcode, "Failed to create buffer!");
 	//cudaMemcpy(new_clusters_d, new_centers[0], nclusters*nfeatures*sizeof(float), cudaMemcpyHostToDevice);
 #endif
 
@@ -225,8 +204,8 @@ void deallocateMemory()
     clReleaseKernel(clKernel_invert_mapping);
     clReleaseKernel(clKernel_kmeansPoint);
     clReleaseProgram(clProgram);
-    clReleaseCommandQueue(clCommands);
-    clReleaseContext(clContext);
+    clReleaseCommandQueue(commands);
+    clReleaseContext(context);
 }
 /* -------------- deallocateMemory() end ------------------- */
 
@@ -269,19 +248,19 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 	/* copy membership (host to device) */
     	 
-	errcode = clEnqueueWriteBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
+	errcode = clEnqueueWriteBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
+        clFinish(commands);
     	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Membership Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+	CHKERR(errcode, "Failed to enqueue write buffer!");
 
 	/* copy clusters (host to device) */
     	 
-	errcode = clEnqueueWriteBuffer(clCommands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
+	errcode = clEnqueueWriteBuffer(commands, clusters_d, CL_TRUE, 0, nclusters*nfeatures*sizeof(float), (void *) clusters[0], 0, NULL, &ocdTempEvent);
+        clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Cluster Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+	CHKERR(errcode, "Failed to enqueue write buffer!");
 
 	/* set up texture */
     /*cudaChannelFormatDesc chDesc0 = cudaCreateChannelDesc<float>();
@@ -331,24 +310,23 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 #ifdef BLOCK_CENTER_REDUCE
     errcode |= clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &block_deltas_d);
 #endif
-    CHECKERR(errcode);
+    CHKERR(errcode, "Failed to set kernel arg!");
     
 	/* execute the kernel */
 	 
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-	CHECKERR(errcode);
-        errcode = clFinish(clCommands);
+    errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+	CHKERR(errcode, "Failed to enqueue kernel!");
+    errcode = clFinish(commands);
    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Point Kernel", ocdTempTimer)
-
     END_TIMER(ocdTempTimer)
-    CHECKERR(errcode);
+    CHKERR(errcode, "Failed to clFinish!");
 	/* copy back membership (device to host) */
     	 
-	errcode = clEnqueueReadBuffer(clCommands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
-    	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Membership Copy", ocdTempTimer)
+	errcode = clEnqueueReadBuffer(commands, membership_d, CL_TRUE, 0, npoints*sizeof(int), (void *) membership_new, 0, NULL, &ocdTempEvent);
+    clFinish(commands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Membership Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+	CHKERR(errcode, "Failed to enqueue read buffer!");
 
 #ifdef BLOCK_CENTER_REDUCE
     /*** Copy back arrays of per block sums ***/
@@ -356,21 +334,21 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
         num_blocks_perdim * num_blocks_perdim * 
         nclusters * nfeatures * sizeof(float));
          
-    errcode = clEnqueueReadBuffer(clCommands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &ocdTempEvent);
-	clFinish(clCommands)
-		END_TIMER
-		COUNT_D2H
-	    CHECKERR(errcode);
+    errcode = clEnqueueReadBuffer(commands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Block_clusters Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	CHKERR(errcode, "Failed to enqueue read buffer!");
 #endif
 #ifdef BLOCK_DELTA_REDUCE
     int * block_deltas_h = (int *) malloc(
         num_blocks_perdim * num_blocks_perdim * sizeof(int));
          
-    errcode = clEnqueueReadBuffer(clCommands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &ocdTempEvent);
-	clFinish(clCommands)
-    	END_TIMER
-	COUNT_D2H
-	CHECKERR(errcode);
+    errcode = clEnqueueReadBuffer(commands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &ocdTempEvent);
+	clFinish(commands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "Block_deltas Copy", ocdTempTimer)
+    END_TIMER(ocdTempTimer)
+	CHKERR(errcode, "Failed to enqueue read buffer!");
 #endif
     
 	/* for each point, sum data points in each cluster

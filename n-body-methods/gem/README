@@ -18,7 +18,7 @@ COMPILE: ./build.sh
 Running
 -------
 
-Usage: gemnoui [molname diel_ext diel_int salinity] <options>
+Usage: gemnoui [<platform> <device> | <type> --] [molname diel_ext diel_int salinity] <options>
 molname, diel_ext, diel_int, and salinity are all required together if present
 molname is the name of the molecule
 diel_ext is the exterior dielectric charge
@@ -30,8 +30,10 @@ and <options> can be any combination of the following:
 	-probeRad      <radius>
 	-fixA          <electrostatic radius>
 	-dumpVertices  <fileName>
-	-p  <platform>
-	-d  <device>
+	
+	<platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
 
 Example:
 gemnoui test/n-body-methods/gem/Mb.Hhelix.bondi 80 1 0 -dumpVertices phi.out 

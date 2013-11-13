@@ -12,8 +12,11 @@ Copyright 2009, Andrew Corrigan, acorrigan@gmu.edu
 Running
 -------
 
-Usage: cfd <filename>
+Usage: cfd [<platform> <device> | <type> --] <filename>
 
-    filename - the name of the file from which to read data.
+    <platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+    filename	: the name of the file from which to read data.
 
 Example: cfd test/unstructured-grids/cfd/fvcorr.domn.097K

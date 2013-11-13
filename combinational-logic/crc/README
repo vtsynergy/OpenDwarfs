@@ -12,30 +12,30 @@ value.  This value is typically added to the end of the data stream as it is
 sent out.  When the reciever divides the recieved datastream, the division will
 return no remainder on a successful transmission.
 
-Currently data for this algorithm is created on the spot (using the rand()
-function). Also, currently only an 8-bit CRC polynomial is allowed. If inputing
-a file, the file will be clipped to 32768 bytes. 
+This application computes a 32-bit Ethernet standard CRC using the "Slice-by-8"
+algorithm published by Intel.
 
 Running
 -------
 
-Usage: crc [hsivp]
+Usage: crc [<platform> <device> | <type> --] -i <input_file> [hvpw] [-r <num_execs>] [-w <wg_size-1>][-w <wg_size-2>]...[-w <wg_size-m>] [-k <kernel_file-1>][-k <kernel_file-2>]...[-k <kernel_file-n>]
+	
+	-h | 'Print this help message'
+	-v | 'Increase verbosity level by 1 - Default is 0 - Max is 2'
+	-i | 'Input file name' [string]
+	-a | 'Verify results on CPU'
+	-p | 'Set the number of pages to CRC in parallel (i.e., the global size of each kernel) - Default is 16
+	-r | 'Execute program with same data exactly <num_execs> times to increase sample size - Default is 1
+	-w | 'Loop through each kernel execution 'm' times, once with each wg_size-'1..m' - Default is 1 iteration with wg_size set to the maximum possible (limited either by the device or the size of the input)
+	-k | 'Test CRC 'n' times, once with each kernel_file-'1..n' - Default is 1 kernel named './crc_kernel.xxx' where xxx is 'aocx' if USE_AFPGA is defined, 'cl' otherwise.
 
-h         - print this help message
-s {seed}  - set the seed for the vertex
-i {file}  - take input from file instead of randomly generating code
-v         - verify parallel code with serial implementation of crc
-p {num}   - change the last 8 bits of the crc polynomial
-
+	<platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+    
 Example Usage
 -------------
 
-#Runs the code on a random data set with no verification
-crc
+crc -v -a -i ../test/combinational-logic/crc/crcfile_N16_S1K
 
-#Runs the code with a specific random seed (1000) and runs the serial version
-#of crc to verify correctness.
-crc -s 1000 -v
 
-#Runs crc with a modified polynomial
-crc -p 7

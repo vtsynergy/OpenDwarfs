@@ -16,9 +16,13 @@ Running
 
 In srad.h, define either GPU or CPU computation.
 
-Usage: srad <rows> <columns> <y1 position of speckle> <y2 position of speckle>
+Usage: srad [<platform> <device> | <type> --] <rows> <columns> <y1 position of speckle> <y2 position of speckle>
             <x1 position of speckle> <x2 position of speckle> <lambda value>
             <num iterations>
+
+	<platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
 
 Example: srad 256 256 0 127 0 127 0.5 2
 

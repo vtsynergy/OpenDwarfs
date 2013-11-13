@@ -13,18 +13,6 @@
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 
-int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
-// includes, project
-
-
-#define CHKERR(err, str) \
-    if (err != CL_SUCCESS) \
-    { \
-        fprintf(stderr, "CL Error %d: %s\n", err, str); \
-        exit(1); \
-    }
-
-//#define USEGPU 1
 
 #define min(x,y) (x < y ? x : y)
 
@@ -85,10 +73,6 @@ int symbolSize;
 size_t MaxImageWidth;
 size_t MaxImageHeight;
 
-// OpenCL variables
-cl_device_id     device_id;
-cl_context       context;
-cl_command_queue commands;
 cl_program       program;
 cl_kernel        kernel_countCandidates;
 cl_kernel        kernel_countCandidatesStatic;
@@ -544,28 +528,10 @@ int loadTemporalConstraints(char* filename)
 	return 0;
 }
 
-void initGpu()
-{
-    int err;
-    /////////////////////////////////////////////////////////////
-    // Basic OpenCL Setup
-
-    device_id = GetDevice(platform_id, n_device);
-
-    // Create a compute context
-    context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
-    CHKERR(err, "Failed to create a compute context!");
-
-    // Create a command queue
-    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
-    CHKERR(err, "Failed to create a command queue!");
-    /////////////////////////////////////////////////////////////
-}
 
 void setupGpu()
 {
     int err;
-
 
     /////////////////////////////////////////////////////////////
     //Compile Source
@@ -782,18 +748,6 @@ void cleanup()
 
 void calculateGrid(size_t grid[3], int threads, int candidates )
 {
-	//dim3 grid;
-	////if ( numCandidates / threads <= 16 )
-	////{
-	////	int temp = numCandidates / 16 + 1;
-	////	grid = dim3(numCandidates / temp + 1, 1, 1);
-	////}
-	////else
-	////{
-	////	grid = dim3( numCandidates / threads + 1, 1, 1);
-	////}
-	//grid = dim3( numCandidates / threads + (numCandidates % threads == 0 ? 0 : 1), 1, 1);
-	//return grid;
 	grid[0] = threads * (numCandidates / threads + (numCandidates % threads == 0 ? 0 : 1));
     //printf("t = %d, numCan = %d\n", threads, numCandidates);
     //printf("g0 = %d\n", grid[0]);
@@ -898,35 +852,18 @@ main( int argc, char** argv)
 void
 runTest( int argc, char** argv)
 {
-	ocd_options opts = ocd_get_options();
-	platform_id = opts.platform_id;
-	n_device = opts.device_id;
 
-	if ( argc != 8)
+	if (argc != 8)
 	{
-		printf("Usage: GpuTemporalDataMining [<platform> <device> --] <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic | (d)ynamic> <(m)ap and merge | (n)aive | (o)hybrid> \n");
+		printf("Usage: %s [<platform> <device> | <type> --] <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic | (d)ynamic> <(m)ap and merge | (n)aive | (o)hybrid>\n", argv[0]);
 		return;
 	}
-
-//    CUT_DEVICE_INIT();
-    initGpu();
+	
+    ocd_initCL();
 
     getDeviceVariables(device_id);
 
-
 	printf("Dataset, Support Threshold, PTPE or MapMerge, A1 or A1+A2, Level, Episodes (N), Episodes Culled (X), A1 Counting Time, A2 Counting Time, Generation Time, Total Counting Time\n");
-
-    //CUT_SAFE_CALL( cutCreateTimer( &timer));
-    //CUT_SAFE_CALL( cutCreateTimer( &generating_timer));
-    //CUT_SAFE_CALL( cutCreateTimer( &a1_counting_timer));
-    //CUT_SAFE_CALL( cutCreateTimer( &a2_counting_timer));
-    //CUT_SAFE_CALL( cutCreateTimer( &total_timer));
-
-    //CUT_SAFE_CALL( cutStartTimer( total_timer));
-    //CUT_SAFE_CALL( cutStartTimer( timer));
-    //CUT_SAFE_CALL( cutStartTimer( generating_timer));
-    //CUT_SAFE_CALL( cutStartTimer( a1_counting_timer));
-    //CUT_SAFE_CALL( cutStartTimer( a2_counting_timer));
 
     unsigned int num_threads = atoi(argv[3]);
     // allocate host memory
@@ -971,18 +908,11 @@ runTest( int argc, char** argv)
 	for ( int level = 1; level <= eventSize; level++ )
 	{
 		printf("Generating episode candidates for level %i...\n", level);
-//		CUT_SAFE_CALL( cutResetTimer( total_timer));
-//		CUT_SAFE_CALL( cutStartTimer( total_timer));
 
-		//CUDA_SAFE_CALL( cudaUnbindTexture( candidateTex ) );
 		if(level != 1){
 			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * (level-1) * sizeof(UBYTE) );
-		//CUDA_SAFE_CALL( cudaUnbindTexture( intervalTex ) );
 		unbindTexture(&intervalTex, d_episodeIntervals, numCandidates * (level-2) * 2 * sizeof(float));
         }
-
-//		CUT_SAFE_CALL( cutResetTimer( generating_timer));
-//		CUT_SAFE_CALL( cutStartTimer( generating_timer));
 
 //		int test1, test = numCandidates;
 //		generateEpisodeCandidatesCPU( level );
@@ -995,9 +925,6 @@ runTest( int argc, char** argv)
 		generateEpisodeCandidatesGPU( level, num_threads );
 #endif
 
-//		CUT_SAFE_CALL( cutStopTimer( generating_timer));
-		//printf( "\tGenerating time: %f (ms)\n", cutGetTimerValue( generating_timer));
-
 
 		if ( numCandidates == 0 )
 			break;
@@ -1005,12 +932,12 @@ runTest( int argc, char** argv)
 		// Copy candidates to GPU
 #ifdef CPU_EPISODE_GENERATION
 		clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-                START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
-                END_TIMER(ocdTempTimer)
+        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 		clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &ocdTempEvent);
-                clFinish(commands);
+        clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
-                END_TIMER(ocdTempTimer)
+        END_TIMER(ocdTempTimer)
 #endif
 
         bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
@@ -1025,7 +952,7 @@ runTest( int argc, char** argv)
 
 		int sections;
 		unsigned int shared_mem_needed;
-		//CUT_SAFE_CALL( cutStartTimer( counting_timer));
+	
 
 		int aType = algorithmType;
 		if ( algorithmType == OPTIMAL )
@@ -1037,8 +964,6 @@ runTest( int argc, char** argv)
 			{
 				shared_mem_needed = MaxListSize*level*threads[0]*sizeof(float);
                 printf("Shared memory needed %d\n", shared_mem_needed);
-				//CUT_SAFE_CALL( cutResetTimer( a1_counting_timer));
-				//CUT_SAFE_CALL( cutStartTimer( a1_counting_timer));
 				countCandidates(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates, candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 
 			}
@@ -1048,8 +973,6 @@ runTest( int argc, char** argv)
 				calculateLevelParameters(level, threads, grid, sections);
 				shared_mem_needed = 16000;
                 printf("numCandidates=%d\n", numCandidates);
-				//CUT_SAFE_CALL( cutResetTimer( a1_counting_timer));
-				//CUT_SAFE_CALL( cutStartTimer( a1_counting_timer));
 				countCandidatesMapMerge(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates,
                     candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 				//countCandidatesMapMergeStatic<<< grid, threads, shared_mem_needed >>>( d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates );
@@ -1067,8 +990,6 @@ runTest( int argc, char** argv)
 				shared_mem_needed = 16000;
 			}
 
-				//CUT_SAFE_CALL( cutResetTimer( a2_counting_timer));
-				//CUT_SAFE_CALL( cutStartTimer( a2_counting_timer));
 			if ( aType == NAIVE )
                 countCandidatesStatic(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates, candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed  );
 			else
@@ -1076,14 +997,12 @@ runTest( int argc, char** argv)
                     candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 			clFinish(commands);
 
-			//CUT_SAFE_CALL( cutStopTimer( a2_counting_timer));
-
             int err;
             err = clEnqueueReadBuffer(commands,d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
             clFinish(commands);
-            	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
+            START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
             END_TIMER(ocdTempTimer)
-		CHKERR(err, "Unable to read buffer from device.");
+			CHKERR(err, "Unable to read buffer from device.");
 
 			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE) );
 			unbindTexture(&intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float));
@@ -1135,9 +1054,7 @@ runTest( int argc, char** argv)
 				calculateLevelParameters(level, threads, grid, sections);
 				shared_mem_needed = 16000;
 			}
-			//CUT_SAFE_CALL( cutResetTimer( a1_counting_timer));
-			//CUT_SAFE_CALL( cutStartTimer( a1_counting_timer));
-
+			
 			if ( aType == NAIVE )
                 countCandidates(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates,
                     candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
@@ -1148,11 +1065,7 @@ runTest( int argc, char** argv)
 		}
         printf("Finishing\n");
 		clFinish(commands);
-		//CUT_SAFE_CALL( cutStopTimer( a1_counting_timer));
-		//printf( "\tCounting time: %f (ms)\n", cutGetTimerValue( counting_timer));
-
-		// check if kernel execution generated an error
-		//CUT_CHECK_ERROR("Kernel execution failed");
+		
 
 		//printf("Copying result back to host...\n\n");
 
@@ -1169,10 +1082,7 @@ runTest( int argc, char** argv)
 		//CUDA_SAFE_CALL( cudaMemcpy( h_mapRecords, d_mapRecords, 3 * numSections * maxLevel * maxCandidates * sizeof(float), cudaMemcpyDeviceToHost ));
 		saveResult(level);
 		fflush(dumpFile);
-	// END LOOP
-
-		//CUT_SAFE_CALL( cutStopTimer( total_timer));
-
+	
 		// Print Statistics for this run
 		printf("%s, %f, %s, %s, %d, %d, %d\n",
 			argv[1],											// Dataset
@@ -1182,22 +1092,10 @@ runTest( int argc, char** argv)
 			level,												// Level
 			numCandidates+episodesCulled,						// Episodes counted
 			episodesCulled  									// Episodes removed by A2
-	//		cutGetTimerValue( a1_counting_timer),				// Time for A1
-//			memoryModel == STATIC ? cutGetTimerValue( a2_counting_timer) : 0.0f,				// Time for A2
-		//	cutGetTimerValue( generating_timer),				// Episode generation time
-		//	cutGetTimerValue( total_timer) );					// Time for total loop
             );
 	}
 	printf("Done!\n");
 
     cleanup();
-
-    //CUT_SAFE_CALL( cutStopTimer( timer));
-    //printf( "Processing time: %f (ms)\n", cutGetTimerValue( timer));
-    //CUT_SAFE_CALL( cutDeleteTimer( timer));
-    //CUT_SAFE_CALL( cutDeleteTimer( generating_timer));
-    //CUT_SAFE_CALL( cutDeleteTimer( a1_counting_timer));
-    //CUT_SAFE_CALL( cutDeleteTimer( a2_counting_timer));
-    //CUT_SAFE_CALL( cutDeleteTimer( total_timer));
 
 }

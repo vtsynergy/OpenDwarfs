@@ -30,100 +30,83 @@ srad_cuda_1(
 
   float n, w, e, s, jc, g2, l, num, den, qsqr, c;
 
-  //shared memory allocation
-  __local float temp[BLOCK_SIZE][BLOCK_SIZE];
-  __local float temp_result[BLOCK_SIZE][BLOCK_SIZE];
 
-  __local float north[BLOCK_SIZE][BLOCK_SIZE];
-  __local float south[BLOCK_SIZE][BLOCK_SIZE];
-  __local float  east[BLOCK_SIZE][BLOCK_SIZE];
-  __local float  west[BLOCK_SIZE][BLOCK_SIZE];
+	if ( by == 0 ){
+		index_n = BLOCK_SIZE * bx + tx;
+	}
+	else if ( by == get_num_groups(1) - 1 ){
+		index_s = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ( BLOCK_SIZE - 1 ) + tx;
+	}
+	
+	if ( bx == 0 ){
+		index_w = cols * BLOCK_SIZE * by + cols * ty;
+	}
+	else if ( bx == get_num_groups(0) - 1 ){
+		index_e = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + BLOCK_SIZE-1;
+	}
+	
+	//Corresponding to [ty+1][x], [ty-1][x], etc.
+	int index_yp1_x = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * (ty + 1) + tx;
+	int index_ym1_x = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * (ty - 1) + tx;
+	int index_y_xp1 = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + (tx + 1);
+	int index_y_xm1 = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + (tx - 1);
 
-  //load data to shared memory
-  north[ty][tx] = J_cuda[index_n]; 
-  south[ty][tx] = J_cuda[index_s];
-  if ( by == 0 ){
-  north[ty][tx] = J_cuda[BLOCK_SIZE * bx + tx]; 
-  }
-  else if ( by == get_num_groups(1) - 1 ){
-  south[ty][tx] = J_cuda[cols * BLOCK_SIZE * (get_num_groups(1) - 1) + BLOCK_SIZE * bx + cols * ( BLOCK_SIZE - 1 ) + tx];
-  }
-   barrier(CLK_LOCAL_MEM_FENCE);
- 
-  west[ty][tx] = J_cuda[index_w];
-  east[ty][tx] = J_cuda[index_e];
 
-  if ( bx == 0 ){
-  west[ty][tx] = J_cuda[cols * BLOCK_SIZE * by + cols * ty]; 
-  }
-  else if ( bx == get_num_groups(0) - 1 ){
-  east[ty][tx] = J_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * ( get_num_groups(0) - 1) + cols * ty + BLOCK_SIZE-1];
-  }
- 
-  barrier(CLK_LOCAL_MEM_FENCE);
-  
- 
-
-  temp[ty][tx]      = J_cuda[index];
-
-  barrier(CLK_LOCAL_MEM_FENCE);
-
-   jc = temp[ty][tx];
+   jc = J_cuda[index];
 
    if ( ty == 0 && tx == 0 ){ //nw
-	n  = north[ty][tx] - jc;
-    s  = temp[ty+1][tx] - jc;
-    w  = west[ty][tx]  - jc; 
-    e  = temp[ty][tx+1] - jc;
+	n  = J_cuda[index_n] - jc;
+    s  = J_cuda[index_yp1_x] - jc;
+    w  = J_cuda[index_w]  - jc; 
+    e  = J_cuda[index_y_xp1] - jc;
    }	    
    else if ( ty == 0 && tx == BLOCK_SIZE-1 ){ //ne
-	n  = north[ty][tx] - jc;
-    s  = temp[ty+1][tx] - jc;
-    w  = temp[ty][tx-1] - jc; 
-    e  = east[ty][tx] - jc;
+	n  = J_cuda[index_n] - jc;
+    s  = J_cuda[index_yp1_x] - jc;
+    w  = J_cuda[index_y_xm1] - jc; 
+    e  = J_cuda[index_e] - jc;
    }
    else if ( ty == BLOCK_SIZE -1 && tx == BLOCK_SIZE - 1){ //se
-	n  = temp[ty-1][tx] - jc;
-    s  = south[ty][tx] - jc;
-    w  = temp[ty][tx-1] - jc; 
-    e  = east[ty][tx]  - jc;
+	n  = J_cuda[index_ym1_x] - jc;
+    s  = J_cuda[index_s] - jc;
+    w  = J_cuda[index_y_xm1] - jc; 
+    e  = J_cuda[index_e]  - jc;
    }
    else if ( ty == BLOCK_SIZE -1 && tx == 0 ){//sw
-	n  = temp[ty-1][tx] - jc;
-    s  = south[ty][tx] - jc;
-    w  = west[ty][tx]  - jc; 
-    e  = temp[ty][tx+1] - jc;
+	n  = J_cuda[index_ym1_x] - jc;
+    s  = J_cuda[index_s] - jc;
+    w  = J_cuda[index_w]  - jc; 
+    e  = J_cuda[index_y_xp1] - jc;
    }
-
    else if ( ty == 0 ){ //n
-	n  = north[ty][tx] - jc;
-    s  = temp[ty+1][tx] - jc;
-    w  = temp[ty][tx-1] - jc; 
-    e  = temp[ty][tx+1] - jc;
+	n  = J_cuda[index_n] - jc;
+    s  = J_cuda[index_yp1_x] - jc;
+    w  = J_cuda[index_y_xm1] - jc; 
+    e  = J_cuda[index_y_xp1] - jc;
    }
    else if ( tx == BLOCK_SIZE -1 ){ //e
-	n  = temp[ty-1][tx] - jc;
-    s  = temp[ty+1][tx] - jc;
-    w  = temp[ty][tx-1] - jc; 
-    e  = east[ty][tx] - jc;
+	n  = J_cuda[index_ym1_x] - jc;
+    s  = J_cuda[index_yp1_x] - jc;
+    w  = J_cuda[index_y_xm1] - jc; 
+    e  = J_cuda[index_e] - jc;
    }
    else if ( ty == BLOCK_SIZE -1){ //s
-	n  = temp[ty-1][tx] - jc;
-    s  = south[ty][tx] - jc;
-    w  = temp[ty][tx-1] - jc; 
-    e  = temp[ty][tx+1] - jc;
+	n  = J_cuda[index_ym1_x] - jc;
+    s  = J_cuda[index_s] - jc;
+    w  = J_cuda[index_y_xm1] - jc; 
+    e  = J_cuda[index_y_xp1] - jc;
    }
    else if ( tx == 0 ){ //w
-	n  = temp[ty-1][tx] - jc;
-    s  = temp[ty+1][tx] - jc;
-    w  = west[ty][tx] - jc; 
-    e  = temp[ty][tx+1] - jc;
+	n  = J_cuda[index_ym1_x] - jc;
+    s  = J_cuda[index_yp1_x] - jc;
+    w  = J_cuda[index_w] - jc; 
+    e  = J_cuda[index_y_xp1] - jc;
    }
    else{  //the data elements which are not on the borders 
-	n  = temp[ty-1][tx] - jc;
-    s  = temp[ty+1][tx] - jc;
-    w  = temp[ty][tx-1] - jc; 
-    e  = temp[ty][tx+1] - jc;
+	n  = J_cuda[index_ym1_x] - jc;
+    s  = J_cuda[index_yp1_x] - jc;
+    w  = J_cuda[index_y_xm1] - jc; 
+    e  = J_cuda[index_y_xp1] - jc;
    }
 
 
@@ -140,13 +123,12 @@ srad_cuda_1(
 	c = 1.0f / (1.0f+den) ;
 
     // saturate diffusion coefficent
-	if (c < 0){temp_result[ty][tx] = 0;}
-	else if (c > 1) {temp_result[ty][tx] = 1;}
-	else {temp_result[ty][tx] = c;}
+	if (c < 0){C_cuda[index] = 0;}
+	else if (c > 1) {C_cuda[index] = 1;}
+	else {C_cuda[index] = c;}
 
-    barrier(CLK_LOCAL_MEM_FENCE);
+    //barrier(CLK_LOCAL_MEM_FENCE);
 
-    C_cuda[index] = temp_result[ty][tx];
 	E_C[index] = e;
 	W_C[index] = w;
 	S_C[index] = s;
@@ -181,78 +163,52 @@ srad_cuda_2(
 	int index_s = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * BLOCK_SIZE + tx;
     int index_e = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + BLOCK_SIZE;
 	float cc, cn, cs, ce, cw, d_sum;
-
-	//shared memory allocation
-	__local float south_c[BLOCK_SIZE][BLOCK_SIZE];
-    __local float  east_c[BLOCK_SIZE][BLOCK_SIZE];
-
-    __local float c_cuda_temp[BLOCK_SIZE][BLOCK_SIZE];
-    __local float c_cuda_result[BLOCK_SIZE][BLOCK_SIZE];
-    __local float temp[BLOCK_SIZE][BLOCK_SIZE];
-
-    //load data to shared memory
-	temp[ty][tx]      = J_cuda[index];
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-	 
-
-	if ( by == get_num_groups(1) - 1 ){
-	south_c[ty][tx] = C_cuda[cols * BLOCK_SIZE * (get_num_groups(1) - 1) + BLOCK_SIZE * bx + cols * ( BLOCK_SIZE - 1 ) + tx];
-	}
-    else
-	south_c[ty][tx] = C_cuda[index_s];
-    
-	barrier(CLK_LOCAL_MEM_FENCE);
-	 
-	 
 	
-	if ( bx == get_num_groups(0) - 1 ){
-	east_c[ty][tx] = C_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * ( get_num_groups(0) - 1) + cols * ty + BLOCK_SIZE-1];
-	}
-    else
-	east_c[ty][tx] = C_cuda[index_e];
-	 
-    barrier(CLK_LOCAL_MEM_FENCE);
-  
-    c_cuda_temp[ty][tx]      = C_cuda[index];
+	//The below correspond to the index that was in localmem [ty+1][tx] and [ty][tx+1], so we load from global memory for the corresponding conditional branch
+	int index_yp1_x = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * (ty+1) + tx;
+	int index_y_xp1 = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + (tx+1);
 
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-	cc = c_cuda_temp[ty][tx];
+	cc = C_cuda[index];
+	cn = cc;
+    cw = cc;
 
    if ( ty == BLOCK_SIZE -1 && tx == BLOCK_SIZE - 1){ //se
-	cn  = cc;
-    cs  = south_c[ty][tx];
-    cw  = cc; 
-    ce  = east_c[ty][tx];
+   		if ( by == get_num_groups(1) - 1 )
+   			cs = C_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + tx];
+    	else
+			cs = C_cuda[index_s];
+   		
+   		if ( bx == get_num_groups(0) - 1 )
+			ce = C_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + tx];
+    	else
+			ce = C_cuda[index_e];
    } 
    else if ( tx == BLOCK_SIZE -1 ){ //e
-	cn  = cc;
-    cs  = c_cuda_temp[ty+1][tx];
-    cw  = cc; 
-    ce  = east_c[ty][tx];
+    	cs  = C_cuda[index_yp1_x];
+    	
+    	if ( bx == get_num_groups(0) - 1 )
+			ce = C_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + tx];
+    	else
+			ce = C_cuda[index_e];
    }
    else if ( ty == BLOCK_SIZE -1){ //s
-	cn  = cc;
-    cs  = south_c[ty][tx];
-    cw  = cc; 
-    ce  = c_cuda_temp[ty][tx+1];
+   		if ( by == get_num_groups(1) - 1 )
+   			cs = C_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + tx];
+    	else
+			cs = C_cuda[index_s];
+    	ce  = C_cuda[index_y_xp1];
    }
    else{ //the data elements which are not on the borders 
-	cn  = cc;
-    cs  = c_cuda_temp[ty+1][tx];
-    cw  = cc; 
-    ce  = c_cuda_temp[ty][tx+1];
+    	cs  = C_cuda[index_yp1_x];
+    	ce  = C_cuda[index_y_xp1];
    }
-
+   
    // divergence (equ 58)
    d_sum = cn * N_C[index] + cs * S_C[index] + cw * W_C[index] + ce * E_C[index];
 
    // image update (equ 61)
-   c_cuda_result[ty][tx] = temp[ty][tx] + 0.25f * lambda * d_sum;
+   J_cuda[index] = J_cuda[index] + 0.25f * lambda * d_sum;
 
-   barrier(CLK_LOCAL_MEM_FENCE);
-              
-   J_cuda[index] = c_cuda_result[ty][tx];
+   //barrier(CLK_GLOBAL_MEM_FENCE);
     
 }

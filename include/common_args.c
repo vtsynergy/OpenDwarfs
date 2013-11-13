@@ -7,22 +7,33 @@ option* _options = NULL;
 int _options_length = 0;
 int _options_size = 0;
 
+int n_platform;
+int n_device;
+cl_device_id device_id;
+cl_context context;
+cl_command_queue commands;
+
+int _deviceType=0;//default for CPU, if no device option given
+
 void _ocd_create_arguments()
 {
 	free(_options);
 	_options = (option*)malloc(sizeof(option) * 5);
-	option ops[3] = {{OTYPE_INT, 'p', (char*)"platform", (char*)"OpenCL Platform ID",
+	option ops[4] = {{OTYPE_INT, 'p', (char*)"platform", (char*)"OpenCL Platform ID",
                      OFLAG_NONE, &_settings.platform_id, NULL, NULL, NULL, NULL},
 		{OTYPE_INT, 'd', (char*)"device", (char*)"OpenCL Device ID",
                      OFLAG_NONE, &_settings.device_id, NULL, NULL, NULL, NULL},
+        {OTYPE_INT, 't', (char*)"device type", (char*)"OpenCL Device type",
+                     OFLAG_NONE, &_settings.device_type, NULL, NULL, NULL, NULL},
 		{OTYPE_END, '\0', (char*)"", NULL,
                      OFLAG_NONE, NULL, NULL, NULL, NULL, NULL}};
 	
 	_options[0] = ops[0];
 	_options[1] = ops[1];
 	_options[2] = ops[2];
-	_options_length = 5;
-	_options_size = 3;
+	_options[3] = ops[3];
+	_options_length = 5;// why?
+	_options_size = 4;
 }
 
 ocd_options ocd_get_options()
@@ -72,53 +83,64 @@ int ocd_parse(int* argc, char*** argv)
 	return largc;
 }
 
-cl_device_id _ocd_get_device(int platform, int device)
+cl_device_id _ocd_get_device(int platform, int device, cl_int dev_type)
 {
-	cl_int err;
-	cl_uint nPlatforms = 1;
-	err = clGetPlatformIDs(0, NULL, &nPlatforms);
-	CHECK_ERROR(err);
+    cl_int err;
+    cl_uint nPlatforms = 1;
+    err = clGetPlatformIDs(0, NULL, &nPlatforms);
+    CHECK_ERROR(err);
 
-	if (nPlatforms <= 0)
-	{
-		printf("No OpenCL platforms found. Exiting.\n");
-		exit(0);
-	}
-	if (platform<0 || platform>=nPlatforms)  // platform ID out of range
-	{
-		printf("Platform index %d is out of range. \n", platform);
-		exit(-4);
-	}
-	cl_platform_id *platforms = (cl_platform_id *)malloc(sizeof(cl_platform_id)*nPlatforms);
-	err = clGetPlatformIDs(nPlatforms, platforms, NULL);
-	CHECK_ERROR(err);
+    if (nPlatforms <= 0) {
+        printf("No OpenCL platforms found. Exiting.\n");
+        exit(0);
+    }
+    if (platform < 0 || platform >= nPlatforms) // platform ID out of range
+    {
+        printf("Platform index %d is out of range. \n", platform);
+        exit(-4);
+    }
+    cl_platform_id *platforms = (cl_platform_id *) malloc(sizeof (cl_platform_id) * nPlatforms);
+    err = clGetPlatformIDs(nPlatforms, platforms, NULL);
+    CHECK_ERROR(err);
 
-	cl_uint nDevices = 1;
-	char platformName[100];
-	err = clGetPlatformInfo(platforms[0], CL_PLATFORM_VENDOR, sizeof(platformName), platformName, NULL);
-	CHECK_ERROR(err);
-	printf("Platform Chosen : %s\n", platformName);
-	// query devices
-	err = clGetDeviceIDs(platforms[platform], USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 0, NULL, &nDevices);
-	CHECK_ERROR(err);
-	if (nDevices <= 0)
-	{
-		printf("No OpenCL Device found. Exiting.\n");
-		exit(0);
-	}
-	if (device<0 || device>=nDevices)  // platform ID out of range
-	{
-		printf("Device index %d is out of range. \n", device);
-		exit(-4);
-	}
-	cl_device_id* devices = (cl_device_id *) malloc (sizeof(cl_device_id) * nDevices);
-	err = clGetDeviceIDs(platforms[platform], USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, nDevices, devices, NULL);
-	char DeviceName[100];
-	err = clGetDeviceInfo(devices[device], CL_DEVICE_NAME, sizeof(DeviceName), DeviceName, NULL);
-	CHECK_ERROR(err);
-	printf("Device Chosen : %s\n", DeviceName);
+    cl_uint nDevices = 1;
+    char platformName[100];
+    err = clGetPlatformInfo(platforms[platform], CL_PLATFORM_VENDOR, sizeof (platformName), platformName, NULL);
+    CHECK_ERROR(err);
+    printf("Platform Chosen : %s\n", platformName);
 
-	return devices[device];
+    // query devices
+	err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
+	if(err == CL_DEVICE_NOT_FOUND)
+	{
+		fprintf(stderr,"No Supported Device Found of Type %d. Falling back to CPU.\n",dev_type);
+		dev_type = CL_DEVICE_TYPE_CPU;
+		err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
+		if(err == CL_DEVICE_NOT_FOUND){
+			fprintf(stderr, "No CPU device available in this platform. Please, check your available OpenCL devices.\n"); 
+			exit(-4);
+		}
+	}
+	CHECK_ERROR(err);
+	
+	printf("Number of available devices: %d\n", nDevices);
+    if (nDevices <= 0) {
+        printf("No OpenCL Device found. Exiting.\n");
+        exit(0);
+    }
+    if (device < 0 || device >= nDevices) // platform ID out of range
+    {
+        printf("Device index %d is out of range. \n", device);
+        exit(-4);
+    }
+    cl_device_id* devices = (cl_device_id *) malloc(sizeof (cl_device_id) * nDevices);
+    err = clGetDeviceIDs(platforms[platform], dev_type, nDevices, devices, NULL);
+    char DeviceName[100];
+    err = clGetDeviceInfo(devices[device], CL_DEVICE_NAME, sizeof (DeviceName), DeviceName, NULL);
+    CHECK_ERROR(err);
+    printf("Device Chosen : %s\n", DeviceName);
+
+    return devices[device];
 }
 
 int ocd_check_requirements(ocd_requirements* reqs)
@@ -129,7 +151,7 @@ int ocd_check_requirements(ocd_requirements* reqs)
 	int pass = 1;
 
 	ocd_options opts = ocd_get_options();
-	cl_device_id d_id = _ocd_get_device(opts.platform_id, opts.device_id);
+	cl_device_id d_id = _ocd_get_device(opts.platform_id, opts.device_id, opts.device_type);
 
 	cl_ulong local_mem;
 	clGetDeviceInfo(d_id, CL_DEVICE_LOCAL_MEM_SIZE, sizeof(cl_ulong), &local_mem, NULL);
@@ -202,6 +224,216 @@ void ocd_init(int* argc, char*** argv, ocd_requirements* reqs)
 void ocd_finalize()
 {
 	#ifdef ENABLE_TIMER
-	TIMER_FINISH;
+	//TIMER_FINISH;//TIMER_FINISH was broken into TIMER_STOP, TIMER_PRINT, TIMER_DEST, per nz-ocl to allow for extra functionalities
+	TIMER_STOP
+	TIMER_PRINT
+	TIMER_DEST
 	#endif
+}
+
+void checkDeviceChoice(int devType)
+{
+
+	if ( devType == 1)
+		printf("GPU was selected\n");
+	else if ( devType == 2)
+		printf("MIC was selected\n");
+	else if ( devType == 3)
+		printf("FPGA was selected\n");
+	else
+		printf("CPU was selected\n");
+
+}
+
+void ocd_initCL()
+{
+
+	cl_int err,dev_type;
+	
+	ocd_options opts = ocd_get_options();
+    n_platform = opts.platform_id;
+    n_device = opts.device_id;
+    _deviceType = opts.device_type;
+
+	if (_deviceType == 1){
+		 dev_type = CL_DEVICE_TYPE_GPU;
+	}
+	else if (_deviceType == 2){
+		 dev_type = CL_DEVICE_TYPE_ACCELERATOR;
+	}
+	else if (_deviceType == 3){
+		dev_type = CL_DEVICE_TYPE_ACCELERATOR;
+	}
+	else{
+		dev_type = CL_DEVICE_TYPE_CPU;
+	}
+
+	checkDeviceChoice(_deviceType);//for debugging
+
+	device_id = _ocd_get_device(n_platform, n_device, dev_type);
+	
+    // Create a compute context
+    context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
+    CHKERR(err, "Failed to create a compute context!");
+
+    // Create a command queue
+    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
+    CHKERR(err, "Failed to create a command queue!");
+    
+}
+
+//Below, from nz-ocl
+
+void check(int b,const char* msg)
+{
+	if(!b)
+	{
+		fprintf(stderr,"error: %s\n\n",msg);
+		exit(-1);
+	}
+}
+
+cl_program ocdBuildProgramFromFile(cl_context context, cl_device_id device_id, const char* kernel_file_name)
+{
+	cl_int err;
+	cl_program program;
+	size_t kernelLength;
+	char* kernelSource;
+	FILE* kernel_fp;
+	size_t items_read;
+	const char* kernel_file_mode;
+
+	if (_deviceType == 3) //FPGA
+		kernel_file_mode = "rb";
+	else //CPU or GPU or MIC
+		kernel_file_mode = "r";
+
+	kernel_fp = fopen(kernel_file_name, kernel_file_mode);
+	if(kernel_fp == NULL){
+		fprintf(stderr,"common_ocl.ocdBuildProgramFromFile() - Cannot open kernel file!");
+		exit(-1);
+	}
+	fseek(kernel_fp, 0, SEEK_END);
+	kernelLength = (size_t) ftell(kernel_fp);
+	kernelSource = malloc(sizeof(char)*kernelLength);
+	if(kernelSource == NULL){
+		fprintf(stderr,"common_ocl.ocdBuildProgramFromFile() - Heap Overflow! Cannot allocate space for kernelSource.");
+		exit(-1);
+	}
+	rewind(kernel_fp);
+	items_read = fread((void *) kernelSource, kernelLength, 1, kernel_fp);
+	if(items_read != 1){
+		fprintf(stderr,"common_ocl.ocdBuildProgramFromFile() - Error reading from kernelFile");
+		exit(-1);
+	}
+	fclose(kernel_fp);
+
+	/* Create the compute program from the source buffer */
+	if (_deviceType == 3) //use Altera FPGA
+		program = clCreateProgramWithBinary(context,1,&device_id,&kernelLength,(const unsigned char**)&kernelSource,NULL,&err);
+	else //CPU or GPU or MIC
+		program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &err);
+	CHKERR(err, "common_ocl.ocdBuildProgramFromFile() - Failed to create a compute program!");
+
+	/* Build the program executable */
+	if (_deviceType == 3) //use Altera FPGA
+		err = clBuildProgram(program,1,&device_id,"-DOPENCL -I.",NULL,NULL);
+	else
+		err = clBuildProgram(program, 0, NULL, "-DOPENCL -I.", NULL, NULL);
+	
+	if (err == CL_BUILD_PROGRAM_FAILURE)
+	{
+		char *buildLog;
+		size_t logLen;
+		err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLen);
+		buildLog = (char *) malloc(sizeof(char)*logLen);
+		if(buildLog == NULL){
+			fprintf(stderr,"common_ocl.ocdBuildProgramFromFile() - Heap Overflow! Cannot allocate space for buildLog.");
+			exit(-1);
+		}
+		err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) buildLog, NULL);
+		fprintf(stderr, "CL Error %d: Failed to build program! Log:\n%s", err, buildLog);
+		free(buildLog);
+		exit(1);
+	}
+	CHKERR(err,"common_ocl.ocdBuildProgramFromFile() - Failed to build program!");
+
+	free(kernelSource); /* Free kernel source */
+	return program;
+}
+
+
+void* char_new_array(const size_t N,const char* error_msg)
+{
+	void* ptr;
+	int err;
+	if (_deviceType == 3){
+		err = posix_memalign(&ptr,ACL_ALIGNMENT,N * sizeof(char));
+		check(err == 0,error_msg);
+	}
+	else{
+		ptr = malloc(N * sizeof(char));
+		check(ptr != NULL,error_msg);
+	}
+	return ptr;
+}
+
+void* int_new_array(const size_t N,const char* error_msg)
+{
+	void* ptr;
+	int err;
+	if (_deviceType == 3){
+		err = posix_memalign(&ptr,ACL_ALIGNMENT,N * sizeof(int));
+		check(err == 0,error_msg);
+	}
+	else{
+		ptr = malloc(N * sizeof(int));
+		check(ptr != NULL,error_msg);
+	}
+	return ptr;
+}
+
+void* long_new_array(const size_t N,const char* error_msg)
+{
+	void* ptr;
+	int err;
+	if (_deviceType == 3){
+		err = posix_memalign(&ptr,ACL_ALIGNMENT,N * sizeof(long));
+		check(err == 0,error_msg);
+	}
+	else{
+		ptr = malloc(N * sizeof(long));
+		check(ptr != NULL,error_msg);
+	}
+	return ptr;
+}
+
+void* float_new_array(const size_t N,const char* error_msg)
+{
+	void* ptr;
+	int err;
+	if (_deviceType == 3){
+		err = posix_memalign(&ptr,ACL_ALIGNMENT,N * sizeof(float));
+		check(!err,error_msg);
+	}
+	else{
+		ptr = malloc(N * sizeof(float));
+		check(ptr != NULL,error_msg);
+	}
+	return ptr;
+}
+
+void* float_array_realloc(void* ptr,const size_t N,const char* error_msg)
+{
+	int err;
+	if (_deviceType == 3){
+		if(ptr != NULL) free(ptr);
+		err = posix_memalign(&ptr,ACL_ALIGNMENT,N * sizeof(float));
+		check(!err,error_msg);
+	}
+	else{
+		ptr = realloc(ptr,N * sizeof(float));
+		check(ptr != NULL,error_msg);
+	}
+	return ptr;
 }

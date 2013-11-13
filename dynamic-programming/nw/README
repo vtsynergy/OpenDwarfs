@@ -15,8 +15,12 @@ Note: This application was ported from the Rodinia Suite
 Running
 -------
 
-Usage: needle <length of sequences> <penalty value>  
+Usage: needle [<platform> <device> | <type> --] <length of sequences> <penalty value>  
 
+	<platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+    
 Example: needle 2048 10
 
 Note: This program generate two sequences randomly. Please specify your own

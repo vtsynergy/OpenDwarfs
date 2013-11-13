@@ -40,13 +40,17 @@ struct timer_name_tree_node * atail = &root;
 //linear scan of the timer list, adds nodes to a names list as necessary
 //DO NOT USE AT THE SAME TIME AS THE TREE
 //this replaces the tree with a simple unordered list
-void simpleNameTally() {
+void simpleNameTally()
+{
+	void * time;
     struct timer_group_mem * curr = head.next;
-    while (curr != NULL) {
-        void * time;
-        if (curr->timer->s.name != NULL) {
+    while (curr != NULL)
+    {
+        if (curr->timer->s.name != NULL)
+        {
             time = checkSimpleNameList(curr->timer->s.name, curr->timer->s.nlen);
-            if (time == (void *)-1) {
+            if (time == (void *)-1)
+            {
                 //initialize a new name list node
                 atail->next = (struct timer_name_tree_node *) calloc(sizeof (struct timer_name_tree_node), 1);
                 atail = atail->next;
@@ -55,71 +59,85 @@ void simpleNameTally() {
                 atail->string = curr->timer->s.name;
                 atail->times = (cl_ulong *) calloc(sizeof(cl_ulong), 7);
                 time = (void *)atail->times;
-            }} else {
-            time = (void *)root.times;
             }
-            if (curr->timer->s.endtime > curr->timer->s.starttime) {
-                switch (curr->timer->s.type) {
-                    case OCD_TIMER_D2H:
-                ((cl_ulong *) time)[1] += curr->timer->s.endtime - curr->timer->s.starttime;
-                totalTimes[1] +=curr->timer->s.endtime - curr->timer->s.starttime;
-                break;
-                
-                    case OCD_TIMER_H2D:
-                ((cl_ulong *) time)[2] += curr->timer->s.endtime - curr->timer->s.starttime;
-                totalTimes[2] +=curr->timer->s.endtime - curr->timer->s.starttime;
-                break;
-                                        
-                    case OCD_TIMER_D2D:
-                ((cl_ulong *) time)[3] += curr->timer->s.endtime - curr->timer->s.starttime;
-                totalTimes[3] +=curr->timer->s.endtime - curr->timer->s.starttime;
-                break;
-                        
-                    case OCD_TIMER_KERNEL:
-                ((cl_ulong *) time)[4] += curr->timer->s.endtime - curr->timer->s.starttime;
-                totalTimes[4] +=curr->timer->s.endtime - curr->timer->s.starttime;
-                break;
-                        
-                    case OCD_TIMER_HOST:
-                ((cl_ulong *) time)[5] += curr->timer->s.endtime - curr->timer->s.starttime;
-                totalTimes[5] +=curr->timer->s.endtime - curr->timer->s.starttime;
-                break;
-                        
-                    case OCD_TIMER_DUAL:
-                ((cl_ulong *) time)[6] += curr->timer->s.endtime - curr->timer->s.starttime;
-                totalTimes[6] +=curr->timer->s.endtime - curr->timer->s.starttime;
-                break;
-                }
-                ((cl_ulong *) time)[0] += curr->timer->s.endtime - curr->timer->s.starttime;
-            
-                }
-        
+        }
+        else
+        {
+            time = (void *)root.times;
+        }
+		if (curr->timer->s.endtime > curr->timer->s.starttime)
+		{
+			switch (curr->timer->s.type)
+			{
+				case OCD_TIMER_D2H:
+					((cl_ulong *) time)[1] += curr->timer->s.endtime - curr->timer->s.starttime;
+					totalTimes[1] +=curr->timer->s.endtime - curr->timer->s.starttime;
+					break;
+				case OCD_TIMER_H2D:
+					((cl_ulong *) time)[2] += curr->timer->s.endtime - curr->timer->s.starttime;
+					totalTimes[2] +=curr->timer->s.endtime - curr->timer->s.starttime;
+					break;
+				case OCD_TIMER_D2D:
+					((cl_ulong *) time)[3] += curr->timer->s.endtime - curr->timer->s.starttime;
+					totalTimes[3] +=curr->timer->s.endtime - curr->timer->s.starttime;
+					break;
+				case OCD_TIMER_KERNEL:
+					((cl_ulong *) time)[4] += curr->timer->s.endtime - curr->timer->s.starttime;
+					totalTimes[4] +=curr->timer->s.endtime - curr->timer->s.starttime;
+					break;
+				case OCD_TIMER_HOST:
+					((cl_ulong *) time)[5] += curr->timer->s.endtime - curr->timer->s.starttime;
+					totalTimes[5] +=curr->timer->s.endtime - curr->timer->s.starttime;
+					break;
+				case OCD_TIMER_DUAL:
+					((cl_ulong *) time)[6] += curr->timer->s.endtime - curr->timer->s.starttime;
+					totalTimes[6] +=curr->timer->s.endtime - curr->timer->s.starttime;
+					break;
+			}
+			((cl_ulong *) time)[0] += curr->timer->s.endtime - curr->timer->s.starttime;
+		}
         curr = curr->next;
     }
     totalTimes[0] = fullExecTimer.endtime - fullExecTimer.starttime;
-
 }
 
 
 //assumes simpleNameTally was already called (once) to add up timers
 //now culls off zero-value timers
-void simpleNamePrint() {
+void simpleNamePrint()
+{
     struct timer_name_tree_node * curr = &root;
-    while (curr != NULL) { //still unique names to be checked
-        if (curr->times[0] > 0) {if (strcmp(curr->string, rootStr) != 0) {// if the string isn't empty
-        printf("Timer [%s]: \t %llu\n", curr->string, curr->times[0]);
-        } else {
-        printf("Unnamed Timers: \t %llu\n", curr->times[0]);
-        }
-        if (curr->times[1] > 0) printf("\tD2H:    \t %llu\n", curr->times[1]);
-        if (curr->times[2] > 0) printf("\tH2D:    \t %llu\n", curr->times[2]);
-        if (curr->times[3] > 0) printf("\tD2D:    \t %llu\n", curr->times[3]);
-        if (curr->times[4] > 0) printf("\tKernel: \t %llu\n", curr->times[4]);
-        if (curr->times[5] > 0) printf("\tHost:   \t %llu\n", curr->times[5]);
-        if (curr->times[6] > 0) printf("\tDual:   \t %llu\n", curr->times[6]);
+    while (curr != NULL)
+    { //still unique names to be checked
+        if (curr->times[0] > 0)
+        {
+        	if (strcmp(curr->string, rootStr) != 0) // if the string isn't empty
+        		printf("Timer [%s]: \t %llu\n", curr->string, curr->times[0]);
+        	else
+        		printf("Unnamed Timers: \t %llu\n", curr->times[0]);
+
+			if (curr->times[1] > 0) printf("\tD2H:    \t %llu\n", curr->times[1]);
+			if (curr->times[2] > 0) printf("\tH2D:    \t %llu\n", curr->times[2]);
+			if (curr->times[3] > 0) printf("\tD2D:    \t %llu\n", curr->times[3]);
+			if (curr->times[4] > 0) printf("\tKernel: \t %llu\n", curr->times[4]);
+			if (curr->times[5] > 0) printf("\tHost:   \t %llu\n", curr->times[5]);
+			if (curr->times[6] > 0) printf("\tDual:   \t %llu\n", curr->times[6]);
         }
         curr = curr->next;
     }
+}
+
+//Zeroes all timers in name list (e.g., to be used when timing multiple executions without the need to re-allocate/init. We should print before calling.)
+void resetNameList()
+{
+	int ii;
+	struct timer_name_tree_node * temp, * curr = root.next;
+	while (curr != NULL)
+	{
+		for(ii=0; ii<7; ii++)
+			curr->times[ii] = 0;
+		curr=curr->next;
+	}
 }
 
 //chews up the timer list from head to tail, deallocating all nodes
@@ -239,50 +257,3 @@ void walkList() {
 #endif //TIMER_TEST
 
 #endif //ENABLE_TIMER
-
-cl_device_id
-GetDevice(int platform, int device) {
-    cl_int err;
-    cl_uint nPlatforms = 1;
-    err = clGetPlatformIDs(0, NULL, &nPlatforms);
-    CHECK_ERROR(err);
-
-    if (nPlatforms <= 0) {
-        printf("No OpenCL platforms found. Exiting.\n");
-        exit(0);
-    }
-    if (platform < 0 || platform >= nPlatforms) // platform ID out of range
-    {
-        printf("Platform index %d is out of range. \n", platform);
-        exit(-4);
-    }
-    cl_platform_id *platforms = (cl_platform_id *) malloc(sizeof (cl_platform_id) * nPlatforms);
-    err = clGetPlatformIDs(nPlatforms, platforms, NULL);
-    CHECK_ERROR(err);
-
-    cl_uint nDevices = 1;
-    char platformName[100];
-    err = clGetPlatformInfo(platforms[0], CL_PLATFORM_VENDOR, sizeof (platformName), platformName, NULL);
-    CHECK_ERROR(err);
-    printf("Platform Chosen : %s\n", platformName);
-    // query devices
-    err = clGetDeviceIDs(platforms[platform], USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, 0, NULL, &nDevices);
-    CHECK_ERROR(err);
-    if (nDevices <= 0) {
-        printf("No OpenCL Device found. Exiting.\n");
-        exit(0);
-    }
-    if (device < 0 || device >= nDevices) // platform ID out of range
-    {
-        printf("Device index %d is out of range. \n", device);
-        exit(-4);
-    }
-    cl_device_id* devices = (cl_device_id *) malloc(sizeof (cl_device_id) * nDevices);
-    err = clGetDeviceIDs(platforms[platform], USEGPU ? CL_DEVICE_TYPE_GPU : CL_DEVICE_TYPE_CPU, nDevices, devices, NULL);
-    char DeviceName[100];
-    err = clGetDeviceInfo(devices[device], CL_DEVICE_NAME, sizeof (DeviceName), DeviceName, NULL);
-    CHECK_ERROR(err);
-    printf("Device Chosen : %s\n", DeviceName);
-
-    return devices[device];
-}

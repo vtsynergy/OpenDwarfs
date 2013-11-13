@@ -5,26 +5,16 @@
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 
-#define CHKERR(err, str) \
-    if (err != CL_SUCCESS) \
-    { \
-        fprintf(stderr, "CL Error %d: %s\n", err, str); \
-        exit(1); \
-    }
-
-
-
-//#define USEGPU 1
 #define CITIES 14
 
-int platform_id = PLATFORM_ID, n_device = DEVICE_ID;
+    
 void CPUsearch(
         int *h,
         int *city,
         int start,
         int end,
         int *result
-        ) {
+    ) {
     int i, j, counter, counter2, tmp, x, y, tmp2, tentative_score, tent_is_better, pos;
     int closedSet[CITIES];
     int openSet[CITIES];
@@ -113,7 +103,10 @@ void CPUsearch(
 }
 
 int main(int argc, char** argv) {
+
 	ocd_init(&argc, &argv, NULL);
+	ocd_initCL();
+	
 	cl_int err;
     int i, j, k;
 
@@ -122,9 +115,7 @@ int main(int argc, char** argv) {
     size_t global_size;
     size_t local_size;
 
-    cl_device_id device_id;
-    cl_context context;
-    cl_command_queue commands;
+    
     cl_program program;
     cl_kernel kernel;
 
@@ -137,10 +128,7 @@ int main(int argc, char** argv) {
     size_t lengthRead;
     int start = 0, end = 1, result[CITIES * CITIES], traverse[CITIES * CITIES * CITIES], CPU_result[1];
     
-    ocd_options opts = ocd_get_options();
-    platform_id = opts.platform_id;
-    n_device = opts.device_id;
-    
+ 
     /* Fill input set with distance and heuristic value */
     int h[] = {0, 366, 272, 219, 139, 229, 389, 176, 90, 269, 166, 116, 79, 36,
         366, 0, 160, 242, 244, 178, 77, 241, 380, 98, 193, 253, 329, 374,
@@ -170,16 +158,6 @@ int main(int argc, char** argv) {
         140, -1, -1, -1, -1, 99, -1, -1, 151, -1, 80, -1, -1, -1,
         118, -1, -1, -1, 111, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         75, -1, -1, -1, -1, -1, -1, -1, 71, -1, -1, -1, -1, -1};
-
-	device_id = GetDevice(platform_id, n_device);
-
-    /* Create a compute context */
-    context = clCreateContext(0, 1, &device_id, NULL, NULL, &err);
-    CHKERR(err, "Failed to create a compute context!");
-
-    /* Create a command queue */
-    commands = clCreateCommandQueue(context, device_id, CL_QUEUE_PROFILING_ENABLE, &err);
-    CHKERR(err, "Failed to create a command queue!");
 
     /* Load kernel source */
     kernelFile = fopen("astar.cl", "r");
@@ -228,14 +206,18 @@ int main(int argc, char** argv) {
     /* Write our data set into the input array in device memory */
    
 	err = clEnqueueWriteBuffer(commands, h_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, h, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "AStar Data Copy", ocdTempTimer)
-        END_TIMER(ocdTempTimer)
+	clFinish(commands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "AStar Data Copy", ocdTempTimer)
+    //clFinish(commands);
+    END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
     err = clEnqueueWriteBuffer(commands, city_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, city, 0, NULL, &ocdTempEvent);
+    clFinish(commands);
     START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "AStar Data Copy", ocdTempTimer)
-        END_TIMER(ocdTempTimer)
+    //clFinish(commands);
+    END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to write to source array!");
-	clFinish(commands);
+	//clFinish(commands);
 
     /* Set the arguments to our compute kernel */
     err = 0;
@@ -262,22 +244,23 @@ int main(int argc, char** argv) {
     err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
     clFinish(commands);
     START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "AStar Kernel", ocdTempTimer)
-    CHKERR(err, "Failed to execute kernel!");
-    /* Wait for the command commands to get serviced before reading back results */
-    clFinish(commands);
-        END_TIMER(ocdTempTimer)
-
+    END_TIMER(ocdTempTimer)
+	CHKERR(err, "Failed to execute kernel!");
     /* Read back the results from the device to verify the output */
     
 	err = clEnqueueReadBuffer(commands, result_mem, CL_TRUE, 0, sizeof (int) *CITIES*CITIES, result, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "AStar Data Copy", ocdTempTimer)
-        END_TIMER(ocdTempTimer)
+	clFinish(commands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "AStar Data Copy", ocdTempTimer)
+    //clFinish(commands);
+    END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to read output array!");
     err = clEnqueueReadBuffer(commands, traverse_mem, CL_TRUE, 0, sizeof (int) *CITIES * CITIES*CITIES, traverse, 0, NULL, &ocdTempEvent);
-	clFinish(commands);
-        START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "AStar Data Copy", ocdTempTimer)
-        END_TIMER(ocdTempTimer)
+    clFinish(commands);
+    START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "AStar Data Copy", ocdTempTimer)
+    //clFinish(commands);
+    END_TIMER(ocdTempTimer)
     CHKERR(err, "Failed to read output array!");
+
     /* Validate our results */
     for (i = 0; i < CITIES; i++)
         for (j = 0; j < CITIES; j++) {
@@ -298,7 +281,7 @@ int main(int argc, char** argv) {
             printf("The shortest distance from %d to node %d is %d\n", i, k, result[CITIES * i + k]);
         }
     }
-#endif
+	#endif
 
     /* Shutdown and cleanup */
     clReleaseMemObject(h_mem);

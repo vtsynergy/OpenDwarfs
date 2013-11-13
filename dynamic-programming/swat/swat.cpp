@@ -20,16 +20,9 @@ db2.Add time record in the program.
 verOpenCL4 Opencl implemenation, GPU lock-based sync
 **************************************************************/
 
-#define CHECK_ERR(err, str) \
-	if (err != CL_SUCCESS)  \
-	{ \
-		fprintf(stderr, "CL Error %d: %s\n", err, str); \
-		exit(1); \
-	} \
 
 #define MIN(a, b) \
 	(a < b ? a : b) \
-
 
 
 char * loadSource(char *filePathName, size_t *fileSize)
@@ -69,15 +62,20 @@ char * loadSource(char *filePathName, size_t *fileSize)
 int main(int argc, char ** argv)
 {
 	ocd_init(&argc, &argv, NULL);
+	ocd_initCL();
+		
 	if (argc < 3)
 	{
 		printf("Calculate similarities between two strings.\n");
 		printf("Maximum length of each string is: %d\n", MAX_LEN);
-		printf("Usage: %s query database [openPenalty extensionPenalty block#]\n", argv[0]);
+		printf("Usage: %s query database\n", argv[0]);
+		printf("or: %s query database [openPenalty extensionPenalty block#]\n", argv[0]);
 		printf("openPenalty (5.0), extensionPenalty (0.5)\n");
 		return 1;
 	}
 
+	
+	
 	/////////////////////////////////////
 	//      00 --> 01
 	//		|	   |	
@@ -113,33 +111,24 @@ int main(int argc, char ** argv)
 		extensionPenalty = atof(argv[4]);
 		blockNum = atoi(argv[5]);
 	}
-
-
+	
 	//relocated to after MAX_COMPUTE_UNITS check
 	//mfThreadNum = blockNum * blockSize;
 
-	//for opencl initialization
-	cl_int err;
-	cl_platform_id platformID;
-	cl_device_id deviceID;
-	cl_context hContext;
-	cl_command_queue hCmdQueue;
 	cl_program hProgram;
 	cl_kernel hMatchStringKernel, hTraceBackKernel, hSetZeroKernel;
 	size_t sourceFileSize;
 	char *cSourceCL = NULL;
 
-	err = clGetPlatformIDs(1, &platformID, NULL);
-	CHECK_ERR(err, "Get platform ID error!");
+	//err = clGetPlatformIDs(1, &platformID, NULL);
+	//CHKERR(err, "Get platform ID error!");
 
-	err = clGetDeviceIDs(platformID, CL_DEVICE_TYPE_GPU, 1, &deviceID, NULL);
-	CHECK_ERR(err, "Get device ID error!");
-
+	cl_int err;
 
 	//check to make sure the device supports this block count
 	//then scale threads appropriately
 	cl_uint devBlockNum = 0;
-	CHECK_ERR(clGetDeviceInfo(deviceID, CL_DEVICE_MAX_COMPUTE_UNITS,\
+	CHKERR(clGetDeviceInfo(device_id, CL_DEVICE_MAX_COMPUTE_UNITS,\
 		sizeof(cl_uint), &devBlockNum, 0), \
 		"Error while querying CL_DEVICE_MAX_COMPUTE_UNITS.");
 	if (devBlockNum == MIN(blockNum, devBlockNum)) {
@@ -149,43 +138,37 @@ int main(int argc, char ** argv)
 	}
 	mfThreadNum = blockNum * blockSize;
 	
-	CHECK_ERR(clGetDeviceInfo(deviceID, CL_DEVICE_LOCAL_MEM_SIZE,\
+	CHKERR(clGetDeviceInfo(device_id, CL_DEVICE_LOCAL_MEM_SIZE,\
 		sizeof(cl_ulong), &maxLocalSize, 0), \
 		"Error while querying CL_DEVICE_LOCAL_MEM_SIZE.");
-	
-	hContext = clCreateContext(0, 1, &deviceID, 0, 0, &err);
-	CHECK_ERR(err, "Create context from type error");
-	
-	hCmdQueue = clCreateCommandQueue(hContext, deviceID, CL_QUEUE_PROFILING_ENABLE, &err);
-	CHECK_ERR(err, "Create command queue error");
 	
 	//load the source file
 	char kernel_file[] = "kernels.cl";
 	cSourceCL = loadSource(kernel_file, &sourceFileSize);
 
-	hProgram = clCreateProgramWithSource(hContext, 1, (const char **)&cSourceCL, 
+	hProgram = clCreateProgramWithSource(context, 1, (const char **)&cSourceCL, 
 				&sourceFileSize, &err);
-	CHECK_ERR(err, "Create program with source error");
+	CHKERR(err, "Create program with source error");
 
 	err = clBuildProgram(hProgram, 0, 0, 0, 0, 0);
 	//debug================================
 	int logSize = 3000, i;
 	size_t retSize;
 	char logTxt[3000];
-	err = clGetProgramBuildInfo(hProgram, deviceID, CL_PROGRAM_BUILD_LOG, logSize, logTxt, &retSize);
+	err = clGetProgramBuildInfo(hProgram, device_id, CL_PROGRAM_BUILD_LOG, logSize, logTxt, &retSize);
 	for (i = 0; i < retSize; i++)
 	{
 		printf("%c", logTxt[i]);
 	}
 	//===================================
-	CHECK_ERR(err, "Build program error");
+	CHKERR(err, "Build program error");
 
 	hMatchStringKernel = clCreateKernel(hProgram, "MatchStringGPUSync", &err);
-	CHECK_ERR(err, "Create MatchString kernel error");
+	CHKERR(err, "Create MatchString kernel error");
 	hTraceBackKernel = clCreateKernel(hProgram, "trace_back2", &err);
-	CHECK_ERR(err, "Create trace_back2 kernel error");
+	CHKERR(err, "Create trace_back2 kernel error");
 	hSetZeroKernel = clCreateKernel(hProgram, "setZero", &err);
-	CHECK_ERR(err, "Create setZero kernel error");
+	CHKERR(err, "Create setZero kernel error");
 
 	sprintf(queryFilePathName, "%s", argv[1]);
 	sprintf(dbDataFilePathName, "%s.data", argv[2]);
@@ -203,10 +186,10 @@ int main(int argc, char ** argv)
 	}
 	querySequence = allSequences;
 
-	seq1D = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
-	CHECK_ERR(err, "Create seq1D memory");
-	seq2D = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
-	CHECK_ERR(err, "Create seq2D memory");
+	seq1D = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
+	CHKERR(err, "Create seq1D memory");
+	seq2D = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_char) * MAX_LEN, 0, &err);
+	CHKERR(err, "Create seq2D memory");
 	
 	//read query sequence
 	querySize = readQuerySequence(queryFilePathName, querySequence);
@@ -232,10 +215,10 @@ int main(int argc, char ** argv)
 	}
 
 	cl_mem outSeq1D, outSeq2D;
-	outSeq1D = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
-	CHECK_ERR(err, "Create outSeq1D memory");
-	outSeq2D = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
-	CHECK_ERR(err, "Create outSeq2D memory");
+	outSeq1D = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
+	CHKERR(err, "Create outSeq1D memory");
+	outSeq2D = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_char) * MAX_LEN * 2, 0, &err);
+	CHKERR(err, "Create outSeq2D memory");
 
 	//allocate thread number per launch and 
 	//location difference information
@@ -250,10 +233,10 @@ int main(int argc, char ** argv)
 	}
 
 	cl_mem threadNumD, diffPosD;
-	threadNumD = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_int) * (2 * MAX_LEN), 0, &err);
-	CHECK_ERR(err, "Create threadNumD memory");
-	diffPosD = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_int) * (2 * MAX_LEN), 0, &err);
-	CHECK_ERR(err, "Create diffPosD memory");
+	threadNumD = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_int) * (2 * MAX_LEN), 0, &err);
+	CHKERR(err, "Create threadNumD memory");
+	diffPosD = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_int) * (2 * MAX_LEN), 0, &err);
+	CHKERR(err, "Create diffPosD memory");
 
 	//allocate matrix buffer
 	char *pathFlag, *extFlag; 
@@ -275,16 +258,16 @@ int main(int argc, char ** argv)
 	}
 
 	cl_mem pathFlagD, extFlagD,	nGapDistD, hGapDistD, vGapDistD;
-	pathFlagD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_char) * maxElemNum, 0, &err);
-	CHECK_ERR(err, "Create pathFlagD memory");
-	extFlagD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_char) * maxElemNum, 0, &err);
-	CHECK_ERR(err, "Create extFlagD memory");
-	nGapDistD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_float) * maxElemNum, 0, &err);
-	CHECK_ERR(err, "Create nGapDistD memory");
-	hGapDistD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_float) * maxElemNum, 0, &err);
-	CHECK_ERR(err, "Create hGapDistD memory");
-	vGapDistD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_float) * maxElemNum, 0, &err);
-	CHECK_ERR(err, "Create vGapDistD memory");
+	pathFlagD = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_char) * maxElemNum, 0, &err);
+	CHKERR(err, "Create pathFlagD memory");
+	extFlagD = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_char) * maxElemNum, 0, &err);
+	CHKERR(err, "Create extFlagD memory");
+	nGapDistD = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float) * maxElemNum, 0, &err);
+	CHKERR(err, "Create nGapDistD memory");
+	hGapDistD = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float) * maxElemNum, 0, &err);
+	CHKERR(err, "Create hGapDistD memory");
+	vGapDistD = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float) * maxElemNum, 0, &err);
+	CHKERR(err, "Create vGapDistD memory");
 
 	//Allocate the MAX INFO structure
 	MAX_INFO *maxInfo;
@@ -296,22 +279,22 @@ int main(int argc, char ** argv)
 	}
 	
 	cl_mem maxInfoD;
-	maxInfoD = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(MAX_INFO) * mfThreadNum, 0, &err);
-	CHECK_ERR(err, "Create maxInfoD memory");
+	maxInfoD = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(MAX_INFO) * mfThreadNum, 0, &err);
+	CHKERR(err, "Create maxInfoD memory");
 
 	//allocate the distance table
 	cl_mem blosum62D;
 	int nblosumHeight = 23;
-	blosum62D = clCreateBuffer(hContext, CL_MEM_READ_ONLY, sizeof(cl_float) * nblosumWidth * nblosumHeight, 0, &err);
-	err = clEnqueueWriteBuffer(hCmdQueue, blosum62D, CL_TRUE, 0,
+	blosum62D = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_float) * nblosumWidth * nblosumHeight, 0, &err);
+	err = clEnqueueWriteBuffer(commands, blosum62D, CL_TRUE, 0,
 							   nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62[0], 0, NULL, &ocdTempEvent);
-        clFinish(hCmdQueue);
+        clFinish(commands);
         START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Scoring Matrix Copy", ocdTempTimer)
         END_TIMER(ocdTempTimer)
-	CHECK_ERR(err, "copy blosum62 to device");
+	CHKERR(err, "copy blosum62 to device");
 	cl_mem mutexMem;
-	mutexMem = clCreateBuffer(hContext, CL_MEM_READ_WRITE, sizeof(cl_int), 0, &err);
-	CHECK_ERR(err, "create mutex mem error!");
+	mutexMem = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_int), 0, &err);
+	CHKERR(err, "create mutex mem error!");
 
 	//copy the scoring matrix to the constant memory
 	//copyScoringMatrixToConstant();
@@ -397,84 +380,84 @@ int main(int argc, char ** argv)
 		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&extFlagD);
-		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Initialize flag matrice");
+		CHKERR(err, "Initialize flag matrice");
 
 		arraySize = matrixIniNum * sizeof(float);
 		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&nGapDistD);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&hGapDistD);
-		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&vGapDistD);
-		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Initialize dist matrice");
+		CHKERR(err, "Initialize dist matrice");
 
 		arraySize = sizeof(MAX_INFO) * mfThreadNum;
 		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&maxInfoD);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Max Info Matrix Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Initialize max info");
+		CHKERR(err, "Initialize max info");
 
 		arraySize = sizeof(int);
 		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&mutexMem);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
-		err |= clEnqueueNDRangeKernel(hCmdQueue, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
+		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Mutex Init", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Initialize mutex variable");
+		CHKERR(err, "Initialize mutex variable");
 
 		//copy input sequences to device
-		err  = clEnqueueWriteBuffer(hCmdQueue, seq1D, CL_FALSE, 0, (rowNum - 1) * sizeof(cl_char), seq1, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+		err  = clEnqueueWriteBuffer(commands, seq1D, CL_FALSE, 0, (rowNum - 1) * sizeof(cl_char), seq1, 0, NULL, &ocdTempEvent);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		err |= clEnqueueWriteBuffer(hCmdQueue, seq2D, CL_FALSE, 0, (columnNum - 1) * sizeof(cl_char), seq2, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+		err |= clEnqueueWriteBuffer(commands, seq2D, CL_FALSE, 0, (columnNum - 1) * sizeof(cl_char), seq2, 0, NULL, &ocdTempEvent);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "copy input sequence");
+		CHKERR(err, "copy input sequence");
 
-		err  = clEnqueueWriteBuffer(hCmdQueue, diffPosD, CL_FALSE, 0, launchNum * sizeof(cl_int), diffPos, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+		err  = clEnqueueWriteBuffer(commands, diffPosD, CL_FALSE, 0, launchNum * sizeof(cl_int), diffPos, 0, NULL, &ocdTempEvent);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		err |= clEnqueueWriteBuffer(hCmdQueue, threadNumD, CL_FALSE, 0, launchNum * sizeof(cl_int), threadNum, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+		err |= clEnqueueWriteBuffer(commands, threadNumD, CL_FALSE, 0, launchNum * sizeof(cl_int), threadNum, 0, NULL, &ocdTempEvent);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Mutex Info Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "copy diffpos and/or threadNum mutexMem info error!");
+		CHKERR(err, "copy diffpos and/or threadNum mutexMem info error!");
 		
 		//record time
 		timerEnd();
@@ -501,15 +484,15 @@ int main(int argc, char ** argv)
 		err |= clSetKernelArg(hMatchStringKernel, 14, sizeof(cl_mem), (void *)&maxInfoD);
 		err |= clSetKernelArg(hMatchStringKernel, 15, sizeof(cl_mem), (void *)&blosum62D);
 		err |= clSetKernelArg(hMatchStringKernel, 16, sizeof(cl_mem), (void *)&mutexMem);
-		err |= clSetKernelArg(hMatchStringKernel, 17, maxLocalSize, NULL);
-		CHECK_ERR(err, "Set match string argument error!");
+		//err |= clSetKernelArg(hMatchStringKernel, 17, maxLocalSize, NULL);
+		CHKERR(err, "Set match string argument error!");
 
-		err = clEnqueueNDRangeKernel(hCmdQueue, hMatchStringKernel, 1, NULL, &mfThreadNum,
+		err = clEnqueueNDRangeKernel(commands, hMatchStringKernel, 1, NULL, &mfThreadNum,
 									 &blockSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
-                START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
-                END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Launch kernel match string error");
+        clFinish(commands);
+        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
+        END_TIMER(ocdTempTimer)
+		CHKERR(err, "Launch kernel match string error");
 
 		//record time
 		timerEnd();
@@ -529,13 +512,13 @@ int main(int argc, char ** argv)
 		
 		size_t tbGlobalSize[1] = {1};
 		size_t tbLocalSize[1]  = {1};
-		err = clEnqueueNDRangeKernel(hCmdQueue, hTraceBackKernel, 1, NULL, tbGlobalSize,
+		err = clEnqueueNDRangeKernel(commands, hTraceBackKernel, 1, NULL, tbGlobalSize,
 									 tbLocalSize, 0, NULL, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Kernels", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Launch kernel trace back error");
-		clFinish(hCmdQueue);
+		CHKERR(err, "Launch kernel trace back error");
+		clFinish(commands);
 		//record time
 		timerEnd();
 		strTime.traceBackTime += elapsedTime();
@@ -543,27 +526,27 @@ int main(int argc, char ** argv)
 		//record time
 		timerStart();
 		//copy matrix score structure back
-		err = clEnqueueReadBuffer(hCmdQueue, maxInfoD, CL_FALSE, 0, sizeof(MAX_INFO),
+		err = clEnqueueReadBuffer(commands, maxInfoD, CL_FALSE, 0, sizeof(MAX_INFO),
 								  maxInfo, 0, 0, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Max Info Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Read maxInfo buffer error!");
+		CHKERR(err, "Read maxInfo buffer error!");
 
 		int maxOutputLen = rowNum + columnNum - 2;
-		err  = clEnqueueReadBuffer(hCmdQueue, outSeq1D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
+		err  = clEnqueueReadBuffer(commands, outSeq1D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
 								   outSeq1, 0, 0, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		err != clEnqueueReadBuffer(hCmdQueue, outSeq2D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
+		err != clEnqueueReadBuffer(commands, outSeq2D, CL_FALSE, 0, maxOutputLen * sizeof(cl_char),
 								   outSeq2, 0, 0, &ocdTempEvent);
-                clFinish(hCmdQueue);
+                clFinish(commands);
                 START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SWAT Sequence Copy", ocdTempTimer)
                 END_TIMER(ocdTempTimer)
-		CHECK_ERR(err, "Read output sequence error!");
+		CHKERR(err, "Read output sequence error!");
 		//record time
-		clFinish(hCmdQueue);
+		clFinish(commands);
 		gettimeofday(&t2, NULL);
 		timerEnd();
 		strTime.copyTimeDeviceToHost += elapsedTime();
@@ -575,7 +558,7 @@ int main(int argc, char ** argv)
 		PrintAlignment(outSeq1, outSeq2, nlength, CHAR_PER_LINE, openPenalty, extensionPenalty);
 		printf("Max alignment score (on device) is %.1f\n", maxInfo->fmaxscore);
 		//obtain max alignment score on host
-		//err = clEnqueueReadBuffer(hCmdQueue, nGapDistD, CL_TRUE, 0, sizeof(cl_float) * DPMatrixSize,
+		//err = clEnqueueReadBuffer(commands, nGapDistD, CL_TRUE, 0, sizeof(cl_float) * DPMatrixSize,
 		//						  nGapDist, 0, 0, 0);
 		//printf("Max alignment score (on host) is %.1f\n", maxScore(nGapDist, DPMatrixSize));
 
@@ -635,8 +618,8 @@ int main(int argc, char ** argv)
 	clReleaseMemObject(mutexMem);
 
 	clReleaseProgram(hProgram);
-	clReleaseCommandQueue(hCmdQueue);
-	clReleaseContext(hContext);
+	clReleaseCommandQueue(commands);
+	clReleaseContext(context);
 	ocd_finalize();
 	return 0;
 }

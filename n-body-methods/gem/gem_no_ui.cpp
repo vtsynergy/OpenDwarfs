@@ -11,10 +11,10 @@
 #include "partitioned_open.h"
 #include "gem.h"
 
-#include <include/common_args.h>
+#include "../../include/common_args.h"
 
 using namespace std;
-extern int platform_id, device_id;
+//extern int n_platform, n_device;
 
 int main (int argc, char **argv)
 {
@@ -81,12 +81,12 @@ int main (int argc, char **argv)
 
    if (flags[P_ID])
    {
-      platform_id = atoi((char *)options[P_ID_VAL].c_str());
+      n_platform = atoi((char *)options[P_ID_VAL].c_str());
    }
    
    if (flags[D_ID])
    {
-      device_id = atoi((char *)options[D_ID_VAL].c_str());
+      n_device = atoi((char *)options[D_ID_VAL].c_str());
    }
    
    if (flags[PROJ_SPEC])

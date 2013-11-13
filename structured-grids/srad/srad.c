@@ -6,20 +6,14 @@
 #include "srad.h"
 #include <string.h>
 
+//#define OUTPUT
+
 int  BLOCK_SIZE = 16;
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
-int platform_id = PLATFORM_ID, device_id = DEVICE_ID;
-// includes, project
 
+//If GPU is defined in srad.h the C implementation runs, otherwise the OpenCL one.
 
-#define CHECKERR(err) \
-    if (err != CL_SUCCESS) \
-    { \
-        fprintf(stderr, "Error: %d in line: %d\n", err, __LINE__);\
-        exit(1); \
-    }
-//#define USEGPU 1
 void random_matrix(float *I, int rows, int cols);
 void runTest( int argc, char** argv);
 void usage(int argc, char **argv)
@@ -33,14 +27,10 @@ void usage(int argc, char **argv)
 	fprintf(stderr, "\t<x2>       - x2 value of the speckle\n");
 	fprintf(stderr, "\t<lamda>   - lambda (0,1)\n");
 	fprintf(stderr, "\t<no. of iter>   - number of iterations\n");
-	fprintf(stderr, "\t<platform>   - index of platform\n");
-	fprintf(stderr, "\t<device>   - index of device\n");
-	
 	exit(1);
 }
-////////////////////////////////////////////////////////////////////////////////
-// Program main
-////////////////////////////////////////////////////////////////////////////////
+
+
 int
 main( int argc, char** argv) 
 {
@@ -60,16 +50,16 @@ runTest( int argc, char** argv)
 
 #ifdef CPU
 	float Jc, G2, L, num, den, qsqr;
-	int *iN,*iS,*jE,*jW, k;
+	int *iN,*iS,*jE,*jW;// k;
 	float *dN,*dS,*dW,*dE;
 	float cN,cS,cW,cE,D;
 #endif
 
 #ifdef GPU
 	
-    cl_device_id clDevice;
-    cl_context clContext;
-    cl_command_queue clCommands;
+    //cl_device_id clDevice;//device_id[OK]
+    //cl_context clContext;//context[OK]
+    //cl_command_queue clCommands;//commands
     cl_program clProgram;
     cl_kernel clKernel_srad1;
     cl_kernel clKernel_srad2;
@@ -83,22 +73,25 @@ runTest( int argc, char** argv)
     FILE *kernelFile;
     char *kernelSource;
     size_t kernelLength;
-	ocd_options opts = ocd_get_options();
-	platform_id = opts.platform_id;
-	device_id = opts.device_id;
+	//ocd_options opts = ocd_get_options();
+	//n_platform = opts.platform_id;
+	//n_device = opts.device_id;
 
-	clDevice = GetDevice(platform_id, device_id);
-    	size_t max_worksize[3];
-errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
- CHECKERR(errcode);
-        while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
+	//clDevice = _ocd_get_device(n_platform, n_device, CL_DEVICE_TYPE_GPU);
+	//clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
+ 	//CHKERR(errcode, "Failed to create context!");
+    //clCommands = clCreateCommandQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE, &errcode);
+ 	//CHKERR(errcode, "Failed to create command queue!");
+ 	
+ 	ocd_initCL();
+ 	
+    size_t max_worksize[3];
+	errcode = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3, &max_worksize, NULL);
+ 	CHKERR(errcode, "Failed to get device info!");
+    while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
                 BLOCK_SIZE = BLOCK_SIZE/2;
 
-    clContext = clCreateContext(NULL, 1, &clDevice, NULL, NULL, &errcode);
-    CHECKERR(errcode);
-
-    clCommands = clCreateCommandQueue(clContext, clDevice, CL_QUEUE_PROFILING_ENABLE, &errcode);
-    CHECKERR(errcode);
+    
 
     kernelFile = fopen("srad_kernel.cl", "r");
     fseek(kernelFile, 0, SEEK_END);
@@ -108,30 +101,30 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     fread((void *) kernelSource, kernelLength, 1, kernelFile);
     fclose(kernelFile);
 
-    clProgram = clCreateProgramWithSource(clContext, 1, (const char **) &kernelSource, &kernelLength, &errcode);
-    CHECKERR(errcode);
+    clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
+ 	CHKERR(errcode, "Failed to create program with source!");
 
     free(kernelSource);
 	char arg[50];
 	sprintf(arg,"-D BLOCK_SIZE=%d",BLOCK_SIZE);
-    errcode = clBuildProgram(clProgram, 1, &clDevice, arg, NULL, NULL);
+    errcode = clBuildProgram(clProgram, 1, &device_id, arg, NULL, NULL);
     if (errcode == CL_BUILD_PROGRAM_FAILURE)
     {
         char *log;
         size_t logLength;
-        errcode = clGetProgramBuildInfo(clProgram, clDevice, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
+        errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
         log = (char *) malloc(sizeof(char)*logLength);
-        errcode = clGetProgramBuildInfo(clProgram, clDevice, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
+        errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
         fprintf(stderr, "Kernel build error! Log:\n%s", log);
         free(log);
         return;
     }
-    CHECKERR(errcode);
+ 	CHKERR(errcode, "Failed to build program!");
 
     clKernel_srad1 = clCreateKernel(clProgram, "srad_cuda_1", &errcode);
-    CHECKERR(errcode);
+ 	CHKERR(errcode, "Failed to create kernel!");
     clKernel_srad2 = clCreateKernel(clProgram, "srad_cuda_2", &errcode);
-    CHECKERR(errcode);
+ 	CHKERR(errcode, "Failed to create kernel!");
 
 #endif
 
@@ -140,13 +133,13 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     
 	
  
-	if (argc == 9 || argc == 11)
+	if (argc == 9)
 	{
 		rows = atoi(argv[1]);  //number of rows in the domain
 		cols = atoi(argv[2]);  //number of cols in the domain
 		if ((rows%16!=0) || (cols%16!=0)){
-		fprintf(stderr, "rows and cols must be multiples of 16\n");
-		exit(1);
+			fprintf(stderr, "rows and cols must be multiples of 16\n");
+			exit(1);
 		}
 		r1   = atoi(argv[3]);  //y1 position of the speckle
 		r2   = atoi(argv[4]);  //y2 position of the speckle
@@ -156,7 +149,7 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
 		niter = atoi(argv[8]); //number of iterations
 	}
     else{
-	usage(argc, argv);
+		usage(argc, argv);
     }
 
 
@@ -201,18 +194,18 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
 #ifdef GPU
 
 	//Allocate device memory
-    J_cuda = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
-    CHECKERR(errcode);
-    C_cuda = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
-    CHECKERR(errcode);
-    E_C = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
-    CHECKERR(errcode);
-    W_C = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
-    CHECKERR(errcode);
-    S_C = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
-    CHECKERR(errcode);
-    N_C = clCreateBuffer(clContext, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
-    CHECKERR(errcode);
+    J_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+ 	CHKERR(errcode, "Failed to create buffer!");
+    C_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+ 	CHKERR(errcode, "Failed to create buffer!");
+    E_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+ 	CHKERR(errcode, "Failed to create buffer!");
+    W_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+ 	CHKERR(errcode, "Failed to create buffer!");
+    S_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+ 	CHKERR(errcode, "Failed to create buffer!");
+    N_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+ 	CHKERR(errcode, "Failed to create buffer!");
 
 	
 #endif 
@@ -225,7 +218,7 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
      	J[k] = (float)exp(I[k]) ;
     }
 	printf("Start the SRAD main loop\n");
- for (iter=0; iter< niter; iter++){     
+ 	for (iter=0; iter< niter; iter++){     
 		sum=0; sum2=0;
         for (i=r1; i<=r2; i++) {
             for (j=c1; j<=c2; j++) {
@@ -268,19 +261,19 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
                 // saturate diffusion coefficent
                 if (c[k] < 0) {c[k] = 0;}
                 else if (c[k] > 1) {c[k] = 1;}
+			}
 		}
-	}
-         for (i = 0; i < rows; i++) {
+        for (i = 0; i < rows; i++) {
             for (j = 0; j < cols; j++) {        
 
                 // current index
                 k = i * cols + j;
                 
                 // diffusion coefficent
-					cN = c[k];
-					cS = c[iS[i] * cols + j];
-					cW = c[k];
-					cE = c[i * cols + jE[j]];
+				cN = c[k];
+				cS = c[iS[i] * cols + j];
+				cW = c[k];
+				cE = c[i * cols + jE[j]];
 
                 // divergence (equ 58)
                 D = cN * dN[k] + cS * dS[k] + cW * dW[k] + cE * dE[k];
@@ -288,81 +281,81 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
                 // image update (equ 61)
                 J[k] = J[k] + 0.25*lambda*D;
             }
-	}
+		}
 
 #endif // CPU
 
 
 #ifdef GPU
 
-	//Currently the input size must be divided by 16 - the block size
-	int block_x = cols/BLOCK_SIZE ;
-    int block_y = rows/BLOCK_SIZE ;
+		//Currently the input size must be divided by 16 - the block size
+		int block_x = cols/BLOCK_SIZE ;
+    	int block_y = rows/BLOCK_SIZE ;
 
-    size_t localWorkSize[2] = {BLOCK_SIZE, BLOCK_SIZE};
-    size_t globalWorkSize[2] = {block_x*localWorkSize[0], block_y*localWorkSize[1]};
+    	size_t localWorkSize[2] = {BLOCK_SIZE, BLOCK_SIZE};
+    	size_t globalWorkSize[2] = {block_x*localWorkSize[0], block_y*localWorkSize[1]};
 
 
-	//Copy data from main memory to device memory
-	errcode = clEnqueueWriteBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
+		//Copy data from main memory to device memory
+		errcode = clEnqueueWriteBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
 
-        clFinish(clCommands);
+    	clFinish(commands);
     	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SRAD Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+		END_TIMER(ocdTempTimer)
+ 		CHKERR(errcode, "Failed to enqueue write buffer!");
 
-	//Run kernels
-    errcode = clSetKernelArg(clKernel_srad1, 0, sizeof(cl_mem), (void *) &E_C);
-    errcode |= clSetKernelArg(clKernel_srad1, 1, sizeof(cl_mem), (void *) &W_C);
-    errcode |= clSetKernelArg(clKernel_srad1, 2, sizeof(cl_mem), (void *) &N_C);
-    errcode |= clSetKernelArg(clKernel_srad1, 3, sizeof(cl_mem), (void *) &S_C);
-    errcode |= clSetKernelArg(clKernel_srad1, 4, sizeof(cl_mem), (void *) &J_cuda);
-    errcode |= clSetKernelArg(clKernel_srad1, 5, sizeof(cl_mem), (void *) &C_cuda);
-    errcode |= clSetKernelArg(clKernel_srad1, 6, sizeof(int), (void *) &cols);
-    errcode |= clSetKernelArg(clKernel_srad1, 7, sizeof(int), (void *) &rows);
-    errcode |= clSetKernelArg(clKernel_srad1, 8, sizeof(float), (void *) &q0sqr);
-    CHECKERR(errcode);
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-    clFinish(clCommands);
-        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernels", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
-    errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
-    errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);
-    errcode |= clSetKernelArg(clKernel_srad2, 2, sizeof(cl_mem), (void *) &N_C);
-    errcode |= clSetKernelArg(clKernel_srad2, 3, sizeof(cl_mem), (void *) &S_C);
-    errcode |= clSetKernelArg(clKernel_srad2, 4, sizeof(cl_mem), (void *) &J_cuda);
-    errcode |= clSetKernelArg(clKernel_srad2, 5, sizeof(cl_mem), (void *) &C_cuda);
-    errcode |= clSetKernelArg(clKernel_srad2, 6, sizeof(int), (void *) &cols);
-    errcode |= clSetKernelArg(clKernel_srad2, 7, sizeof(int), (void *) &rows);
-    errcode |= clSetKernelArg(clKernel_srad2, 8, sizeof(float), (void *) &lambda);
-    errcode |= clSetKernelArg(clKernel_srad2, 9, sizeof(float), (void *) &q0sqr);
-    CHECKERR(errcode);
-    errcode = clEnqueueNDRangeKernel(clCommands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
-    clFinish(clCommands);
-	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernels", ocdTempTimer)
+		//Run kernels
+    	errcode = clSetKernelArg(clKernel_srad1, 0, sizeof(cl_mem), (void *) &E_C);
+    	errcode |= clSetKernelArg(clKernel_srad1, 1, sizeof(cl_mem), (void *) &W_C);
+    	errcode |= clSetKernelArg(clKernel_srad1, 2, sizeof(cl_mem), (void *) &N_C);
+    	errcode |= clSetKernelArg(clKernel_srad1, 3, sizeof(cl_mem), (void *) &S_C);
+    	errcode |= clSetKernelArg(clKernel_srad1, 4, sizeof(cl_mem), (void *) &J_cuda);
+    	errcode |= clSetKernelArg(clKernel_srad1, 5, sizeof(cl_mem), (void *) &C_cuda);
+    	errcode |= clSetKernelArg(clKernel_srad1, 6, sizeof(int), (void *) &cols);
+    	errcode |= clSetKernelArg(clKernel_srad1, 7, sizeof(int), (void *) &rows);
+    	errcode |= clSetKernelArg(clKernel_srad1, 8, sizeof(float), (void *) &q0sqr);
+ 		CHKERR(errcode, "Failed to set kernel arguments!");
+    	errcode = clEnqueueNDRangeKernel(commands, clKernel_srad1, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+    	clFinish(commands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad1", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
+ 		CHKERR(errcode, "Failed to enqueue kernel!");
+    	errcode = clSetKernelArg(clKernel_srad2, 0, sizeof(cl_mem), (void *) &E_C);
+    	errcode |= clSetKernelArg(clKernel_srad2, 1, sizeof(cl_mem), (void *) &W_C);
+    	errcode |= clSetKernelArg(clKernel_srad2, 2, sizeof(cl_mem), (void *) &N_C);
+    	errcode |= clSetKernelArg(clKernel_srad2, 3, sizeof(cl_mem), (void *) &S_C);
+    	errcode |= clSetKernelArg(clKernel_srad2, 4, sizeof(cl_mem), (void *) &J_cuda);
+    	errcode |= clSetKernelArg(clKernel_srad2, 5, sizeof(cl_mem), (void *) &C_cuda);
+    	errcode |= clSetKernelArg(clKernel_srad2, 6, sizeof(int), (void *) &cols);
+    	errcode |= clSetKernelArg(clKernel_srad2, 7, sizeof(int), (void *) &rows);
+    	errcode |= clSetKernelArg(clKernel_srad2, 8, sizeof(float), (void *) &lambda);
+    	errcode |= clSetKernelArg(clKernel_srad2, 9, sizeof(float), (void *) &q0sqr);
+ 		CHKERR(errcode, "Failed to set kernel arguments!");
+    	errcode = clEnqueueNDRangeKernel(commands, clKernel_srad2, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+    	clFinish(commands);
+		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Kernel srad2", ocdTempTimer)
     	END_TIMER(ocdTempTimer)
-		CHECKERR(errcode);
+ 		CHKERR(errcode, "Failed to enqueue kernel!");
 
-	//Copy data from device memory to main memory
-	errcode = clEnqueueReadBuffer(clCommands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
-        clFinish(clCommands);
-    	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SRAD Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHECKERR(errcode);
+		//Copy data from device memory to main memory
+		errcode = clEnqueueReadBuffer(commands, J_cuda, CL_TRUE, 0, sizeof(float)*size_I, (void *) J, 0, NULL, &ocdTempEvent);
+    	clFinish(commands);
+    	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "SRAD Data Copy", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
+ 		CHKERR(errcode, "Failed to enqueue read buffer!");
 
 #endif   
-}
+	}
 
 #ifdef GPU
 
-    clFinish(clCommands);
+    clFinish(commands);
 
 #endif
 
 #ifdef OUTPUT
     //Printing output	
-		printf("Printing Output:\n"); 
+	printf("Printing Output:\n"); 
     for( i = 0 ; i < rows ; i++){
 		for ( j = 0 ; j < cols ; j++){
          printf("%.5f ", J[i * cols + j]); 
@@ -389,8 +382,8 @@ errcode = clGetDeviceInfo(clDevice, CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)
     clReleaseKernel(clKernel_srad1);
     clReleaseKernel(clKernel_srad2);
     clReleaseProgram(clProgram);
-    clReleaseCommandQueue(clCommands);
-    clReleaseContext(clContext);
+    clReleaseCommandQueue(commands);
+    clReleaseContext(context);
 #endif 
 	free(c);
   
@@ -409,4 +402,3 @@ void random_matrix(float *I, int rows, int cols){
 	}
 
 }
-

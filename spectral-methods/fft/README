@@ -11,7 +11,7 @@ Note: This application belongs to the SHOC suite
 Running
 -------
 
-Usage: clfft [--2D ]
+Usage: clfft [<platform> <device> | <type> --][--2D ]
                  [--configFile value]
                  [--device n1,n2,...]
                  [--help ]
@@ -28,17 +28,19 @@ Usage: clfft [--2D ]
 Available Options: 
         --2D                     2D FFT
     -c, --configFile             specify configuration file
-    -d, --device                 specify device(s) to run on
     -h, --help                   print this usage
     -i, --infoDevices            show info for available platforms and devices
     -n, --passes                 specify number of passes
-    -p, --platform               specify OpenCL platform to use
         --pts                    data size (in megabytes)
         --pts1                   data size (in megabytes)
         --pts2                   data size (in megabytes)
     -q, --quiet                  write minimum necessary to standard output
     -s, --size                   specify problem size
     -v, --verbose                enable verbose output
+
+	<platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
 
 Example: clfft --pts 1
 

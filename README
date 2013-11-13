@@ -28,6 +28,8 @@ nw
 spmv
 srad
 swat
+bwa_hmm
+nqueens
 
 Alpha:
 astar
@@ -85,3 +87,5 @@ Defense, Harris, Los Alamos National Laboratory, and Xilinx via the NSF Center
 for High-Performance Reconfigurable Computing (CHREC) under NSF grant
 IIP-0804155 and indirectly by NSF grants CNS-0916719 and MRI-0960081.
 
+Integration for Altera FPGA support for crc and csr, as well as extensions for these
+benchmarks, have been contributed by Tyler Kenney at IBM.

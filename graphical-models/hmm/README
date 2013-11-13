@@ -1,0 +1,28 @@
+Baum-Welch Algorithm
+===============
+
+Status: Beta
+
+The Baum-Welch algorithm falls into the graphical models dwarf and has
+many applications, including bioinformatics, cryptanalysis and speech
+recognition. It makes use of the forward-backward algorithm and finds
+the unknown parameters of a hidden Markov model (HMM).
+
+Running
+-------
+
+Usage: bwa_hmm [<platform> <device> | <type> --] (see examples below for available run parameters, while keeping some parameters fixed)
+
+	<platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
+    
+Example:
+
+Vary state with fixed S = 2, T = 1000
+	$ ./bwa_hmm -n <number> -v n
+Vary symbols with fixed N = 60, T = 1000
+	$ ./bwa_hmm -s <number> -v s
+Vary observations with fixed N = 60, T = 2
+	$ ./bwa_hmm -t <number> -v t
+

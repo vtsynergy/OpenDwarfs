@@ -9,15 +9,15 @@
 #include <math.h>
 #include "../../../../include/rdtsc.h"
 #include "../../../../include/common_args.h"
-cl_device_id fftDev;
-cl_context fftCtx;
-cl_command_queue fftQueue;
+
+
 Event fftEvent("FFT");
 const char *cl_source_fft;
 int Radix1, Radix2, SI;
 static cl_kernel fftKrnl, fftKrnl1, fftKrnl2, fftKrnl0;
 static cl_program fftProg;
 static bool do_dp;
+
 void setGlobalOption(string &arg, int fftn1, int fftn2)
 {
 	cl_int err;
@@ -29,8 +29,8 @@ void setGlobalOption(string &arg, int fftn1, int fftn2)
 	int S0=SI;
 	int batchSize = (fftn2==2048) ? 16 : 512;
 	size_t wg_size[3];
-	err = clGetDeviceInfo(fftDev, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*3, &wg_size, NULL);
-	CL_CHECK_ERROR(err);
+	err = clGetDeviceInfo(device_id, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(size_t)*3, &wg_size, NULL);
+	CHKERR(err, "Failed to get device info!");
 	//	printf("wg_size: %d radixArr[0]: %d radixArr[1]: %d\n",wg_size[0],radixArr[0], radixArr[1]);
 	batchSize = (batchSize > wg_size[0]) ? wg_size[0] : batchSize;	
 	Radix1 = Radix1Arr[1];
@@ -46,6 +46,7 @@ void setGlobalOption(string &arg, int fftn1, int fftn2)
 		arg+= " -D TWIDDLE";
 	free(opt);
 }
+
 void createKernelWithSource()
 {
 	cl_int err;
@@ -64,8 +65,8 @@ void createKernelWithSource()
 		rewind(kernelFile);
 		lengthRead = fread((void *) cl_source_fft, kernelLength, 1, kernelFile);
 		fclose(kernelFile);
-		fftProg = clCreateProgramWithSource(fftCtx, 1, &cl_source_fft, &kernelLength, &err);
-		CL_CHECK_ERROR(err);
+		fftProg = clCreateProgramWithSource(context, 1, &cl_source_fft, &kernelLength, &err);
+		CHKERR(err, "Failed to create program with source!");
 
 }
 
@@ -73,8 +74,8 @@ void getLocalDimension(size_t &localsz, size_t &globalsz, int fftn1, int fftn2)
 {
 	cl_int err;
 	size_t wg_size;
-	err = clGetKernelWorkGroupInfo(fftKrnl, fftDev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wg_size, NULL);
-	CL_CHECK_ERROR(err);
+	err = clGetKernelWorkGroupInfo(fftKrnl, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wg_size, NULL);
+	CHKERR(err, "Failed to get kernel workgroup info!");
 	unsigned int radix[5];
 	unsigned int numRadix;
 	getLocalRadix(fftn1, radix, &numRadix, 0);
@@ -121,7 +122,8 @@ void getGlobalDimension(size_t  &localsz, size_t &globalsz, int BS, int n, int n
 	Radix2 = Radix2Arr[n_g];
 
 
-	err = clGetKernelWorkGroupInfo(fftKrnl, fftDev, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wg_size, NULL);
+	err = clGetKernelWorkGroupInfo(fftKrnl, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &wg_size, NULL);
+	CHKERR(err, "Failed to get kernel workgroup info!");
 
 	int batchSize = 16;
 
@@ -143,6 +145,7 @@ void getGlobalDimension(size_t  &localsz, size_t &globalsz, int BS, int n, int n
 	//	printf("globalsz: %d localsz: %d\n",globalsz,localsz);
 
 }
+
 void getLocalRadix(unsigned int n, unsigned int *radix, unsigned int *num_radix, unsigned int maxRadix)
 {
 	if(maxRadix > 1)
@@ -183,7 +186,7 @@ void getLocalRadix(unsigned int n, unsigned int *radix, unsigned int *num_radix,
 	} 
 }
 
-	void
+void
 getGlobalRadix(int n, int *radix, int *Radix1, int *Radix2, int *num_radix)
 {
 	int baseRadix = min(n, 128);
@@ -226,38 +229,15 @@ getGlobalRadix(int n, int *radix, int *Radix1, int *Radix2, int *num_radix)
 }
 
 
-	void 
+void 
 init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 {
 	cl_int err;
 		
 	do_dp = _do_dp;
 
-	if (!fftCtx) {
-		// first get the device
-		int device, platform = op.getOptionInt("platform");
-		if (op.getOptionVecInt("device").size() > 0) {
-			device = op.getOptionVecInt("device")[0];
-		}
-		else {
-			device = 0;
-		}
-#ifndef ENABLE_TIMER
-		fftDev = GetDevice(platform, device);
-#else
-		fftDev = GetDevice(PLATFORM_ID, DEVICE_ID);
-#endif 
-		// now get the context
-		fftCtx = clCreateContext(NULL, 1, &fftDev, NULL, NULL, &err);
-		CL_CHECK_ERROR(err);
-	}
-
-	if (!fftQueue) {
-		// get a queue
-		fftQueue = clCreateCommandQueue(fftCtx, fftDev, CL_QUEUE_PROFILING_ENABLE,
-				&err);
-		CL_CHECK_ERROR(err);
-	}
+	ocd_initCL();
+    
 	createKernelWithSource();
 	// ...and build it
 	string args = " -cl-mad-enable ";
@@ -270,14 +250,14 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 		char* log = NULL;
 		size_t bytesRequired = 0;
 		err = clGetProgramBuildInfo(fftProg, 
-				fftDev, 
+				device_id, 
 				CL_PROGRAM_BUILD_LOG,
 				0,
 				NULL,
 				&bytesRequired );
 		log = (char*)malloc( bytesRequired + 1 );
 		err = clGetProgramBuildInfo(fftProg, 
-				fftDev, 
+				device_id, 
 				CL_PROGRAM_BUILD_LOG,
 				bytesRequired,
 				log,
@@ -294,16 +274,16 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 	if (err != CL_SUCCESS) {
 		char log[50000];
 		size_t retsize = 0;
-		err = clGetProgramBuildInfo(fftProg, fftDev, CL_PROGRAM_BUILD_LOG,
+		err = clGetProgramBuildInfo(fftProg, device_id, CL_PROGRAM_BUILD_LOG,
 				50000*sizeof(char),  log, &retsize);
-		CL_CHECK_ERROR(err);
+		CHKERR(err, "Failed to get program build info!");
 		cout << "Retsize: " << retsize << endl;
 		cout << "Log: " << log << endl;
-		dumpPTXCode(fftCtx, fftProg, "oclFFT");
+		dumpPTXCode(context, fftProg, "oclFFT");
 		exit(-1);
 	}
 	else {
-		// dumpPTXCode(fftCtx, fftProg, "oclFFT");
+		// dumpPTXCode(context, fftProg, "oclFFT");
 	}
 	char kernel_name[20];
 	sprintf(kernel_name,"fft1D_%d",fftn1);
@@ -311,39 +291,17 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 	fftKrnl0 = clCreateKernel(fftProg, "fft0", &err);
 	fftKrnl1 = clCreateKernel(fftProg, "fft1", &err);
 	fftKrnl2 = clCreateKernel(fftProg, "fft2", &err);
-	CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to create kernels!");
 }
-	void 
+
+void 
 init(OptionParser& op, bool _do_dp, int fftn)
 {
 	cl_int err;
-		do_dp = _do_dp;
+	do_dp = _do_dp;
 
-	if (!fftCtx) {
-		// first get the device
-		int device, platform = op.getOptionInt("platform");
-		if (op.getOptionVecInt("device").size() > 0) {
-			device = op.getOptionVecInt("device")[0];
-		}
-		else {
-			device = 0;
-		}
-
-#ifndef ENABLE_TIMER
-		fftDev = GetDevice(platform, device);
-#else
-		fftDev = GetDevice(PLATFORM_ID, DEVICE_ID);
-#endif 
-		fftCtx = clCreateContext(NULL, 1, &fftDev, NULL, NULL, &err);
-		CL_CHECK_ERROR(err);
-	}
-
-	if (!fftQueue) {
-		// get a queue
-		fftQueue = clCreateCommandQueue(fftCtx, fftDev, CL_QUEUE_PROFILING_ENABLE,
-				&err);
-		CL_CHECK_ERROR(err);
-	}
+	ocd_initCL();
+	
 	createKernelWithSource();
 
 	string args = " -cl-mad-enable ";
@@ -357,14 +315,14 @@ init(OptionParser& op, bool _do_dp, int fftn)
 		char* log = NULL;
 		size_t bytesRequired = 0;
 		err = clGetProgramBuildInfo(fftProg, 
-				fftDev, 
+				device_id, 
 				CL_PROGRAM_BUILD_LOG,
 				0,
 				NULL,
 				&bytesRequired );
 		log = (char*)malloc( bytesRequired + 1 );
 		err = clGetProgramBuildInfo(fftProg, 
-				fftDev, 
+				device_id, 
 				CL_PROGRAM_BUILD_LOG,
 				bytesRequired,
 				log,
@@ -379,23 +337,23 @@ init(OptionParser& op, bool _do_dp, int fftn)
 	if (err != CL_SUCCESS) {
 		char log[50000];
 		size_t retsize = 0;
-		err = clGetProgramBuildInfo(fftProg, fftDev, CL_PROGRAM_BUILD_LOG,
+		err = clGetProgramBuildInfo(fftProg, device_id, CL_PROGRAM_BUILD_LOG,
 				50000*sizeof(char),  log, &retsize);
 		CL_CHECK_ERROR(err);
 		cout << "Retsize: " << retsize << endl;
 		cout << "Log: " << log << endl;
-		dumpPTXCode(fftCtx, fftProg, "oclFFT");
+		dumpPTXCode(context, fftProg, "oclFFT");
 		exit(-1);
 	}
 	else {
-		// dumpPTXCode(fftCtx, fftProg, "oclFFT");
+		// dumpPTXCode(context, fftProg, "oclFFT");
 	}
 	char kernel_name[20];
 	sprintf(kernel_name,"fft1D_%d",fftn);
 	fftKrnl = clCreateKernel(fftProg, kernel_name, &err);
-	CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to create kernel!");
 	fftKrnl1 = clCreateKernel(fftProg, "fft0", &err);
-	CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to create kernel!");
 }
 
 
@@ -430,22 +388,22 @@ forward(void* workp, void *temp, int n_ffts, int fftn)
 	START_KERNEL
 		if(fftn> 2048){
 			//		printf("local size0: %d global size0 %d \n",localsz0,globalsz0);
-			err = clEnqueueNDRangeKernel(fftQueue, fftKrnl1, 1, NULL, 
+			err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
 					&globalsz0, &localsz0, 0, 
 					NULL, &ocdTempEvent);
                         err = clWaitForEvents(1, &ocdTempEvent);
-                        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+                        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
 
 		}
 	//	printf("local size: %d global size %d \n",localsz,globalsz);
-	err = clEnqueueNDRangeKernel(fftQueue, fftKrnl, 1, NULL, 
+	err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
 			&globalsz, &localsz, 0, 
 			NULL, &ocdTempEvent);
         err = clWaitForEvents(1, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-		CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to enqueue kernel!");
 	END_KERNEL
 }
 
@@ -503,48 +461,48 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
         cl_event *firstEvent;
 		if(fftn1>=4096){
 			//	printf("local size0: %d global size0: %d \n",localsz0,globalsz0);
-			err = clEnqueueNDRangeKernel(fftQueue, fftKrnl0, 1, NULL,
+			err = clEnqueueNDRangeKernel(commands, fftKrnl0, 1, NULL,
 					&globalsz0, &localsz0, 0,
 					NULL, &fftEvent.CLEvent());
                         firstEvent = &fftEvent.CLEvent();
                         err = clWaitForEvents(1, &fftEvent.CLEvent());
-                        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
+                        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl0", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
-			CL_CHECK_ERROR(err);
+			CHKERR(err, "Failed to enqueue kernel!");
 		}
 
-	//	printf("local size: %d global size: %d \n",localsz,globalsz);
-	err = clEnqueueNDRangeKernel(fftQueue, fftKrnl, 1, NULL, 
+		//	printf("local size: %d global size: %d \n",localsz,globalsz);
+		err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
 			&globalsz, &localsz, 0, 
 			NULL, &fftEvent.CLEvent());
         if (fftn1<4096) firstEvent = &fftEvent.CLEvent();//inserted for dual timer support
         err = clWaitForEvents(1, &fftEvent.CLEvent());
-        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CL_CHECK_ERROR(err);
+        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
+		CHKERR(err, "Failed to wait for events!");
 
-	//	printf("local size1: %d global size1: %d \n",localsz1,globalsz1);
-	err = clEnqueueNDRangeKernel(fftQueue, fftKrnl1, 1, NULL, 
+		//	printf("local size1: %d global size1: %d \n",localsz1,globalsz1);
+		err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
 			&globalsz1, &localsz1, 0, 
 			NULL, &fftEvent.CLEvent());
         err = clWaitForEvents(1, &fftEvent.CLEvent());
-        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CL_CHECK_ERROR(err);
+        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
+		CHKERR(err, "Failed to wait for events!");
 
-	if(fftn2>128){
-		//	printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
-		err = clEnqueueNDRangeKernel(fftQueue, fftKrnl2, 1, NULL, 
+		if(fftn2>128){
+			//	printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
+			err = clEnqueueNDRangeKernel(commands, fftKrnl2, 1, NULL, 
 				&globalsz2, &localsz2, 0, 
 				NULL, &fftEvent.CLEvent());
-                err = clWaitForEvents(1, &fftEvent.CLEvent());
-                START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CL_CHECK_ERROR(err);
-	}
+            err = clWaitForEvents(1, &fftEvent.CLEvent());
+            START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl2", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			CHKERR(err, "Failed to wait for events!");
+		}
         //set a dual timer to check the entire range
         START_DUAL_TIMER(*firstEvent, fftEvent.CLEvent(), "FFT Kernels (Span)", ocdTempDualTimer)
-	END_DUAL_TIMER(ocdTempDualTimer)
+		END_DUAL_TIMER(ocdTempDualTimer)
 		END_KERNEL
 }
 
@@ -557,16 +515,16 @@ allocHostBuffer(void** bufp, unsigned long bytes)
 {
 #if 1 // pinned memory?
 	cl_int err;
-	cl_mem memobj = clCreateBuffer(fftCtx,CL_MEM_READ_WRITE|CL_MEM_ALLOC_HOST_PTR,
+	cl_mem memobj = clCreateBuffer(context,CL_MEM_READ_WRITE|CL_MEM_ALLOC_HOST_PTR,
 			bytes, NULL, &err);
-	CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to create buffer!");
 
-	*bufp = clEnqueueMapBuffer(fftQueue, memobj, true,
+	*bufp = clEnqueueMapBuffer(commands, memobj, true,
 			CL_MAP_READ|CL_MAP_WRITE,
 			0,bytes,0,NULL,NULL,&err);
 
 	memobjmap[*bufp] = memobj;
-	CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to enqueue map buffer!");
 #else
 	*bufp = malloc(bytes);
 #endif
@@ -580,7 +538,7 @@ freeHostBuffer(void* buf)
 	cl_int err;
 	cl_mem memobj = memobjmap[buf];
 	err = clReleaseMemObject(memobj);
-	CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to release memo object!");
 #else
 	free(buf);
 #endif
@@ -593,9 +551,9 @@ allocDeviceBuffer(void** objp, unsigned long bytes)
 	cl_int err;
 
 	*(cl_mem**)objp = new cl_mem;
-	**(cl_mem**)objp = clCreateBuffer(fftCtx, CL_MEM_READ_WRITE, bytes, 
+	**(cl_mem**)objp = clCreateBuffer(context, CL_MEM_READ_WRITE, bytes, 
 			NULL, &err);
-	CL_CHECK_ERROR(err);
+	CHKERR(err, "Failed to create buffer!");
 }
 
 
@@ -609,23 +567,23 @@ freeDeviceBuffer(void* buffer)
 	void
 copyToDevice(void* to_device, void* from_host, unsigned long bytes)
 {
-		cl_int err = clEnqueueWriteBuffer(fftQueue, *(cl_mem*)to_device, CL_TRUE, 
+		cl_int err = clEnqueueWriteBuffer(commands, *(cl_mem*)to_device, CL_TRUE, 
 				0, bytes, from_host, 0, NULL, &ocdTempEvent);
-                clFinish(fftQueue);
+                clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "FFT Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-		CL_CHECK_ERROR(err);
+		END_TIMER(ocdTempTimer)
+		CHKERR(err, "Failed to enqueue write buffer!");
 }
 
 
 	void
 copyFromDevice(void* to_host, void* from_device, unsigned long bytes)
 {
-		cl_int err = clEnqueueReadBuffer(fftQueue, *(cl_mem*)from_device, CL_TRUE, 
+		cl_int err = clEnqueueReadBuffer(commands, *(cl_mem*)from_device, CL_TRUE, 
 				0, bytes, to_host, 0, NULL, &ocdTempEvent);
-                clFinish(fftQueue);
+                clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "FFT Data Copy", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-		CL_CHECK_ERROR(err);
+		END_TIMER(ocdTempTimer)
+		CHKERR(err, "Failed to enqueue read buffer!");
 }
 
