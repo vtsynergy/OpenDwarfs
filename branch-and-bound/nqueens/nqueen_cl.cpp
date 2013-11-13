@@ -140,7 +140,7 @@ void NQueenSolver::InitKernels(int i, int block_size)
 	}
 
 	// load program
-	std::ifstream in("kernels.cl");
+	std::ifstream in("kernels_nqueens.cl");
 	in.seekg(0, std::ios_base::end);
 	std::ifstream::pos_type size = in.tellg();
 	in.seekg(0, std::ios_base::beg);

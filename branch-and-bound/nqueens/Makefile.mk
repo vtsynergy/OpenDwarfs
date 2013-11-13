@@ -13,7 +13,7 @@ all_local += nqueens-all-local
 exec_local += nqueens-exec-local
 
 nqueens-all-local:
-	cp $(top_srcdir)/branch-and-bound/nqueens/kernels.cl .
+	cp $(top_srcdir)/branch-and-bound/nqueens/kernels_nqueens.cl .
 
 nqueens-exec-local:
-	cp $(top_srcdir)/branch-and-bound/nqueens/kernels.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/branch-and-bound/nqueens/kernels_nqueens.cl ${DESTDIR}${bindir}
