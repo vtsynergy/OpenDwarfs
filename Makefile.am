@@ -142,9 +142,9 @@ define run_dwarf_test
 	elif [ $(1) = "nw" ]; then \
 	echo "Running nw..."; \
 	./needle -p $(platform_n) -d $(device_n) -t $(device_t) -- 2048 10; \
-	##elif [ $(1) = "swat" ]; then \
-	##echo "Running swat..."; \
-	##./swat -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/dynamic-programming/swat/query1K1 ../../test/dynamic-programming/swat/sampledb1K1; \
+	elif [ $(1) = "swat" ]; then \
+	echo "Running swat..."; \
+	./swat -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/dynamic-programming/swat/query1K1 ../test/dynamic-programming/swat/sampledb1K1; \
 	elif [ $(1) = "srad" ]; then \
 	echo "Running srad..."; \
 	./srad -p $(platform_n) -d $(device_n) -t $(device_t) -- 256 256 0 127 0 127 0.5 2; \
