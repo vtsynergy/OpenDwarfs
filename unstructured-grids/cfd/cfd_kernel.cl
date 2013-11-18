@@ -78,7 +78,7 @@ __kernel void compute_flux(int nelr, __global int* elements_surrounding_elements
 
 	float density_energy_i = variables[i + VAR_DENSITY_ENERGY*nelr];
 
-	float3 velocity_i            		   = compute_velocity(density_i, momentum_i, &velocity_i);
+	float3 velocity_i;            		   compute_velocity(density_i, momentum_i, &velocity_i);
 	float speed_sqd_i                          = compute_speed_sqd(velocity_i);
 	float speed_i                              = sqrt(speed_sqd_i);
 	float pressure_i                           = compute_pressure(density_i, density_energy_i, speed_sqd_i);
