@@ -35,96 +35,96 @@ using namespace std;
  * the surface from the .vert and .tri files --jcg */
 extern "C" int open_pqr_run_msms(partitioned_open_struct *open_dat)
 {
-   /* local variables */
-   /*******************/
+	/* local variables */
+	/*******************/
 
-   /* various filenames */
-   string tempstr1,
-          tempstr2;
+	/* various filenames */
+	string tempstr1,
+	       tempstr2;
 
-   /* sanity check */
-   if (open_dat == NULL) return 0;
+	/* sanity check */
+	if (open_dat == NULL) return 0;
 
-   /* initialize open_dat to sanely return errors */
-   /***********************************************/
-   open_dat->residues = NULL;
-   open_dat->nresidues = 0;
-   open_dat->tri = NULL;
-   open_dat->ntri = 0;
-   open_dat->vert = NULL;
-   open_dat->nvert = 0;
+	/* initialize open_dat to sanely return errors */
+	/***********************************************/
+	open_dat->residues = NULL;
+	open_dat->nresidues = 0;
+	open_dat->tri = NULL;
+	open_dat->ntri = 0;
+	open_dat->vert = NULL;
+	open_dat->nvert = 0;
 
-   /* read in atom locations from the pqr file */
-   /********************************************/
-   tempstr1 = open_dat->molname;
-   open_dat->nresidues = read_pqr((char *)tempstr1.c_str(), &(open_dat->residues));
+	/* read in atom locations from the pqr file */
+	/********************************************/
+	tempstr1 = open_dat->molname;
+	open_dat->nresidues = read_pqr((char *)tempstr1.c_str(), &(open_dat->residues));
 
-   if (open_dat->nresidues == 0)
-   {
-      tempstr1 += ".pqr";
-      open_dat->nresidues = read_pqr((char *)tempstr1.c_str(), &(open_dat->residues));
+	if (open_dat->nresidues == 0)
+	{
+		tempstr1 += ".pqr";
+		open_dat->nresidues = read_pqr((char *)tempstr1.c_str(), &(open_dat->residues));
 
-      if (open_dat->nresidues == 0)
-      {
-         cout << "Error, no pqr file named either "
-              << open_dat->molname<<" or "<<tempstr1<<endl;
-         return 0;
-      }
-   }
-      
-   fflush(stderr);
-   fflush(stdout);
+		if (open_dat->nresidues == 0)
+		{
+			cout << "Error, no pqr file named either "
+				<< open_dat->molname<<" or "<<tempstr1<<endl;
+			return 0;
+		}
+	}
 
-   /* come up with the surface */
-   /****************************/
-   tempstr1 = open_dat->molname;
+	fflush(stderr);
+	fflush(stdout);
 
-   if (!runMsms
-        (
-          (char *)tempstr1.c_str(),
-          open_dat->residues,
-          open_dat->nresidues,
-          open_dat->triDens,
-          open_dat->probeRadius
-        ))
-     {
-        cout<<"Warning: GEM needs the MSMS_EXECUTABLE_PATH environment"
-            <<"variable to be set in order to run msms directly."
-            <<"searching for precomputed surfaces..."<<endl;
-      
-         /* read the surface */
-         /********************/
-         read_msms_output
-            (
-               (char *)tempstr1.c_str(),
-               &(open_dat->vert),
-               &(open_dat->tri),
-               &(open_dat->nvert),
-               &(open_dat->ntri)
-            );
+	/* come up with the surface */
+	/****************************/
+	tempstr1 = open_dat->molname;
 
-         if ((open_dat->nvert > 0) || (open_dat->vert == NULL))
-         {
-            cout<<"Found precomputed surfaces, continuing."<<endl;
-         }
-         else
-         {
-            cerr<<"ERROR, could not find precomputed surfaces."<<endl;
-            return 0;
-         }
-      }
-      else
-      {
-         read_msms_output
-           (
-              (char *)tempstr1.c_str(),
-              &(open_dat->vert),
-              &(open_dat->tri),
-              &(open_dat->nvert),
-              &(open_dat->ntri)
-           );
+	if (!runMsms
+			(
+			 (char *)tempstr1.c_str(),
+			 open_dat->residues,
+			 open_dat->nresidues,
+			 open_dat->triDens,
+			 open_dat->probeRadius
+			))
+	{
+		cout<<"Warning: GEM needs the MSMS_EXECUTABLE_PATH environment"
+			<<"variable to be set in order to run msms directly."
+			<<"searching for precomputed surfaces..."<<endl;
 
-      }
-      
-      return (((open_dat->nvert < 1) || (open_dat->vert == NULL))?0:1);
+		/* read the surface */
+		/********************/
+		read_msms_output
+			(
+			 (char *)tempstr1.c_str(),
+			 &(open_dat->vert),
+			 &(open_dat->tri),
+			 &(open_dat->nvert),
+			 &(open_dat->ntri)
+			);
+
+		if ((open_dat->nvert > 0) || (open_dat->vert == NULL))
+		{
+			cout<<"Found precomputed surfaces, continuing."<<endl;
+		}
+		else
+		{
+			cerr<<"ERROR, could not find precomputed surfaces."<<endl;
+			return 0;
+		}
+	}
+	else
+	{
+		read_msms_output
+			(
+			 (char *)tempstr1.c_str(),
+			 &(open_dat->vert),
+			 &(open_dat->tri),
+			 &(open_dat->nvert),
+			 &(open_dat->ntri)
+			);
+
+	}
+
+	return (((open_dat->nvert < 1) || (open_dat->vert == NULL))?0:1);
 }

@@ -12,9 +12,9 @@
 //extern int printf(constant char *format, ...);
 
 void compute_flux_contribution(__private float* density, __private float3* momentum, __private float* density_energy,
-                                    float pressure, __private float3* velocity,
-                                    __private float3* fc_momentum_x, __private float3* fc_momentum_y, __private float3* fc_momentum_z,
-                                    __private float3* fc_density_energy)
+		float pressure, __private float3* velocity,
+		__private float3* fc_momentum_x, __private float3* fc_momentum_y, __private float3* fc_momentum_z,
+		__private float3* fc_density_energy)
 {
 	(*fc_momentum_x).x = (*velocity).x*(*momentum).x + pressure;
 	(*fc_momentum_x).y = (*velocity).x*(*momentum).y;
@@ -58,10 +58,10 @@ float compute_pressure(float density, float density_energy, float speed_sqd)
 }
 
 __kernel void compute_flux(int nelr, __global int* elements_surrounding_elements,
-    __global float* normals, __global float* variables, __global float* fc_momentum_x,
-    __global float* fc_momentum_y, __global float* fc_momentum_z, __global float* fc_density_energy,
-    __global float* fluxes, __global float* ff_variable, __global float3* ff_fc_momentum_x, __global float3* ff_fc_momentum_y,
-    __global float3* ff_fc_momentum_z, __global float3* ff_fc_density_energy)
+		__global float* normals, __global float* variables, __global float* fc_momentum_x,
+		__global float* fc_momentum_y, __global float* fc_momentum_z, __global float* fc_density_energy,
+		__global float* fluxes, __global float* ff_variable, __global float3* ff_fc_momentum_x, __global float3* ff_fc_momentum_y,
+		__global float3* ff_fc_momentum_z, __global float3* ff_fc_density_energy)
 {
 	const float smoothing_coefficient = 0.2f;
 	const int i = get_global_id(0);
@@ -78,7 +78,7 @@ __kernel void compute_flux(int nelr, __global int* elements_surrounding_elements
 
 	float density_energy_i = variables[i + VAR_DENSITY_ENERGY*nelr];
 
-	float3 velocity_i;             				compute_velocity(density_i, momentum_i, &velocity_i);
+	float3 velocity_i            		   = compute_velocity(density_i, momentum_i, &velocity_i);
 	float speed_sqd_i                          = compute_speed_sqd(velocity_i);
 	float speed_i                              = sqrt(speed_sqd_i);
 	float pressure_i                           = compute_pressure(density_i, density_energy_i, speed_sqd_i);
@@ -131,7 +131,7 @@ __kernel void compute_flux(int nelr, __global int* elements_surrounding_elements
 			momentum_nb.y = variables[nb + (VAR_MOMENTUM+1)*nelr];
 			momentum_nb.z = variables[nb + (VAR_MOMENTUM+2)*nelr];
 			density_energy_nb = variables[nb + VAR_DENSITY_ENERGY*nelr];
-												compute_velocity(density_nb, momentum_nb, &velocity_nb);
+			compute_velocity(density_nb, momentum_nb, &velocity_nb);
 			speed_sqd_nb                      = compute_speed_sqd(velocity_nb);
 			pressure_nb                       = compute_pressure(density_nb, density_energy_nb, speed_sqd_nb);
 			speed_of_sound_nb                 = compute_speed_of_sound(density_nb, pressure_nb);
@@ -222,7 +222,7 @@ __kernel void compute_flux(int nelr, __global int* elements_surrounding_elements
 }
 
 __kernel void compute_flux_contributions(int nelr, __global float* variables, __global float* fc_momentum_x,
-    __global float* fc_momentum_y, __global float* fc_momentum_z, __global float* fc_density_energy)
+		__global float* fc_momentum_y, __global float* fc_momentum_z, __global float* fc_density_energy)
 {
 	const int i = get_global_id(0);
 
@@ -298,5 +298,5 @@ __kernel void initialize_variables(int nelr, __global float* variables, __global
 {
 	unsigned int i = get_global_id(0);
 	for(int j = 0; j < NVAR; j++)
-        variables[i + j*nelr] = ff_variable[j];
+		variables[i + j*nelr] = ff_variable[j];
 }

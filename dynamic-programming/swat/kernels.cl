@@ -3,10 +3,10 @@
 #define __THREAD_FENCE_USED__
 
 typedef struct {
-    int nposi, nposj;
-    int nmaxpos;
-    float fmaxscore;
-    int noutputlen;
+	int nposi, nposj;
+	int nmaxpos;
+	float fmaxscore;
+	int noutputlen;
 }   MAX_INFO;
 
 #define PATH_END 0
@@ -16,45 +16,45 @@ typedef struct {
 //Input: Local thread idx in a block, goal value
 void __barrier_opencl_lock_based(int localID, int goalValue, volatile __global int *g_mutexOpencl)
 {
-    int tid = localID; 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+	int tid = localID; 
+	barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 
 #ifdef __THREAD_FENCE_USED__
-    write_mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
-    //other options
-    //read_mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
-    //mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+	write_mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+	//other options
+	//read_mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+	//mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 #endif
 
-    if (tid == 0)
-    {
-        atom_add(g_mutexOpencl, 1);
-        mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
-        while (atom_add(g_mutexOpencl,0) < goalValue)
-        { }
-    }
+	if (tid == 0)
+	{
+		atom_add(g_mutexOpencl, 1);
+		mem_fence(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+		while (atom_add(g_mutexOpencl,0) < goalValue)
+		{ }
+	}
 
-    barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+	barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
 }
 
 __kernel void  MatchStringGPUSync(__global char  *pathFlag,
-								  __global char  *extFlag,
-								  __global float *nGapDist,
-								  __global float *hGapDist,
-								  __global float *vGapDist,
-								  __global int   *diffPos,
-								  __global int   *threadNum,
-								  int            rowNum,
-								  int            columnNum,
-								  __global char  *seq1,
-								  __global char  *seq2,
-								  int            blosumWidth,
-								  float          openPenalty,
-								  float          extensionPenalty,
-								  __global MAX_INFO *maxInfo,
-								  __global float *blosum62D,
-								  volatile __global int *mutexMem/*,
-								  __local int* temp*/)
+		__global char  *extFlag,
+		__global float *nGapDist,
+		__global float *hGapDist,
+		__global float *vGapDist,
+		__global int   *diffPos,
+		__global int   *threadNum,
+		int            rowNum,
+		int            columnNum,
+		__global char  *seq1,
+		__global char  *seq2,
+		int            blosumWidth,
+		float          openPenalty,
+		float          extensionPenalty,
+		__global MAX_INFO *maxInfo,
+		__global float *blosum62D,
+		volatile __global int *mutexMem/*,
+						 __local int* temp*/)
 {
 	int npos, ntablepos, tid;
 	int npreposngap, npreposhgap, npreposvgap;
@@ -102,7 +102,7 @@ __kernel void  MatchStringGPUSync(__global char  *pathFlag,
 			indexj = indexj1 + tid;
 
 			npos = startPos + tid;
-		
+
 			npreposhgap = npos - diffPos[launchNo];
 			npreposvgap = npreposhgap - 1;
 			npreposngap = npreposvgap - diffPos[launchNo - 1];
@@ -173,7 +173,7 @@ __kernel void  MatchStringGPUSync(__global char  *pathFlag,
 				maxInfo[threadid].fmaxscore = fmaxdist;
 			}
 		}
-		
+
 		//GPU synchronization
 		__barrier_opencl_lock_based(nLocalID, (launchNo - 1) * blockNum, mutexMem);
 		startPos += diffPos[launchNo + 1] + noffset;
@@ -181,21 +181,21 @@ __kernel void  MatchStringGPUSync(__global char  *pathFlag,
 }
 
 __kernel void trace_back2(__global char *str_npathflagp,
-						  __global char *str_nExtFlagp,
-						  __global int  *ndiffpos,
-						  __global char *instr1D,
-						  __global char *instr2D,
-						  __global char *outstr1,
-						  __global char *outstr2,
-						  __global MAX_INFO * strMaxInfop,
-						  int mfThreadNum)
+		__global char *str_nExtFlagp,
+		__global int  *ndiffpos,
+		__global char *instr1D,
+		__global char *instr2D,
+		__global char *outstr1,
+		__global char *outstr2,
+		__global MAX_INFO * strMaxInfop,
+		int mfThreadNum)
 {
 	int i, j;
 	int npos, maxPos, nlen;
 	int npathflag;
 	int nlaunchno;
 	float maxScore;
-	
+
 	maxPos = 0;
 	maxScore = strMaxInfop[0].fmaxscore;
 	for (i = 1; i < mfThreadNum; i++)
@@ -312,12 +312,12 @@ __kernel void trace_back2(__global char *str_npathflagp,
 }
 
 __kernel void setZero(__global char *a,
-                      int arraySize)
+		int arraySize)
 {
-    unsigned int index = get_global_id(0);
-    if (index < arraySize)
-    {
-        a[index] = 0;
-    }
+	unsigned int index = get_global_id(0);
+	if (index < arraySize)
+	{
+		a[index] = 0;
+	}
 }
 

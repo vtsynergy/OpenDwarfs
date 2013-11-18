@@ -37,71 +37,71 @@
  *                                                                          *
  ****************************************************************************/
 int extract_statistics(residue *res, int nres, vertx *vert, int nvert, 
-                        float x[3], float y[3], float z[3], float vp[3], float vc[3])
+		float x[3], float y[3], float z[3], float vp[3], float vc[3])
 {
-  /* local variables */
-  int i; 
-  double potential_sum;
+	/* local variables */
+	int i; 
+	double potential_sum;
 
-  if ((res == NULL) || (vert == NULL) || (nvert < 3))
-  {
-     /* have to initialize xyz bounds for scales to not be 0 */
-     x[MIN] = y[MIN] = z[MIN] = -1;
-     x[MAX] = y[MAX] = z[MAX] =  1;
-     return 0;
-  }
+	if ((res == NULL) || (vert == NULL) || (nvert < 3))
+	{
+		/* have to initialize xyz bounds for scales to not be 0 */
+		x[MIN] = y[MIN] = z[MIN] = -1;
+		x[MAX] = y[MAX] = z[MAX] =  1;
+		return 0;
+	}
 
-  /* else */
+	/* else */
 
-  /* reinitialize to the zeroth element */
-  vp[MIN] = vp[MAX] = vert[0].potential;
-  vc[MIN] = vc[MAX] = vert[0].surface_charge;
-  x[MIN]  = x[MAX]  = vert[0].x;
-  y[MIN]  = y[MAX]  = vert[0].y;
-  z[MIN]  = z[MAX]  = vert[0].z;
+	/* reinitialize to the zeroth element */
+	vp[MIN] = vp[MAX] = vert[0].potential;
+	vc[MIN] = vc[MAX] = vert[0].surface_charge;
+	x[MIN]  = x[MAX]  = vert[0].x;
+	y[MIN]  = y[MAX]  = vert[0].y;
+	z[MIN]  = z[MAX]  = vert[0].z;
 
-  potential_sum = vert[0].potential*vert[0].potential;
- 
-  /* seek through and grab our values */
-  for (i = 1; i < nvert; i++)
-  {
-     potential_sum += vert[i].potential*vert[i].potential;
+	potential_sum = vert[0].potential*vert[0].potential;
 
-     /* total potential bounds */
-     if (vp[MIN] > vert[i].potential)
-        vp[MIN] = vert[i].potential;
-     else if (vp[MAX] < vert[i].potential)
-        vp[MAX] = vert[i].potential;
+	/* seek through and grab our values */
+	for (i = 1; i < nvert; i++)
+	{
+		potential_sum += vert[i].potential*vert[i].potential;
 
-     /* total charge bounds */
-     if (vc[MIN] > vert[i].surface_charge)
-        vc[MIN] = vert[i].surface_charge;
-     else if (vc[MAX] < vert[i].surface_charge)
-        vc[MAX] = vert[i].surface_charge;
-   
-     /* check x bounds */
-     if (x[MIN] > vert[i].x)
-        x[MIN] = vert[i].x;
-     else if (x[MAX] < vert[i].x)
-        x[MAX] = vert[i].x;
-   
-     /* check y bounds */
-     if (y[MIN] > vert[i].y)
-        y[MIN] = vert[i].y;
-     else if (y[MAX] < vert[i].y)
-        y[MAX] = vert[i].y;
-   
-     /* check z bounds */
-     if (z[MIN] > vert[i].z)
-        z[MIN] = vert[i].z;
-     else if (z[MAX] < vert[i].z)
-        z[MAX] = vert[i].z;
-   
-   } /* end for (i < nvert) */
+		/* total potential bounds */
+		if (vp[MIN] > vert[i].potential)
+			vp[MIN] = vert[i].potential;
+		else if (vp[MAX] < vert[i].potential)
+			vp[MAX] = vert[i].potential;
 
-   potential_sum /= nvert;
+		/* total charge bounds */
+		if (vc[MIN] > vert[i].surface_charge)
+			vc[MIN] = vert[i].surface_charge;
+		else if (vc[MAX] < vert[i].surface_charge)
+			vc[MAX] = vert[i].surface_charge;
 
-   printf("RMSD of total phi values is %f\n", sqrt(potential_sum));
-   
-   return 1;
+		/* check x bounds */
+		if (x[MIN] > vert[i].x)
+			x[MIN] = vert[i].x;
+		else if (x[MAX] < vert[i].x)
+			x[MAX] = vert[i].x;
+
+		/* check y bounds */
+		if (y[MIN] > vert[i].y)
+			y[MIN] = vert[i].y;
+		else if (y[MAX] < vert[i].y)
+			y[MAX] = vert[i].y;
+
+		/* check z bounds */
+		if (z[MIN] > vert[i].z)
+			z[MIN] = vert[i].z;
+		else if (z[MAX] < vert[i].z)
+			z[MAX] = vert[i].z;
+
+	} /* end for (i < nvert) */
+
+	potential_sum /= nvert;
+
+	printf("RMSD of total phi values is %f\n", sqrt(potential_sum));
+
+	return 1;
 } /* end extract statistics function */

@@ -30,10 +30,10 @@
 
 uchar big_endian (void)
 {
-  union {long l; uchar c[sizeof(long)]; } u;
+	union {long l; uchar c[sizeof(long)]; } u;
 
-  u.l = 1;
-  return (u.c[sizeof(long) -1]);
+	u.l = 1;
+	return (u.c[sizeof(long) -1]);
 }
 
 /***********************************************************************
@@ -51,73 +51,73 @@ uchar big_endian (void)
  *                                                                     *
  ***********************************************************************/
 static void radix (ushort byte, ushort keyloc, ushort member_size,
-                   ulong members, void *source, void *dest)
+		ulong members, void *source, void *dest)
 {
-/* local variables */
-/* count will be an accumulation array (serving as an index for each list) */
-ulong count[256];
+	/* local variables */
+	/* count will be an accumulation array (serving as an index for each list) */
+	ulong count[256];
 
-ulong   sum, /* sum for summing elements into the accumulation buffer */
-        c,   /* character value for summing into accumulation buffer  */
-      *cp,   /* count position (offset into count array)              */
-        i;   /* counter for various loops */
+	ulong   sum, /* sum for summing elements into the accumulation buffer */
+		c,   /* character value for summing into accumulation buffer  */
+		*cp,   /* count position (offset into count array)              */
+		i;   /* counter for various loops */
 
-uchar *sp, /* source pointer      */
-      *dp; /* destination pointer */
+	uchar *sp, /* source pointer      */
+	      *dp; /* destination pointer */
 
-uchar *bp, /* byte pointer for our byte by which we are sorting */
-      *src  = (uchar *) source,
-      *dst  = (uchar *) dest;
+	uchar *bp, /* byte pointer for our byte by which we are sorting */
+	      *src  = (uchar *) source,
+	      *dst  = (uchar *) dest;
 
-/* fewer increment operations than memset and no function overhead */
-   cp = count;
-   for (i = 256; i > 0; --i, ++cp)
-      *cp = 0; /* initialize count array to 0 */
+	/* fewer increment operations than memset and no function overhead */
+	cp = count;
+	for (i = 256; i > 0; --i, ++cp)
+		*cp = 0; /* initialize count array to 0 */
 
-/* count occurences of every byte value */
-/****************************************/
+	/* count occurences of every byte value */
+	/****************************************/
 
-   /* sort by the byte at "byte" into the key at "keyloc" into the elem */
-   bp = src + keyloc + byte;
-   for (i = members; i > 0; --i, bp += member_size)
-   {
-      ++count[*bp];
-   }
+	/* sort by the byte at "byte" into the key at "keyloc" into the elem */
+	bp = src + keyloc + byte;
+	for (i = members; i > 0; --i, bp += member_size)
+	{
+		++count[*bp];
+	}
 
-/*
- * transform count into index by summing elements 
- *********************************************************************
- * this may seem like a strange way to pass through
- * an array to some people, but typical array dereferences
- * cost more time than this becuase they do "base + count*elem_size"
- * which is significantly more work per index than what we are doing
- * here.
- */
-   sum = 0; /* initialize sum to 0 */
-   cp = count;
-   for (i = 0; i < 256; ++i, ++cp)
-   {
-      c = *cp;
-      *cp = sum;
-      sum += c;
-   }
+	/*
+	 * transform count into index by summing elements 
+	 *********************************************************************
+	 * this may seem like a strange way to pass through
+	 * an array to some people, but typical array dereferences
+	 * cost more time than this becuase they do "base + count*elem_size"
+	 * which is significantly more work per index than what we are doing
+	 * here.
+	 */
+	sum = 0; /* initialize sum to 0 */
+	cp = count;
+	for (i = 0; i < 256; ++i, ++cp)
+	{
+		c = *cp;
+		*cp = sum;
+		sum += c;
+	}
 
-/* fill dest with the right values in the right place */
-/******************************************************/
+	/* fill dest with the right values in the right place */
+	/******************************************************/
 
-   /* byte pointer to index into the count array */
-   bp = src + keyloc + byte;
-   sp = src;
-   for (i = members; i > 0; --i, bp += member_size, sp += member_size)
-   {
-      cp = count + *bp;
+	/* byte pointer to index into the count array */
+	bp = src + keyloc + byte;
+	sp = src;
+	for (i = members; i > 0; --i, bp += member_size, sp += member_size)
+	{
+		cp = count + *bp;
 
-      dp = dst + ((*cp) * member_size);
+		dp = dst + ((*cp) * member_size);
 
-      memcpy(dp, sp, member_size);
+		memcpy(dp, sp, member_size);
 
-      ++(*cp);
-   }
+		++(*cp);
+	}
 }
 
 /***********************************************************************
@@ -136,43 +136,43 @@ uchar *bp, /* byte pointer for our byte by which we are sorting */
  ***********************************************************************/
 void radix_sort (ushort keylen, ushort keyloc, ushort m_size, ulong members, void *to_sort)
 {
-/* local variables */
-void *temp = malloc (members * m_size);
-void *src, *swp, *tmp;
-short i, start, end;
-short increment;
+	/* local variables */
+	void *temp = malloc (members * m_size);
+	void *src, *swp, *tmp;
+	short i, start, end;
+	short increment;
 
-   assert (temp != NULL);
+	assert (temp != NULL);
 
-   src = to_sort;
-   tmp = temp;
+	src = to_sort;
+	tmp = temp;
 
-   if (big_endian())
-   {
-     start = keylen-1;
-     end = -1;
-     increment = -1;
-   }
-   else
-   {
-     start = 0;
-     end = keylen;
-     increment = 1;
-   }
+	if (big_endian())
+	{
+		start = keylen-1;
+		end = -1;
+		increment = -1;
+	}
+	else
+	{
+		start = 0;
+		end = keylen;
+		increment = 1;
+	}
 
-   for (i = start; i != end; i+=increment)
-   {
-        radix (i, keyloc, m_size, members, src, tmp);
+	for (i = start; i != end; i+=increment)
+	{
+		radix (i, keyloc, m_size, members, src, tmp);
 
-        swp = tmp;
-        tmp = src;
-        src = swp;
-   }
+		swp = tmp;
+		tmp = src;
+		src = swp;
+	}
 
-   if ((keylen % 2) != 0)
-   {
-      memcpy (to_sort, temp, members * m_size);
-   }
+	if ((keylen % 2) != 0)
+	{
+		memcpy (to_sort, temp, members * m_size);
+	}
 
-   free (temp);
+	free (temp);
 }

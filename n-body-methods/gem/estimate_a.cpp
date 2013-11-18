@@ -13,7 +13,7 @@
 ////////////////////////////////////////////////////////////////////////////
 
 
- 
+
 // Brief algorithm: First, the moments of inertia of the molecule are
 // calculated. If the program is run without second parameter or, which is the
 // same, with second parameter being "-det", the electrostatic size is found
@@ -74,76 +74,76 @@ int debug = 0;	// this setting (default) suppresses all warnings; call with key 
 extern "C" double estimate_A (residue *residues, int nresidues)
 {
 
-   double  x, y, z, r2, r3; /* r^3 (an estimate of atomic mass) */
+	double  x, y, z, r2, r3; /* r^3 (an estimate of atomic mass) */
 
 	long long i, j;
 
 	double xav = 0., yav = 0., zav = 0., // center-of-mass coordinates
-		molecule_mass = 0., atom_mass;
+	       molecule_mass = 0., atom_mass;
 
-    for (i = 0; i < nresidues; i++)
-    {
-       for (j = 0; j<residues[i].natoms; j++)
-       {
-         r3 = residues[i].atoms[j].radius;
-         r3 *= r3*r3;
+	for (i = 0; i < nresidues; i++)
+	{
+		for (j = 0; j<residues[i].natoms; j++)
+		{
+			r3 = residues[i].atoms[j].radius;
+			r3 *= r3*r3;
 
-		   xav += residues[i].atoms[j].x * r3; 	// atom's "mass" is simply r^3
-		   yav += residues[i].atoms[j].y * r3; 
-		   zav += residues[i].atoms[j].z * r3;
-		   molecule_mass += r3;
-	    }
-    }
-	
+			xav += residues[i].atoms[j].x * r3; 	// atom's "mass" is simply r^3
+			yav += residues[i].atoms[j].y * r3; 
+			zav += residues[i].atoms[j].z * r3;
+			molecule_mass += r3;
+		}
+	}
+
 	xav /= molecule_mass;	// now it's the center
 	yav /= molecule_mass;
 	zav /= molecule_mass;
-	
+
 	double x2, y2, z2, atoms_MI;
 	double I11 = 0., I12 = 0., I13 = 0., I22 = 0., I23 = 0., I33 = 0.;
 
-   for (i = 0; i < nresidues; i++)
-   {
-	   for (j=0; j<residues[i].natoms; j++)	// calculating the moments of inertia
-	   {
-         r2 = residues[i].atoms[j].radius;
-         r2 *= r2;
-         r3 = r2 * residues[i].atoms[j].radius;
+	for (i = 0; i < nresidues; i++)
+	{
+		for (j=0; j<residues[i].natoms; j++)	// calculating the moments of inertia
+		{
+			r2 = residues[i].atoms[j].radius;
+			r2 *= r2;
+			r3 = r2 * residues[i].atoms[j].radius;
 
-		   atom_mass = r3;
+			atom_mass = r3;
 
-		   atoms_MI = r2 / 5.;	// half atom's moment of ineria about diameter (will be added twice!)
+			atoms_MI = r2 / 5.;	// half atom's moment of ineria about diameter (will be added twice!)
 
-         x = residues[i].atoms[j].x - xav;
-         y = residues[i].atoms[j].y - yav;
-         z = residues[i].atoms[j].z - zav;
-		   
-		   x2 = x * x + atoms_MI;
-		   y2 = y * y + atoms_MI;
-		   z2 = z * z + atoms_MI;
-		   
-		   I11 += atom_mass * (y2 + z2);
-		   I22 += atom_mass * (z2 + x2);
-		   I33 += atom_mass * (x2 + y2);
-		   
-		   I12 -= atom_mass * x * y;		// atoms' moments do not contribute 
-		   I13 -= atom_mass * x * z;		// because of symmetry
-		   I23 -= atom_mass * y * z;
-	   }
-   }
-	
+			x = residues[i].atoms[j].x - xav;
+			y = residues[i].atoms[j].y - yav;
+			z = residues[i].atoms[j].z - zav;
+
+			x2 = x * x + atoms_MI;
+			y2 = y * y + atoms_MI;
+			z2 = z * z + atoms_MI;
+
+			I11 += atom_mass * (y2 + z2);
+			I22 += atom_mass * (z2 + x2);
+			I33 += atom_mass * (x2 + y2);
+
+			I12 -= atom_mass * x * y;		// atoms' moments do not contribute 
+			I13 -= atom_mass * x * z;		// because of symmetry
+			I23 -= atom_mass * y * z;
+		}
+	}
+
 	if (debug)
 	{
 		printf("Original tensor of inertia: %12.4g %12.4g %12.4g\n", I11, I12, I13);
 		printf("                            %12.4g %12.4g %12.4g\n", I12, I22, I23);
 		printf("                            %12.4g %12.4g %12.4g\n", I13, I23, I33);
 	}
-	
-   // a determinant code
+
+	// a determinant code
 	double det_I = I11 * I22 * I33 + 2. * I12 * I23 * I13 - I11 * I23 * I23  - I22 * I13 * I13 - I33 * I12 * I12;
 	if (det_I <= 0.)
 	{
-	 	cout << "Problem with the determinant of the tensor of intertia: " << endl;
+		cout << "Problem with the determinant of the tensor of intertia: " << endl;
 		printf("Det I = %g\n", det_I);
 	}
 	return sqrt( 2.5 / molecule_mass ) * pow( det_I, 1./6. );

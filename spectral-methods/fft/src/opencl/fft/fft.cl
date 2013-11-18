@@ -568,9 +568,9 @@ __kernel void fft1D_256(__global T2 *in)
 	ii = local_id & 31;
 	jj = local_id >> 5;
 	if( jj == 0){
-	offset = mad24( mad24(group_id, 2, jj), 256, ii );
-	in += offset;
-	globalLoads8(a, in, 32);}
+		offset = mad24( mad24(group_id, 2, jj), 256, ii );
+		in += offset;
+		globalLoads8(a, in, 32);}
 	FFT8(a);
 	twiddle8(a, ii, 256);
 	Local_store = smem + mad24(jj, 272, ii);
@@ -607,9 +607,9 @@ __kernel void fft1D_128(__global T2 *in)
 	ii = local_id & 15;
 	jj = local_id >> 4;
 	if( jj == 0){
-	offset = mad24( mad24(group_id, 4, jj), 128, ii );
-	in += offset;
-	globalLoads8(a, in, 16);}
+		offset = mad24( mad24(group_id, 4, jj), 128, ii );
+		in += offset;
+		globalLoads8(a, in, 16);}
 	FFT8(a);
 	twiddle8(a, ii, 128);
 	Local_store = smem + mad24(jj, 144, ii);

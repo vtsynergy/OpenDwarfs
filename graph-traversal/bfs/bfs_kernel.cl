@@ -1,19 +1,19 @@
 typedef struct
 {
-    int starting;
-    int no_of_edges;
+	int starting;
+	int no_of_edges;
 }Node;
 
 __kernel void kernel1(__global const Node* g_graph_nodes,
-	              __global int* g_graph_edges,
-	              __global int* g_graph_mask,
-	              __global int* g_updating_graph_mask,
-	              __global int* g_graph_visited,
-	              __global int* g_cost,
-	              int no_of_nodes) 
+		__global int* g_graph_edges,
+		__global int* g_graph_mask,
+		__global int* g_updating_graph_mask,
+		__global int* g_graph_visited,
+		__global int* g_cost,
+		int no_of_nodes) 
 {
-    	unsigned int tid = get_global_id(0);
-	
+	unsigned int tid = get_global_id(0);
+
 	if(tid < no_of_nodes && g_graph_mask[tid] != 0)
 	{
 		g_graph_mask[tid] = 0;
@@ -31,10 +31,10 @@ __kernel void kernel1(__global const Node* g_graph_nodes,
 }
 
 __kernel void kernel2(__global int* g_graph_mask,
-	              __global int* g_updating_graph_mask,
-		      __global int* g_graph_visited,
-		      __global int* g_over,
-		      int no_of_nodes)
+		__global int* g_updating_graph_mask,
+		__global int* g_graph_visited,
+		__global int* g_over,
+		int no_of_nodes)
 {
 	unsigned int tid = get_global_id(0);
 	if(tid < no_of_nodes && g_updating_graph_mask[tid] == 1)

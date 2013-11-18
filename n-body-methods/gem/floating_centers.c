@@ -50,72 +50,72 @@
  ***************************************************************************/
 vertx floating_center (double A, vertx center, residue *residues, int nres)
 {
-  /* local variables */
-  int i, j, navg;
-  double dist, avg_x=0, avg_y=0, avg_z=0;
-  double xdiff, ydiff, zdiff;
-  vertx to_return;
+	/* local variables */
+	int i, j, navg;
+	double dist, avg_x=0, avg_y=0, avg_z=0;
+	double xdiff, ydiff, zdiff;
+	vertx to_return;
 
-  double comp_dist = max_R_mult2*A*A;
+	double comp_dist = max_R_mult2*A*A;
 
-  for (navg = i = 0; i < nres; i++)
-  {
+	for (navg = i = 0; i < nres; i++)
+	{
 
-     /* for each residue, find out if the bounding cube falls
-        within the radius of search before searching the residue. */
-     xdiff = min(fabs(center.x - residues[i].x[0]),
-             fabs(center.x - residues[i].x[1]));
+		/* for each residue, find out if the bounding cube falls
+		   within the radius of search before searching the residue. */
+		xdiff = min(fabs(center.x - residues[i].x[0]),
+				fabs(center.x - residues[i].x[1]));
 
-     ydiff = min(fabs(center.x - residues[i].x[0]),
-             fabs(center.x - residues[i].x[1]));
+		ydiff = min(fabs(center.x - residues[i].x[0]),
+				fabs(center.x - residues[i].x[1]));
 
-     zdiff = min(fabs(center.x - residues[i].x[0]),
-             fabs(center.x - residues[i].x[1]));
+		zdiff = min(fabs(center.x - residues[i].x[0]),
+				fabs(center.x - residues[i].x[1]));
 
-     dist = xdiff*xdiff + ydiff*ydiff + zdiff*zdiff;
+		dist = xdiff*xdiff + ydiff*ydiff + zdiff*zdiff;
 
-     if (dist < comp_dist)
-     {
-        for (j = 0; j < residues[i].natoms; j++)
-        {
-           xdiff = residues[i].atoms[j].x - center.x;
-           ydiff = residues[i].atoms[j].y - center.y;
-           zdiff = residues[i].atoms[j].z - center.z;
-      
-           dist = xdiff*xdiff + ydiff*ydiff + zdiff*zdiff;
-        
-           if (dist <= comp_dist)
-           {
-              avg_x += residues[i].atoms[j].x;
-              avg_y += residues[i].atoms[j].y;
-              avg_z += residues[i].atoms[j].z;
-              navg ++;
-           }
-        } /* end for atoms in the residue */
-     } /* end if (cube is within radius) */
-  }/* end for (natoms) */
+		if (dist < comp_dist)
+		{
+			for (j = 0; j < residues[i].natoms; j++)
+			{
+				xdiff = residues[i].atoms[j].x - center.x;
+				ydiff = residues[i].atoms[j].y - center.y;
+				zdiff = residues[i].atoms[j].z - center.z;
 
-  /* average them */
-  if (navg > 0)
-  {
-     avg_x /= (double)navg;
-     avg_y /= (double)navg;
-     avg_z /= (double)navg;
-  }
-  else
-  {
-     avg_x = 0.;
-     avg_y = 0.;
-     avg_z = 0.;
-  }
-  
-  /* set the vertex to return */
-  to_return.x = avg_x;
-  to_return.y = avg_y;
-  to_return.z = avg_z;
+				dist = xdiff*xdiff + ydiff*ydiff + zdiff*zdiff;
 
-  /* return the answer */
-  return to_return;
+				if (dist <= comp_dist)
+				{
+					avg_x += residues[i].atoms[j].x;
+					avg_y += residues[i].atoms[j].y;
+					avg_z += residues[i].atoms[j].z;
+					navg ++;
+				}
+			} /* end for atoms in the residue */
+		} /* end if (cube is within radius) */
+	}/* end for (natoms) */
+
+	/* average them */
+	if (navg > 0)
+	{
+		avg_x /= (double)navg;
+		avg_y /= (double)navg;
+		avg_z /= (double)navg;
+	}
+	else
+	{
+		avg_x = 0.;
+		avg_y = 0.;
+		avg_z = 0.;
+	}
+
+	/* set the vertex to return */
+	to_return.x = avg_x;
+	to_return.y = avg_y;
+	to_return.z = avg_z;
+
+	/* return the answer */
+	return to_return;
 
 } /* end function (floating_center) */
 #endif

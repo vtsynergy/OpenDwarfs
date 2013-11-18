@@ -59,14 +59,14 @@ void createKernelWithSource()
 		printf("kernel file do not exist!");
 		exit(0);}
 
-		fseek(kernelFile, 0, SEEK_END);
-		kernelLength = (size_t) ftell(kernelFile);
-		cl_source_fft = (const char *) malloc(sizeof(char)*kernelLength);
-		rewind(kernelFile);
-		lengthRead = fread((void *) cl_source_fft, kernelLength, 1, kernelFile);
-		fclose(kernelFile);
-		fftProg = clCreateProgramWithSource(context, 1, &cl_source_fft, &kernelLength, &err);
-		CHKERR(err, "Failed to create program with source!");
+	fseek(kernelFile, 0, SEEK_END);
+	kernelLength = (size_t) ftell(kernelFile);
+	cl_source_fft = (const char *) malloc(sizeof(char)*kernelLength);
+	rewind(kernelFile);
+	lengthRead = fread((void *) cl_source_fft, kernelLength, 1, kernelFile);
+	fclose(kernelFile);
+	fftProg = clCreateProgramWithSource(context, 1, &cl_source_fft, &kernelLength, &err);
+	CHKERR(err, "Failed to create program with source!");
 
 }
 
@@ -186,7 +186,7 @@ void getLocalRadix(unsigned int n, unsigned int *radix, unsigned int *num_radix,
 	} 
 }
 
-void
+	void
 getGlobalRadix(int n, int *radix, int *Radix1, int *Radix2, int *num_radix)
 {
 	int baseRadix = min(n, 128);
@@ -229,15 +229,15 @@ getGlobalRadix(int n, int *radix, int *Radix1, int *Radix2, int *num_radix)
 }
 
 
-void 
+	void 
 init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 {
 	cl_int err;
-		
+
 	do_dp = _do_dp;
 
 	ocd_initCL();
-    
+
 	createKernelWithSource();
 	// ...and build it
 	string args = " -cl-mad-enable ";
@@ -294,14 +294,14 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 	CHKERR(err, "Failed to create kernels!");
 }
 
-void 
+	void 
 init(OptionParser& op, bool _do_dp, int fftn)
 {
 	cl_int err;
 	do_dp = _do_dp;
 
 	ocd_initCL();
-	
+
 	createKernelWithSource();
 
 	string args = " -cl-mad-enable ";
@@ -391,19 +391,19 @@ forward(void* workp, void *temp, int n_ffts, int fftn)
 			err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
 					&globalsz0, &localsz0, 0, 
 					NULL, &ocdTempEvent);
-                        err = clWaitForEvents(1, &ocdTempEvent);
-                        START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
-			END_TIMER(ocdTempTimer)
+			err = clWaitForEvents(1, &ocdTempEvent);
+			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+				END_TIMER(ocdTempTimer)
 
 		}
 	//	printf("local size: %d global size %d \n",localsz,globalsz);
 	err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
 			&globalsz, &localsz, 0, 
 			NULL, &ocdTempEvent);
-        err = clWaitForEvents(1, &ocdTempEvent);
+	err = clWaitForEvents(1, &ocdTempEvent);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "FFT Kernels fftKrnl", ocdTempTimer)
-	END_TIMER(ocdTempTimer)
-	CHKERR(err, "Failed to enqueue kernel!");
+		END_TIMER(ocdTempTimer)
+		CHKERR(err, "Failed to enqueue kernel!");
 	END_KERNEL
 }
 
@@ -457,53 +457,53 @@ forward2(void* workp, void* temp, int n_ffts, int fftn1, int fftn2)
 
 	}
 	START_KERNEL
-                //Use a dual timer composed of single timers
-        cl_event *firstEvent;
-		if(fftn1>=4096){
-			//	printf("local size0: %d global size0: %d \n",localsz0,globalsz0);
-			err = clEnqueueNDRangeKernel(commands, fftKrnl0, 1, NULL,
-					&globalsz0, &localsz0, 0,
-					NULL, &fftEvent.CLEvent());
-                        firstEvent = &fftEvent.CLEvent();
-                        err = clWaitForEvents(1, &fftEvent.CLEvent());
-                        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl0", ocdTempTimer)
-			END_TIMER(ocdTempTimer)
-			CHKERR(err, "Failed to enqueue kernel!");
-		}
+		//Use a dual timer composed of single timers
+		cl_event *firstEvent;
+	if(fftn1>=4096){
+		//	printf("local size0: %d global size0: %d \n",localsz0,globalsz0);
+		err = clEnqueueNDRangeKernel(commands, fftKrnl0, 1, NULL,
+				&globalsz0, &localsz0, 0,
+				NULL, &fftEvent.CLEvent());
+		firstEvent = &fftEvent.CLEvent();
+		err = clWaitForEvents(1, &fftEvent.CLEvent());
+		START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl0", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
+		CHKERR(err, "Failed to enqueue kernel!");
+	}
 
-		//	printf("local size: %d global size: %d \n",localsz,globalsz);
-		err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
+	//	printf("local size: %d global size: %d \n",localsz,globalsz);
+	err = clEnqueueNDRangeKernel(commands, fftKrnl, 1, NULL, 
 			&globalsz, &localsz, 0, 
 			NULL, &fftEvent.CLEvent());
-        if (fftn1<4096) firstEvent = &fftEvent.CLEvent();//inserted for dual timer support
-        err = clWaitForEvents(1, &fftEvent.CLEvent());
-        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Failed to wait for events!");
+	if (fftn1<4096) firstEvent = &fftEvent.CLEvent();//inserted for dual timer support
+	err = clWaitForEvents(1, &fftEvent.CLEvent());
+	START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	CHKERR(err, "Failed to wait for events!");
 
-		//	printf("local size1: %d global size1: %d \n",localsz1,globalsz1);
-		err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
+	//	printf("local size1: %d global size1: %d \n",localsz1,globalsz1);
+	err = clEnqueueNDRangeKernel(commands, fftKrnl1, 1, NULL, 
 			&globalsz1, &localsz1, 0, 
 			NULL, &fftEvent.CLEvent());
-        err = clWaitForEvents(1, &fftEvent.CLEvent());
-        START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Failed to wait for events!");
+	err = clWaitForEvents(1, &fftEvent.CLEvent());
+	START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl1", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	CHKERR(err, "Failed to wait for events!");
 
-		if(fftn2>128){
-			//	printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
-			err = clEnqueueNDRangeKernel(commands, fftKrnl2, 1, NULL, 
+	if(fftn2>128){
+		//	printf("local size2: %d global size2: %d \n",localsz2,globalsz2);
+		err = clEnqueueNDRangeKernel(commands, fftKrnl2, 1, NULL, 
 				&globalsz2, &localsz2, 0, 
 				NULL, &fftEvent.CLEvent());
-            err = clWaitForEvents(1, &fftEvent.CLEvent());
-            START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl2", ocdTempTimer)
-			END_TIMER(ocdTempTimer)
-			CHKERR(err, "Failed to wait for events!");
-		}
-        //set a dual timer to check the entire range
-        START_DUAL_TIMER(*firstEvent, fftEvent.CLEvent(), "FFT Kernels (Span)", ocdTempDualTimer)
-		END_DUAL_TIMER(ocdTempDualTimer)
-		END_KERNEL
+		err = clWaitForEvents(1, &fftEvent.CLEvent());
+		START_TIMER(fftEvent.CLEvent(), OCD_TIMER_KERNEL, "FFT Kernels fftKrnl2", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
+		CHKERR(err, "Failed to wait for events!");
+	}
+	//set a dual timer to check the entire range
+	START_DUAL_TIMER(*firstEvent, fftEvent.CLEvent(), "FFT Kernels (Span)", ocdTempDualTimer)
+	END_DUAL_TIMER(ocdTempDualTimer)
+	END_KERNEL
 }
 
 
@@ -567,23 +567,23 @@ freeDeviceBuffer(void* buffer)
 	void
 copyToDevice(void* to_device, void* from_host, unsigned long bytes)
 {
-		cl_int err = clEnqueueWriteBuffer(commands, *(cl_mem*)to_device, CL_TRUE, 
-				0, bytes, from_host, 0, NULL, &ocdTempEvent);
-                clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "FFT Data Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Failed to enqueue write buffer!");
+	cl_int err = clEnqueueWriteBuffer(commands, *(cl_mem*)to_device, CL_TRUE, 
+			0, bytes, from_host, 0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "FFT Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	CHKERR(err, "Failed to enqueue write buffer!");
 }
 
 
 	void
 copyFromDevice(void* to_host, void* from_device, unsigned long bytes)
 {
-		cl_int err = clEnqueueReadBuffer(commands, *(cl_mem*)from_device, CL_TRUE, 
-				0, bytes, to_host, 0, NULL, &ocdTempEvent);
-                clFinish(commands);
-		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "FFT Data Copy", ocdTempTimer)
-		END_TIMER(ocdTempTimer)
-		CHKERR(err, "Failed to enqueue read buffer!");
+	cl_int err = clEnqueueReadBuffer(commands, *(cl_mem*)from_device, CL_TRUE, 
+			0, bytes, to_host, 0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "FFT Data Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	CHKERR(err, "Failed to enqueue read buffer!");
 }
 

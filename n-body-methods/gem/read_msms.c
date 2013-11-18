@@ -41,151 +41,151 @@
  **************************************************************************/
 void read_msms_output(char *molname, vertx **vertices, triangle **triangles, int *nvert, int *nface)
 {
-   /* local variables */
-   FILE *fp; /* the file pointer to the vertex file */
+	/* local variables */
+	FILE *fp; /* the file pointer to the vertex file */
 
-   double mag;
-   char line[MSMS_LINE_SIZE]; /* a line in the input file to read */
+	double mag;
+	char line[MSMS_LINE_SIZE]; /* a line in the input file to read */
 
-   int  i,         /* counter for iterations */
-        ierr,      /* the number of things read in a sscanf or scanf        */
-        nv,
-        nt;
+	int  i,         /* counter for iterations */
+	     ierr,      /* the number of things read in a sscanf or scanf        */
+	     nv,
+	     nt;
 
-   vertx  *vertex;
-   triangle *tri;
+	vertx  *vertex;
+	triangle *tri;
 
-   *vertices = NULL;
-   *triangles = NULL;
-   *nvert = *nface = 0;
+	*vertices = NULL;
+	*triangles = NULL;
+	*nvert = *nface = 0;
 
-   /* Open the vert file */
-   strcpy(line, molname);
-   strcat(line, ".vert");
-   fp = fopen(line,"r");
-   if (!fp) 
-   {
-      fprintf(stderr, "Error: could not open file %s\n", line);
-      return;
-   }
+	/* Open the vert file */
+	strcpy(line, molname);
+	strcat(line, ".vert");
+	fp = fopen(line,"r");
+	if (!fp) 
+	{
+		fprintf(stderr, "Error: could not open file %s\n", line);
+		return;
+	}
 
-   /* Have a look at the header records in the vertex file.          */
-   /* I suspect that the 2nd line should be parsed to determine the  */
-   /* actual file contents, but the current documentation doesn't    */
-   /* indicate what other items might be on the line.  So for now    */
-   /* I'll assume that it must contain the number of vertices as the */
-   /* first item on the line.                                        */
-   if ((fgets( line, MSMS_LINE_SIZE, fp ) == NULL) ||
-       (fgets( line, MSMS_LINE_SIZE, fp ) == NULL) ||
-       (fgets( line, MSMS_LINE_SIZE, fp ) == NULL)) {
-       fprintf(stderr, "Error: unable to read from file\n");
-       return;
-   }
-   sscanf( line, "%d %d", &nv, &ierr);
+	/* Have a look at the header records in the vertex file.          */
+	/* I suspect that the 2nd line should be parsed to determine the  */
+	/* actual file contents, but the current documentation doesn't    */
+	/* indicate what other items might be on the line.  So for now    */
+	/* I'll assume that it must contain the number of vertices as the */
+	/* first item on the line.                                        */
+	if ((fgets( line, MSMS_LINE_SIZE, fp ) == NULL) ||
+			(fgets( line, MSMS_LINE_SIZE, fp ) == NULL) ||
+			(fgets( line, MSMS_LINE_SIZE, fp ) == NULL)) {
+		fprintf(stderr, "Error: unable to read from file\n");
+		return;
+	}
+	sscanf( line, "%d %d", &nv, &ierr);
 
-   /* allocate the vertex array */
-   vertex = (vertx *)calloc(nv, sizeof(vertx));
+	/* allocate the vertex array */
+	vertex = (vertx *)calloc(nv, sizeof(vertx));
 
-   /* check for errors */
-   if(vertex == NULL)
-   {
-      fprintf(stderr, "Error, too many vertices to process on this machine\n");
-      return;
-   }
+	/* check for errors */
+	if(vertex == NULL)
+	{
+		fprintf(stderr, "Error, too many vertices to process on this machine\n");
+		return;
+	}
 
-   for (i=0; i< nv; i++)
-   {
-       if (fgets( line, MSMS_LINE_SIZE, fp ) == NULL) {
-           fprintf(stderr, "Error: unable to read from file\n");
-           return;
-       }
-      ierr = sscanf
-             (
-                 line,
-                 "%f %f %f %f %f %f %*d %d %*f", /* this is the full format of the line */
-                 &vertex[i].x,
-                 &vertex[i].y,
-                 &vertex[i].z,
-                 &vertex[i].xNorm,
-                 &vertex[i].yNorm,
-                 &vertex[i].zNorm,
-                 &vertex[i].nearest_atom
-             );
+	for (i=0; i< nv; i++)
+	{
+		if (fgets( line, MSMS_LINE_SIZE, fp ) == NULL) {
+			fprintf(stderr, "Error: unable to read from file\n");
+			return;
+		}
+		ierr = sscanf
+			(
+			 line,
+			 "%f %f %f %f %f %f %*d %d %*f", /* this is the full format of the line */
+			 &vertex[i].x,
+			 &vertex[i].y,
+			 &vertex[i].z,
+			 &vertex[i].xNorm,
+			 &vertex[i].yNorm,
+			 &vertex[i].zNorm,
+			 &vertex[i].nearest_atom
+			);
 
-      /* make sure normals are unit normals */
-      mag = dist(vertex[i].xNorm, vertex[i].yNorm, vertex[i].zNorm, 0., 0., 0.);
+		/* make sure normals are unit normals */
+		mag = dist(vertex[i].xNorm, vertex[i].yNorm, vertex[i].zNorm, 0., 0., 0.);
 
-      vertex[i].xNorm /= mag;
-      vertex[i].yNorm /= mag;
-      vertex[i].zNorm /= mag;
+		vertex[i].xNorm /= mag;
+		vertex[i].yNorm /= mag;
+		vertex[i].zNorm /= mag;
 
-      /* MSMS starts with 1 instead of 0 */
-      vertex[i].nearest_atom -= 1;
+		/* MSMS starts with 1 instead of 0 */
+		vertex[i].nearest_atom -= 1;
 
-      if (ierr != 7)
-      {
-         fprintf(stderr, "Error reading vertex %d", i);
-         free(vertex);
-         return;
-      }
+		if (ierr != 7)
+		{
+			fprintf(stderr, "Error reading vertex %d", i);
+			free(vertex);
+			return;
+		}
 
-    }/* end for (nv) loop */
+	}/* end for (nv) loop */
 
-    /* close the vertex file */
-    fclose(fp);
+	/* close the vertex file */
+	fclose(fp);
 
-    strcpy(line, molname);
-    strcat(line, ".face");
-    fp = fopen(line,"r");
+	strcpy(line, molname);
+	strcat(line, ".face");
+	fp = fopen(line,"r");
 
-    /* read header information */
-    if ((fgets(line, MSMS_LINE_SIZE, fp) == NULL) ||
-        (fgets(line, MSMS_LINE_SIZE, fp) == NULL) ||
-        (fgets(line, MSMS_LINE_SIZE, fp) == NULL)) {
-        fprintf(stderr, "Error: unable to read from file\n");
-        return;
-    }
-    sscanf(line, "%d", &nt);
+	/* read header information */
+	if ((fgets(line, MSMS_LINE_SIZE, fp) == NULL) ||
+			(fgets(line, MSMS_LINE_SIZE, fp) == NULL) ||
+			(fgets(line, MSMS_LINE_SIZE, fp) == NULL)) {
+		fprintf(stderr, "Error: unable to read from file\n");
+		return;
+	}
+	sscanf(line, "%d", &nt);
 
-    /* allocate our triangles here */
-    tri = (triangle *)calloc(nt, sizeof(triangle));
+	/* allocate our triangles here */
+	tri = (triangle *)calloc(nt, sizeof(triangle));
 
-    /* now start reading triangles */
-    for (i = 0; i < nt; i++)
-    {
-        if (fgets(line, MSMS_LINE_SIZE, fp) == NULL) {
-            fprintf(stderr, "Error: unable to read from file\n");
-            return;
-        }
-       ierr = sscanf(line,"%d %d %d %*d %*d", &tri[i].v[0], &tri[i].v[1], &tri[i].v[2]);
+	/* now start reading triangles */
+	for (i = 0; i < nt; i++)
+	{
+		if (fgets(line, MSMS_LINE_SIZE, fp) == NULL) {
+			fprintf(stderr, "Error: unable to read from file\n");
+			return;
+		}
+		ierr = sscanf(line,"%d %d %d %*d %*d", &tri[i].v[0], &tri[i].v[1], &tri[i].v[2]);
 
-       tri[i].v[0]--;
-       tri[i].v[1]--;
-       tri[i].v[2]--;
+		tri[i].v[0]--;
+		tri[i].v[1]--;
+		tri[i].v[2]--;
 
-       if (ierr != 3) /* check for errors while reading */
-       {
-          fprintf(stderr, "Error reading from face file %s.face\n", molname);
-          free(vertex);
-          free(tri);
-          return;
-       }
+		if (ierr != 3) /* check for errors while reading */
+		{
+			fprintf(stderr, "Error reading from face file %s.face\n", molname);
+			free(vertex);
+			free(tri);
+			return;
+		}
 
-       /* assign each triangle a nearest atom in a logical way */
-       tri[i].nearest_atom = vertex[tri[i].v[0]].nearest_atom;
-    
-    } /* end for (i < nt) */
+		/* assign each triangle a nearest atom in a logical way */
+		tri[i].nearest_atom = vertex[tri[i].v[0]].nearest_atom;
 
-    /* set output pointers to data retrieved */
-    *nvert = nv;
-    *nface = nt;
-    *triangles = tri;
-    *vertices = vertex;
+	} /* end for (i < nt) */
 
-    printf("Molecular surface consists of %i vertices and %i triangles.\n", *nvert, *nface);
-    fflush(stdout);
+	/* set output pointers to data retrieved */
+	*nvert = nv;
+	*nface = nt;
+	*triangles = tri;
+	*vertices = vertex;
 
-    /* close the face file */
-    fclose(fp);
+	printf("Molecular surface consists of %i vertices and %i triangles.\n", *nvert, *nface);
+	fflush(stdout);
+
+	/* close the face file */
+	fclose(fp);
 
 }/* end read_msms function */

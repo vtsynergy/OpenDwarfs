@@ -23,15 +23,15 @@
    [p0,dim0][p0,dim1][p0,dim2] ... 
    [p1,dim0][p1,dim1][p1,dim2] ... 
    [p2,dim0][p2,dim1][p2,dim2] ... 
-										to
+   to
    [dim0,p0][dim0,p1][dim0,p2] ...
    [dim1,p0][dim1,p1][dim1,p2] ...
    [dim2,p0][dim2,p1][dim2,p2] ...
-*/
+ */
 __kernel void invert_mapping(__global float *input,			/* original */
-							   __global float *output,			/* inverted */
-							   int npoints,				/* npoints */
-							   int nfeatures)			/* nfeatures */
+		__global float *output,			/* inverted */
+		int npoints,				/* npoints */
+		int nfeatures)			/* nfeatures */
 {
 	int point_id = get_local_id(0) + get_local_size(0)*get_group_id(0);	/* id of thread */
 	int i;
@@ -51,28 +51,28 @@ __kernel void invert_mapping(__global float *input,			/* original */
 
 /* ----------------- kmeansPoint() --------------------- */
 /* find the index of nearest cluster centers and change membership*/
-__kernel void
+	__kernel void
 kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
-            __global float  *features_flipped,
-            int     nfeatures,
-            int     npoints,
-            int     nclusters,
-            __global int    *membership,
-			__constant float  *clusters
+		__global float  *features_flipped,
+		int     nfeatures,
+		int     npoints,
+		int     nclusters,
+		__global int    *membership,
+		__constant float  *clusters
 #ifdef GPU_NEW_CENTER_REDUCTION
-            , __global float  *block_clusters
+		, __global float  *block_clusters
 #endif
 #ifdef GPU_DELTA_REDUCTION
-            , __global int    *block_deltas
+		, __global int    *block_deltas
 #endif
-            ) 
+	   ) 
 {
 
 	// block ID
 	const unsigned int block_id = get_num_groups(0)*get_group_id(1)+get_group_id(0);
 	// point/thread ID  
 	const unsigned int point_id = block_id*get_local_size(0)*get_local_size(1) + get_local_id(0);
-  
+
 	int  index = -1;
 
 	if (point_id < npoints)
@@ -80,7 +80,7 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 		int i, j;
 		float min_dist = FLT_MAX;
 		float dist;													/* distance square between a point to cluster center */
-		
+
 		/* find the cluster center id with min distance to pt */
 		for (i=0; i<nclusters; i++) {
 			int cluster_base_index = i*nfeatures;					/* base index of cluster centers for inverted array */			
@@ -90,23 +90,23 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 			{					
 				int addr = point_id + j*npoints;					/* appropriate index of data point */
 				float diff = (features[addr] -
-							  clusters[cluster_base_index + j]);	/* distance between a data point to cluster centers */
+						clusters[cluster_base_index + j]);	/* distance between a data point to cluster centers */
 				ans += diff*diff;									/* sum of squares */
 			}
 			dist = ans;		
 
 			/* see if distance is smaller than previous ones:
-			if so, change minimum distance and save index of cluster center */
+			   if so, change minimum distance and save index of cluster center */
 			if (dist < min_dist) {
 				min_dist = dist;
 				index    = i;
 			}
 		}
 	}
-	
+
 
 #ifdef GPU_DELTA_REDUCTION
-    // count how many points are now closer to a different cluster center	
+	// count how many points are now closer to a different cluster center	
 	__local int deltas[THREADS_PER_BLOCK];
 	if(get_local_id(0) < THREADS_PER_BLOCK) {
 		deltas[get_local_id(0)] = 0;
@@ -132,18 +132,18 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 	// primitve reduction follows
 	unsigned int threadids_participating = THREADS_PER_BLOCK / 2;
 	for(;threadids_participating > 1; threadids_participating /= 2) {
-   		if(get_local_id(0) < threadids_participating) {
+		if(get_local_id(0) < threadids_participating) {
 			deltas[get_local_id(0)] += deltas[get_local_id(0) + threadids_participating];
 		}
-   		barrier(CLK_LOCAL_MEM_FENCE);
+		barrier(CLK_LOCAL_MEM_FENCE);
 	}
 	if(get_local_id(0) < 1)	{deltas[get_local_id(0)] += deltas[get_local_id(0) + 1];}
 	barrier(CLK_LOCAL_MEM_FENCE);
-		// propagate number of changes to global counter
+	// propagate number of changes to global counter
 	if(get_local_id(0) == 0) {
 		block_deltas[get_group_id(1) * get_num_groups(0) + get_group_id(0)] = deltas[0];
 		//printf("original id: %d, modified: %d\n", get_group_id(1)*get_num_groups(0)+get_group_id(0), get_group_id(0));
-		
+
 	}
 
 #endif
@@ -159,10 +159,10 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 	barrier(CLK_LOCAL_MEM_FENCE);
 
 	/***
-	determine which dimension calculte the sum for
-	mapping of threads is
-	center0[dim0,dim1,dim2,...]center1[dim0,dim1,dim2,...]...
-	***/ 	
+	  determine which dimension calculte the sum for
+	  mapping of threads is
+	  center0[dim0,dim1,dim2,...]center1[dim0,dim1,dim2,...]...
+	 ***/ 	
 
 	int new_base_index = (point_id - get_local_id(0))*nfeatures + dim_id;
 	float accumulator = 0.f;
@@ -174,12 +174,12 @@ kmeansPoint(__global float  *features,			/* in: [npoints*nfeatures] */
 			if(new_center_ids[i] == center_id) 
 				accumulator += val;
 		}
-	
+
 		// now store the sum for this threadblock
 		/***
-		mapping to global array is
-		block0[center0[dim0,dim1,dim2,...]center1[dim0,dim1,dim2,...]...]block1[...]...
-		***/
+		  mapping to global array is
+		  block0[center0[dim0,dim1,dim2,...]center1[dim0,dim1,dim2,...]...]block1[...]...
+		 ***/
 		block_clusters[(get_group_id(1)*get_num_groups(0) + get_group_id(0)) * nclusters * nfeatures + get_local_id(0)] = accumulator;
 	}
 #endif

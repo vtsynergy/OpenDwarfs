@@ -43,56 +43,56 @@
  ****************************************************************************/
 int runMsms (char *molname, residue *residues, int nres, double tri_per_A, double probe_size)
 {
-   /* local variables */
-   int  size, len;
-   char *fname;
-   char *run;
-   char *msms_exec;
-   char density[64];
-   char probe_radius[64];
+	/* local variables */
+	int  size, len;
+	char *fname;
+	char *run;
+	char *msms_exec;
+	char density[64];
+	char probe_radius[64];
 
-   /* allocates memory */
-   msms_exec = getenv("MSMS_EXECUTABLE_PATH");
+	/* allocates memory */
+	msms_exec = getenv("MSMS_EXECUTABLE_PATH");
 
-   if (msms_exec == NULL)
-   {
-      return 0;
-   }
+	if (msms_exec == NULL)
+	{
+		return 0;
+	}
 
-   /* new memory */
-   len = strlen(molname);
-   fname = (char *)calloc(len + 6, sizeof(char));
+	/* new memory */
+	len = strlen(molname);
+	fname = (char *)calloc(len + 6, sizeof(char));
 
-   sprintf(fname, "%s.xyzr", molname);
-   sprintf(density, "%2.2f", tri_per_A);
-   sprintf(probe_radius, "%2.2f", probe_size);
+	sprintf(fname, "%s.xyzr", molname);
+	sprintf(density, "%2.2f", tri_per_A);
+	sprintf(probe_radius, "%2.2f", probe_size);
 
-   write_xyzr(fname, residues, nres);
+	write_xyzr(fname, residues, nres);
 
-   /* new memory */
-   size = strlen(msms_exec) + 56 + 2*len + strlen(density) + strlen(probe_radius);
+	/* new memory */
+	size = strlen(msms_exec) + 56 + 2*len + strlen(density) + strlen(probe_radius);
 
-   run = (char *)calloc(size, sizeof(char));
+	run = (char *)calloc(size, sizeof(char));
 
-   sprintf
-     (
-        run,
-        "%s -if %s -of %s -de %s -probe_radius %s -no_area >/dev/null",
-        msms_exec,
-        fname,
-        molname,
-        density,
-        probe_radius
-     );
-   printf("running MSMS with command: %s\n", run);
-   fflush(stdout);
+	sprintf
+		(
+		 run,
+		 "%s -if %s -of %s -de %s -probe_radius %s -no_area >/dev/null",
+		 msms_exec,
+		 fname,
+		 molname,
+		 density,
+		 probe_radius
+		);
+	printf("running MSMS with command: %s\n", run);
+	fflush(stdout);
 
-   if (system(run) < 0)
-       return 0;
+	if (system(run) < 0)
+		return 0;
 
-   /* free up new memory */
-   free(fname);
-   free(run);
+	/* free up new memory */
+	free(fname);
+	free(run);
 
-   return 1;
+	return 1;
 }

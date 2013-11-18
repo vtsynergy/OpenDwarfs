@@ -2,10 +2,10 @@
 #include "functions.h"
 
 int preProcessing(int rowNum,
-				   int columnNum,
-				   int *threadNum,
-				   int *diffPos,
-				   int& matrixIniElem)
+		int columnNum,
+		int *threadNum,
+		int *diffPos,
+		int& matrixIniElem)
 {
 	int launchNum = rowNum + columnNum - 1;
 	int launchNo;
@@ -14,7 +14,7 @@ int preProcessing(int rowNum,
 	int coalescedOffset = COALESCED_OFFSET;
 	int startPos;
 	int nOffset;
-	
+
 	nOffset = 0;
 	startPos = coalescedOffset;
 	threadPerLaunch = 1;

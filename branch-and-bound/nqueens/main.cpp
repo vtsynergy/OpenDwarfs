@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 
 	ocd_init(&argc, &argv, NULL);
 	ocd_initCL();
-	
+
 	std::cerr << "N-Queen solver for OpenCL\n";
 	std::cerr << "Ping-Che Chen\n\n";
 	if(argc < 2) {
@@ -184,15 +184,15 @@ int main(int argc, char** argv)
 
 		//if(device_index >= 0 && device_index < devices.size()) {
 		//	cl_device_id device_id = devices[device_index];
-			devices.clear();
-			devices.resize(1);
-			devices[0] = device_id;
+		devices.clear();
+		devices.resize(1);
+		devices[0] = device_id;
 		//}
-		
+
 		//context and devices[0]=device_id are now as gotten from ocd_initCL();
 		//ocd_initCL(); has also return the commands command queue.
-		
-		
+
+
 		try {
 			NQueenSolver nqueen(context, devices, profiling, threads, block_size, local, noatomics, novec, use_vec4);
 			//std::cerr << "Number of devices:" << devices.size() << "\n";
@@ -255,7 +255,7 @@ int main(int argc, char** argv)
 
 	std::cerr << board_size << "-queen has " << solutions << " solutions (" << unique_solutions << " unique)\n";
 	//std::cerr << "Time used: " << std::setprecision(3) << static_cast<double>(end_time - start_time) / CLOCKS_PER_SEC << "s\n";
-	
+
 	ocd_finalize();
 	return 0;
 }

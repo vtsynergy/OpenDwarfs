@@ -28,15 +28,15 @@ enum
 
 int ffs(int x)
 {
-    int count;
-    int var = 1;
-    for(count = 1; count <= 32; count++)
-    {
-        if(x & var)
-            return count;
-        var = var << 1;
-    }
-    return 0;
+	int count;
+	int var = 1;
+	for(count = 1; count <= 32; count++)
+	{
+		if(x & var)
+			return count;
+		var = var << 1;
+	}
+	return 0;
 }
 
 void addToList(__local float* values, unsigned int* sizes, unsigned int listIdx, float newValue )
@@ -61,10 +61,10 @@ void clearLists( unsigned int* sizes, const int level )
 //! @param g_idata  input data in global memory
 //! @param g_odata  output data in global memory
 ////////////////////////////////////////////////////////////////////////////////
-__kernel void
+	__kernel void
 countCandidates(__global float* episodeSupport, long eventSize, int level, int sType, int numCandidates,
-	__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
-	__read_only image2d_t eventTex, __read_only image2d_t timeTex, __local float* timestamps )
+		__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
+		__read_only image2d_t eventTex, __read_only image2d_t timeTex, __local float* timestamps )
 {
 	unsigned int timestampMatrixSize = level*MAX_TIMESTAMP_PER_LEVEL;
 	__local float* timestampMatrix = &timestamps[timestampMatrixSize*get_local_id(0)];
@@ -72,7 +72,7 @@ countCandidates(__global float* episodeSupport, long eventSize, int level, int s
 
 	//if ( (get_local_id(0)+get_group_id(0)*get_local_size(0)) >= numCandidates )
 	if(get_global_id(0) >= numCandidates)
-        return;
+		return;
 
 	int count = 0;
 	int myCandidateIdx = level*(get_global_id(0));//get_local_id(0) + get_group_id(0)*get_local_size(0));
@@ -85,8 +85,8 @@ countCandidates(__global float* episodeSupport, long eventSize, int level, int s
 	for ( long eventIdx = 0; eventIdx < eventSize; eventIdx++ )
 	{
 		const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
-		                          CLK_ADDRESS_CLAMP_TO_EDGE |
-								  CLK_FILTER_NEAREST;
+			CLK_ADDRESS_CLAMP_TO_EDGE |
+			CLK_FILTER_NEAREST;
 		//UBYTE eventSymbol = tex1Dfetch( eventTex, eventIdx );
 		UBYTE eventSymbol = read_imageui(eventTex, sampler, IMAGE_POS(eventIdx)).x;
 		breakOuterLoop = false;
@@ -135,8 +135,8 @@ countCandidates(__global float* episodeSupport, long eventSize, int level, int s
 							distance = read_imagef(timeTex, sampler, IMAGE_POS(eventIdx)).x - getFromList(timestampMatrix, symbolIdx-1, prevIdx);
 
 							if ( (distance >  lowerBound  - EPSILON &&
-								  distance <= upperBound  + EPSILON )||
-								  symbolIdx == 0)
+										distance <= upperBound  + EPSILON )||
+									symbolIdx == 0)
 							{
 								if ( symbolIdx == level-1 )
 								{
@@ -153,7 +153,7 @@ countCandidates(__global float* episodeSupport, long eventSize, int level, int s
 
 									addToList(timestampMatrix, timestampSize, symbolIdx, read_imagef(timeTex, sampler, IMAGE_POS(eventIdx)).x);
 								}
-//								break;
+								//								break;
 							}
 						}
 					}
@@ -172,10 +172,10 @@ void resetToZero(__local float* timestamps, int level )
 		timestamps[idx] = -1.0f;
 }
 
-__kernel void
+	__kernel void
 countCandidatesStatic(__global float* episodeSupport, long eventSize, int level, int sType, int numCandidates,
-	__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
-	__read_only image2d_t eventTex, __read_only image2d_t timeTex,__local float* timestamps)
+		__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
+		__read_only image2d_t eventTex, __read_only image2d_t timeTex,__local float* timestamps)
 {
 	__local float* myTimestamps = &timestamps[get_local_id(0)*level];
 
@@ -192,8 +192,8 @@ countCandidatesStatic(__global float* episodeSupport, long eventSize, int level,
 	for ( long eventIdx = 0; eventIdx < eventSize; eventIdx++ )
 	{
 		const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
-		                          CLK_ADDRESS_NONE |
-								  CLK_FILTER_NEAREST;
+			CLK_ADDRESS_NONE |
+			CLK_FILTER_NEAREST;
 		//UBYTE eventSymbol = tex1Dfetch( eventTex, eventIdx );
 		UBYTE eventSymbol = read_imageui( eventTex, sampler, IMAGE_POS(eventIdx)).x;
 
@@ -221,7 +221,7 @@ countCandidatesStatic(__global float* episodeSupport, long eventSize, int level,
 					float upperBound = read_imagef(intervalTex, sampler, IMAGE_POS(myIntervalIdx + (symbolIdx-1)*2+1)).x;
 
 					if (  distance <= upperBound + EPSILON ||
-						  symbolIdx == 0)
+							symbolIdx == 0)
 					{
 						if ( symbolIdx == level-1 )
 						{
@@ -244,20 +244,20 @@ countCandidatesStatic(__global float* episodeSupport, long eventSize, int level,
 	episodeSupport[get_local_id(0) + get_group_id(0)*get_local_size(0)] = sType == RATIO ? ((float)count / (float)eventSize) : (float)count;
 }
 
-__kernel
+	__kernel
 void countCandidatesMapMerge(__global float* episodeSupport, long eventSize, int level, int sType, int numSections, int eventsPerSection, int numCandidates,
-	__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
-	__read_only image2d_t eventTex, __read_only image2d_t timeTex, __local float* timestamps)
+		__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
+		__read_only image2d_t eventTex, __read_only image2d_t timeTex, __local float* timestamps)
 {
 	unsigned int timestampMatrixSize = (level-1)*MAX_TIMESTAMP_PER_LEVEL;
 	__local float* timestampMatrix = &timestamps[timestampMatrixSize*(get_local_id(1)*get_local_size(0)+get_local_id(0))];
 	unsigned int timestampSize[MAX_TIMESTAMP_PER_LEVEL];
 	__local float* records = &timestamps[level*numSections*timestampMatrixSize];
 
-    const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
-							  CLK_ADDRESS_NONE |
-							  CLK_FILTER_NEAREST;
-								  
+	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
+		CLK_ADDRESS_NONE |
+		CLK_FILTER_NEAREST;
+
 	int count = 0;
 	int tid = get_local_id(1)*get_local_size(0) + get_local_id(0);
 	int bid = get_group_id(1)*get_num_groups(0) + get_group_id(0);
@@ -313,8 +313,8 @@ void countCandidatesMapMerge(__global float* episodeSupport, long eventSize, int
 		{
 			UBYTE searchSymbol = read_imageui( candidateTex, sampler, IMAGE_POS( myCandidateIdx + symbolIdx) ).x;
 
-//			if ( searchSymbol == 'Q' )
-//				searchSymbol = 'Q';
+			//			if ( searchSymbol == 'Q' )
+			//				searchSymbol = 'Q';
 
 			//if ( eventSymbol == tex1Dfetch( candidateTex, myCandidateIdx + symbolIdx ) )
 			if ( eventSymbol == searchSymbol )
@@ -362,8 +362,8 @@ void countCandidatesMapMerge(__global float* episodeSupport, long eventSize, int
 							distance = read_imagef(timeTex, sampler, IMAGE_POS(eventIdx)).x - getFromList(timestampMatrix, symbolIdx-1, prevIdx);
 
 							if ( (distance >  lowerBound  - EPSILON &&
-								  distance <= upperBound  + EPSILON )||
-								  symbolIdx == 0)
+										distance <= upperBound  + EPSILON )||
+									symbolIdx == 0)
 							{
 								if ( symbolIdx == level-1 )
 								{
@@ -388,7 +388,7 @@ void countCandidatesMapMerge(__global float* episodeSupport, long eventSize, int
 
 									//if ( timestampSize[symbolIdx] != 0 && tex1Dfetch(timeTex, eventIdx) - getFromList(timestampMatrix, symbolIdx, timestampSize[symbolIdx]-1) > tex1Dfetch(intervalTex, myIntervalIdx + 2*(symbolIdx)+1) )
 									if ( timestampSize[symbolIdx] != 0 && read_imagef(timeTex, sampler, IMAGE_POS( eventIdx)).x - getFromList(timestampMatrix, symbolIdx, timestampSize[symbolIdx]-1) > read_imagef(intervalTex, sampler, IMAGE_POS( myIntervalIdx + 2*(symbolIdx)+1) ).x)
-									//if ( timestampSize[symbolIdx] != 0 && ts - last > upper )
+										//if ( timestampSize[symbolIdx] != 0 && ts - last > upper )
 										timestampSize[symbolIdx] = 0;
 
 									//addToList(timestampMatrix, timestampSize, symbolIdx, tex1Dfetch(timeTex, eventIdx));
@@ -435,9 +435,9 @@ void countCandidatesMapMerge(__global float* episodeSupport, long eventSize, int
 						bestMatch = rightIdx;
 					}
 					else if ( (records[3*level*first + 3*leftIdx + 1] < records[3*level*second + 3*rightIdx + 0]
-							|| records[3*level*second + 3*rightIdx + 0] == -1
-							|| records[3*level*first + 3*leftIdx + 1] == -1)
-								&& bestMatch == -1 )
+								|| records[3*level*second + 3*rightIdx + 0] == -1
+								|| records[3*level*first + 3*leftIdx + 1] == -1)
+							&& bestMatch == -1 )
 					{
 						bestMatch = rightIdx;
 					}
@@ -537,15 +537,15 @@ void countCandidatesMapMerge(__global float* episodeSupport, long eventSize, int
 
 
 
-__kernel
+	__kernel
 void countCandidatesMapMergeStatic(__global float* episodeSupport, long eventSize, int level, int sType, int numSections, int eventsPerSection, int numCandidates,
-	__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
-	__read_only image2d_t eventTex, __read_only image2d_t timeTex, __local float* timestamps )
+		__read_only image2d_t candidateTex, __read_only image2d_t intervalTex,
+		__read_only image2d_t eventTex, __read_only image2d_t timeTex, __local float* timestamps )
 {
 
 	const sampler_t sampler = CLK_NORMALIZED_COORDS_FALSE |
-							  CLK_ADDRESS_NONE |
-							  CLK_FILTER_NEAREST;
+		CLK_ADDRESS_NONE |
+		CLK_FILTER_NEAREST;
 	int count = 0;
 	int tid = get_local_id(1)*get_local_size(0) + get_local_id(0);
 	int bid = get_group_id(1)*get_num_groups(0) + get_group_id(0);
@@ -630,7 +630,7 @@ void countCandidatesMapMergeStatic(__global float* episodeSupport, long eventSiz
 					float upperBound = read_imagef(intervalTex, sampler, IMAGE_POS( myIntervalIdx + (symbolIdx-1)*2+1)).x;
 
 					if (  distance <= upperBound + EPSILON ||
-						  symbolIdx == 0)
+							symbolIdx == 0)
 					{
 						if ( symbolIdx == level-1 )
 						{
@@ -692,9 +692,9 @@ void countCandidatesMapMergeStatic(__global float* episodeSupport, long eventSiz
 						bestMatch = rightIdx;
 					}
 					else if ( (records[3*level*first + 3*leftIdx + 1] < records[3*level*second + 3*rightIdx + 0]
-							|| records[3*level*second + 3*rightIdx + 0] == -1
-							|| records[3*level*first + 3*leftIdx + 1] == -1)
-								&& bestMatch == -1 )
+								|| records[3*level*second + 3*rightIdx + 0] == -1
+								|| records[3*level*first + 3*leftIdx + 1] == -1)
+							&& bestMatch == -1 )
 					{
 						bestMatch = rightIdx;
 					}
@@ -761,15 +761,15 @@ void countCandidatesMapMergeStatic(__global float* episodeSupport, long eventSiz
 //
 
 // Converts "triangle" matrix to two array positions - the base position, and compare position
-void
+	void
 triangleToArray( int triangle, int* base, int* compare, int numCandidates )
 {
 	*base = 0;
 	int Temp = triangle + 1;
 	while (Temp > 0)
 	{
-   		Temp = Temp - (numCandidates - (*base) - 1);
-   		(*base)++;
+		Temp = Temp - (numCandidates - (*base) - 1);
+		(*base)++;
 	}
 
 	Temp += numCandidates - (*base) - 1;
@@ -777,7 +777,7 @@ triangleToArray( int triangle, int* base, int* compare, int numCandidates )
 	(*base)--;
 }
 
-bool
+	bool
 compareCandidates( __global UBYTE* episodeCandidates, int level, int base, int compare )
 {
 	int idx;
@@ -795,11 +795,11 @@ compareCandidates( __global UBYTE* episodeCandidates, int level, int base, int c
 
 // INPUT: stuff
 // OUTPUT: Triangle array filled with matching pairs
-__kernel void
+	__kernel void
 analyzeSupport( float support,  int level, int numPairs,
-				__global UBYTE* episodeCandidates,
-				__global float* episodeSupport, __global bool* episodePairs,
-				int numCandidates )
+		__global UBYTE* episodeCandidates,
+		__global float* episodeSupport, __global bool* episodePairs,
+		int numCandidates )
 {
 	int triangleIndex = get_group_id(0) * get_local_size(0) + get_local_id(0);
 
@@ -819,7 +819,7 @@ analyzeSupport( float support,  int level, int numPairs,
 }
 
 //Generate episodes from level - 1 to level
-__kernel void
+	__kernel void
 generateEpisodeCandidatesKernel( int level, int numCandidates, int numCandidatesBuffer, __global UBYTE* episodeCandidates, __global int* episodeIndices, __global UBYTE* episodeCandidatesBuffer )
 {
 	int episodeIndex = get_group_id(0) * get_local_size(0) + get_local_id(0);

@@ -131,60 +131,60 @@ void initEpisodeCandidates()
 
 int bindTexture(int offset, cl_mem* texture, cl_mem memory, size_t size, cl_channel_type dataType)
 {
-    size_t origin[3];
-    origin[0] = 0;
-    origin[1] = 0;
-    origin[2] = 0;
-    size_t region[3];
-    region[0] = size <= MaxImageWidth ? size : MaxImageWidth;
-    region[1] = (size + MaxImageWidth - 1) / MaxImageWidth;
-    region[2] = 1;
+	size_t origin[3];
+	origin[0] = 0;
+	origin[1] = 0;
+	origin[2] = 0;
+	size_t region[3];
+	region[0] = size <= MaxImageWidth ? size : MaxImageWidth;
+	region[1] = (size + MaxImageWidth - 1) / MaxImageWidth;
+	region[2] = 1;
 
-    if(region[0] == 0)
-        region[0] = 1;
-    if(region[1] == 0)
-        region[1] = 1;
+	if(region[0] == 0)
+		region[0] = 1;
+	if(region[1] == 0)
+		region[1] = 1;
 
-    cl_image_format format;
-    format.image_channel_order = CL_R;
-    format.image_channel_data_type = dataType;
+	cl_image_format format;
+	format.image_channel_order = CL_R;
+	format.image_channel_data_type = dataType;
 
-    int err = CL_SUCCESS;
-//#ifdef CL_VERSION_1_2
-//    cl_image_desc desc = {0};
-//    desc.image_width = region[0];
-//    desc.image_height = region[1];
-//
-//    *texture = clCreateImage(context, CL_MEM_READ_ONLY, &format, &desc, NULL, &err);
-//#else
-    *texture = clCreateImage2D(context, CL_MEM_READ_ONLY, &format, region[0], region[1], 0, NULL, &err);
-//#endif
-    CHKERR(err, "Unable to create texture!");
+	int err = CL_SUCCESS;
+	//#ifdef CL_VERSION_1_2
+	//    cl_image_desc desc = {0};
+	//    desc.image_width = region[0];
+	//    desc.image_height = region[1];
+	//
+	//    *texture = clCreateImage(context, CL_MEM_READ_ONLY, &format, &desc, NULL, &err);
+	//#else
+	*texture = clCreateImage2D(context, CL_MEM_READ_ONLY, &format, region[0], region[1], 0, NULL, &err);
+	//#endif
+	CHKERR(err, "Unable to create texture!");
 
-    if(size != 0)
-	    err = clEnqueueCopyBufferToImage(commands, memory, *texture, 0, origin, region, 0, NULL, NULL);
-    CHKERR(err, "Unable to buffer texture!");
-    return CL_SUCCESS;
+	if(size != 0)
+		err = clEnqueueCopyBufferToImage(commands, memory, *texture, 0, origin, region, 0, NULL, NULL);
+	CHKERR(err, "Unable to buffer texture!");
+	return CL_SUCCESS;
 }
 
 int unbindTexture(cl_mem* texture, cl_mem memory, size_t size)
 {
-//    size_t origin[3];
-//    origin[0] = 0;
-//    origin[1] = 0;
-//    origin[2] = 0;
-//    size_t region[3];
-//    region[0] = size <= MaxImageWidth ? size : MaxImageWidth;
-//    region[1] = (size + MaxImageWidth - 1) / MaxImageWidth;
-//    region[2] = 0;
-//
-//    if(region[0] == 0)
-//        region[0] = 1;
-//    if(region[1] == 0)
-//        region[1] = 1;
-//    int err = clEnqueueCopyImageToBuffer(commands, *texture, memory, origin, region, 0, 0, NULL, NULL);
-//    CHKERR(err, "Unable to copy image to buffer!");
-    return clReleaseMemObject(*texture);
+	//    size_t origin[3];
+	//    origin[0] = 0;
+	//    origin[1] = 0;
+	//    origin[2] = 0;
+	//    size_t region[3];
+	//    region[0] = size <= MaxImageWidth ? size : MaxImageWidth;
+	//    region[1] = (size + MaxImageWidth - 1) / MaxImageWidth;
+	//    region[2] = 0;
+	//
+	//    if(region[0] == 0)
+	//        region[0] = 1;
+	//    if(region[1] == 0)
+	//        region[1] = 1;
+	//    int err = clEnqueueCopyImageToBuffer(commands, *texture, memory, origin, region, 0, 0, NULL, NULL);
+	//    CHKERR(err, "Unable to copy image to buffer!");
+	return clReleaseMemObject(*texture);
 }
 
 int getNextValidCandidate(int prefixLength, int currentIdx, int nextIdx)
@@ -193,25 +193,25 @@ int getNextValidCandidate(int prefixLength, int currentIdx, int nextIdx)
 	for ( int idx = nextIdx; idx < numCandidates; idx++)
 	{
 		/* Old Version (AB, AC, therefore ABC and ACB)
-		if ( strncmp( (char*)&h_episodeCandidates[currentIdx*(prefixLength+1)],
-					  (char*)&h_episodeCandidates[idx*(prefixLength+1)],
-					  prefixLength ) == 0 && h_episodeSupport[idx] >= support )
-		{
-			return idx;
-		}
-		*/
+		   if ( strncmp( (char*)&h_episodeCandidates[currentIdx*(prefixLength+1)],
+		   (char*)&h_episodeCandidates[idx*(prefixLength+1)],
+		   prefixLength ) == 0 && h_episodeSupport[idx] >= support )
+		   {
+		   return idx;
+		   }
+		 */
 
 		// New Version (AB, BC, therefore ABC)
 		if ( strncmp( (char*)&h_episodeCandidates[currentIdx*(prefixLength+1)+1],
-					  (char*)&h_episodeCandidates[idx*(prefixLength+1)],
-					  prefixLength ) == 0 && h_episodeSupport[idx] >= support
-					  && h_episodeCandidates[currentIdx*(prefixLength+1)+0] != h_episodeCandidates[idx*(prefixLength+1)+prefixLength])
+					(char*)&h_episodeCandidates[idx*(prefixLength+1)],
+					prefixLength ) == 0 && h_episodeSupport[idx] >= support
+				&& h_episodeCandidates[currentIdx*(prefixLength+1)+0] != h_episodeCandidates[idx*(prefixLength+1)+prefixLength])
 		{
 			bool intervalMatch = true;
 			for( unsigned int intIdx = 0; intIdx < prefixLength-1; intIdx++ )
 			{
 				if ( h_episodeIntervals[currentIdx*prefixLength*2+(intIdx+1)*2+0] != h_episodeIntervals[idx*prefixLength*2+intIdx*2+0] ||
-						 h_episodeIntervals[currentIdx*prefixLength*2+(intIdx+1)*2+1] != h_episodeIntervals[idx*prefixLength*2+intIdx*2+1] )
+						h_episodeIntervals[currentIdx*prefixLength*2+(intIdx+1)*2+1] != h_episodeIntervals[idx*prefixLength*2+intIdx*2+1] )
 				{
 					intervalMatch = false;
 				}
@@ -232,8 +232,8 @@ void triangleToArrayCPU( int triangle, int* base, int* compare )
 	int Temp = triangle;
 	while (Temp > 0)
 	{
-   		Temp = Temp - (numCandidates - *base);
-   		(*base)++;
+		Temp = Temp - (numCandidates - *base);
+		(*base)++;
 	}
 	(*base)--;
 
@@ -253,7 +253,7 @@ void generateEpisodeCandidatesCPU( int level )
 		for ( int candidateIdx1 = 0; candidateIdx1 < numCandidates; candidateIdx1++ )
 		{
 			if ( h_episodeSupport[candidateIdx1] < support )
-					continue;
+				continue;
 
 			for ( int candidateIdx2 = 0; candidateIdx2 < numCandidates; candidateIdx2++ )
 			{
@@ -297,8 +297,8 @@ void generateEpisodeCandidatesCPU( int level )
 			while ( (nextCandidateIdx = getNextValidCandidate(level-2, candidateIdx, nextCandidateIdx)) != -1)
 			{
 				strncpy( (char*)&h_episodeCandidatesBuffer[numCandidatesBuffer*level],
-						 (char*)&h_episodeCandidates[candidateIdx*(level-1)],
-						 level-1 );
+						(char*)&h_episodeCandidates[candidateIdx*(level-1)],
+						level-1 );
 				//h_episodeCandidatesBuffer[numCandidatesBuffer*level+level-2] =
 				//	h_episodeCandidates[candidateIdx*(level-1)+level-2];
 				h_episodeCandidatesBuffer[numCandidatesBuffer*level+level-1] =
@@ -309,8 +309,8 @@ void generateEpisodeCandidatesCPU( int level )
 						(level-1)*2*sizeof(float) );
 
 				memcpy( &h_episodeIntervalsBuffer[numCandidatesBuffer*(level-1)*2+(level-2)*2],
-								&h_episodeIntervals[nextCandidateIdx*(level-2)*2+(level-3)*2],
-								2*sizeof(float) );
+						&h_episodeIntervals[nextCandidateIdx*(level-2)*2+(level-3)*2],
+						2*sizeof(float) );
 				//h_episodeIntervalsBuffer[numCandidatesBuffer*(level-1)*2+(level-2)*2+0] =
 				//	h_episodeIntervals[candidateIdx*(level-2)*2+(level-3)*2+0];
 				//h_episodeIntervalsBuffer[numCandidatesBuffer*(level-1)*2+(level-2)*2+1] =
@@ -335,15 +335,15 @@ void generateEpisodeCandidatesCPU( int level )
 void cullCandidates( int level )
 {
 	int numCandidatesBuffer = 0;
-    printf("Culling Candidates\n");
+	printf("Culling Candidates\n");
 	for ( int candidateIdx = 0; candidateIdx < numCandidates; candidateIdx++ )
 	{
 		if ( h_episodeSupport[candidateIdx] < support )
 			continue;
 
 		strncpy( (char*)&h_episodeCandidatesBuffer[numCandidatesBuffer*level],
-				 (char*)&h_episodeCandidates[candidateIdx*level],
-				 level );
+				(char*)&h_episodeCandidates[candidateIdx*level],
+				level );
 
 		memcpy( &h_episodeIntervalsBuffer[numCandidatesBuffer*(level-1)*2],
 				&h_episodeIntervals[candidateIdx*(level-1)*2],
@@ -446,9 +446,9 @@ int chooseAlgorithmType( int lev, long num, int threadsPerBlock )
 		bpmp = maxBlocksPerMultiprocessor;
 	else
 		bpmp = min(16384/((lev-1)*11*4),maxBlocksPerMultiprocessor);  // Blocks per multiprocessor is limited by
-	                                               // shared mem per blockin this program, up to 8
+	// shared mem per blockin this program, up to 8
 	int tpb = threadsPerBlock;
-  return num < mp*bpmp*tpb ? MAP_AND_MERGE : NAIVE;
+	return num < mp*bpmp*tpb ? MAP_AND_MERGE : NAIVE;
 
 	// Original Implementation
 	//return num < optimalThreshold[lev-1] ? MAP_AND_MERGE : NAIVE; // Lookup table, from OptimalThreshold.h
@@ -531,208 +531,208 @@ int loadTemporalConstraints(char* filename)
 
 void setupGpu()
 {
-    int err;
+	int err;
 
-    /////////////////////////////////////////////////////////////
-    //Compile Source
+	/////////////////////////////////////////////////////////////
+	//Compile Source
 
-    //Read file
-    FILE* kernelFile = fopen("GpuTemporalDataMining.cl", "r");
-    fseek(kernelFile, 0, SEEK_END);
-    size_t kernelLength = (size_t) ftell(kernelFile);
-    char* kernelSource = (char *) malloc(sizeof(char)*(kernelLength+1));
-    rewind(kernelFile);
-    int read = fread((void *) kernelSource, kernelLength, 1, kernelFile);
-    fclose(kernelFile);
-    kernelSource[kernelLength] = 0;
-     // Create the compute program from the source buffer
-    program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, NULL, &err);
-    CHKERR(err, "Failed to create a compute program!");
+	//Read file
+	FILE* kernelFile = fopen("GpuTemporalDataMining.cl", "r");
+	fseek(kernelFile, 0, SEEK_END);
+	size_t kernelLength = (size_t) ftell(kernelFile);
+	char* kernelSource = (char *) malloc(sizeof(char)*(kernelLength+1));
+	rewind(kernelFile);
+	int read = fread((void *) kernelSource, kernelLength, 1, kernelFile);
+	fclose(kernelFile);
+	kernelSource[kernelLength] = 0;
+	// Create the compute program from the source buffer
+	program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, NULL, &err);
+	CHKERR(err, "Failed to create a compute program!");
 
 	printf("MaxImageWidth: %d, MaxImageHeight: %d\n",(int)MaxImageWidth, (int)MaxImageHeight);
-    // Build the program executable
-    char options[200];
-    snprintf(options, 200, "-I . -D IMAGE_MAX_WIDTH=%lu -D IMAGE_MAX_HEIGHT=%lu", (unsigned long)MaxImageWidth, (unsigned long)MaxImageHeight);
-    err = clBuildProgram(program, 1, &device_id, options, NULL, NULL);
-    if (err != CL_SUCCESS)
-    {
-        char *log;
-        size_t logLen;
-        int err2;
-        err2 = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLen);
-        log = (char *) malloc(sizeof(char)*logLen);
-        err2 = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) log, NULL);
-        fprintf(stderr, "CL Error %d: Failed to build program! Log:\n%s", err, log);
-        free(log);
-        exit(1);
-    }
-    CHKERR(err, "Failed to build program!");
+	// Build the program executable
+	char options[200];
+	snprintf(options, 200, "-I . -D IMAGE_MAX_WIDTH=%lu -D IMAGE_MAX_HEIGHT=%lu", (unsigned long)MaxImageWidth, (unsigned long)MaxImageHeight);
+	err = clBuildProgram(program, 1, &device_id, options, NULL, NULL);
+	if (err != CL_SUCCESS)
+	{
+		char *log;
+		size_t logLen;
+		int err2;
+		err2 = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLen);
+		log = (char *) malloc(sizeof(char)*logLen);
+		err2 = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) log, NULL);
+		fprintf(stderr, "CL Error %d: Failed to build program! Log:\n%s", err, log);
+		free(log);
+		exit(1);
+	}
+	CHKERR(err, "Failed to build program!");
 
-    free(kernelSource);
+	free(kernelSource);
 
-    kernel_countCandidates = clCreateKernel(program, "countCandidates", &err);
-    CHKERR(err, "Failed to create a compute kernel!");
+	kernel_countCandidates = clCreateKernel(program, "countCandidates", &err);
+	CHKERR(err, "Failed to create a compute kernel!");
 
-    kernel_countCandidatesStatic = clCreateKernel(program, "countCandidatesStatic", &err);
-    CHKERR(err, "Failed to create a compute kernel!");
+	kernel_countCandidatesStatic = clCreateKernel(program, "countCandidatesStatic", &err);
+	CHKERR(err, "Failed to create a compute kernel!");
 
-    kernel_countCandidatesMapMerge = clCreateKernel(program, "countCandidatesMapMerge", &err);
-    CHKERR(err, "Failed to create a compute kernel!");
+	kernel_countCandidatesMapMerge = clCreateKernel(program, "countCandidatesMapMerge", &err);
+	CHKERR(err, "Failed to create a compute kernel!");
 
-    kernel_countCandidatesMapMergeStatic = clCreateKernel(program, "countCandidatesMapMergeStatic", &err);
-    CHKERR(err, "Failed to create a compute kernel!");
+	kernel_countCandidatesMapMergeStatic = clCreateKernel(program, "countCandidatesMapMergeStatic", &err);
+	CHKERR(err, "Failed to create a compute kernel!");
 
-    kernel_analyzeSupport = clCreateKernel(program, "analyzeSupport", &err);
-    CHKERR(err, "Failed to create a compute kernel!");
+	kernel_analyzeSupport = clCreateKernel(program, "analyzeSupport", &err);
+	CHKERR(err, "Failed to create a compute kernel!");
 
-    kernel_generateEpisodeCandidatesKernel = clCreateKernel(program, "generateEpisodeCandidatesKernel", &err);
-    CHKERR(err, "Failed to create a compute kernel!");
-    /////////////////////////////////////////////////////////////
+	kernel_generateEpisodeCandidatesKernel = clCreateKernel(program, "generateEpisodeCandidatesKernel", &err);
+	CHKERR(err, "Failed to create a compute kernel!");
+	/////////////////////////////////////////////////////////////
 
-    /////////////////////////////////////////////////////////////
-    //Setup memory
+	/////////////////////////////////////////////////////////////
+	//Setup memory
 
 
-    d_events = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, roundup(padEventSize) * sizeof(UBYTE), (void*)h_events, &err);
-    CHKERR(err, "Failed to allocate device memory!");
-    bindTexture(0, &eventTex, d_events, roundup(padEventSize) * sizeof(UBYTE), CL_UNSIGNED_INT8);
+	d_events = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, roundup(padEventSize) * sizeof(UBYTE), (void*)h_events, &err);
+	CHKERR(err, "Failed to allocate device memory!");
+	bindTexture(0, &eventTex, d_events, roundup(padEventSize) * sizeof(UBYTE), CL_UNSIGNED_INT8);
 
 	free( h_events );
 
 	d_times = clCreateBuffer(context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, roundup(padEventSize) * sizeof(float), (void*)h_times, &err);
-    CHKERR(err, "Failed to allocate device memory!");
-    bindTexture(0, &timeTex, d_times, roundup(padEventSize), CL_FLOAT);
+	CHKERR(err, "Failed to allocate device memory!");
+	bindTexture(0, &timeTex, d_times, roundup(padEventSize), CL_FLOAT);
 	free( h_times );
 
 
-    d_episodeCandidates = clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates * sizeof(UBYTE), NULL, &err);
-    CHKERR(err, "Failed to allocate device memory!");
-    d_episodeCandidatesBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates * sizeof(UBYTE), NULL, &err);
-    CHKERR(err, "Failed to allocate device memory!");
+	d_episodeCandidates = clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates * sizeof(UBYTE), NULL, &err);
+	CHKERR(err, "Failed to allocate device memory!");
+	d_episodeCandidatesBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates * sizeof(UBYTE), NULL, &err);
+	CHKERR(err, "Failed to allocate device memory!");
 
-    h_episodeCandidates = (UBYTE*)malloc( maxCandidates*sizeof(UBYTE) );
+	h_episodeCandidates = (UBYTE*)malloc( maxCandidates*sizeof(UBYTE) );
 	h_episodeCandidatesBuffer = (UBYTE*)malloc( maxCandidates*sizeof(UBYTE) );
 
 
 	d_episodeIntervals = clCreateBuffer(context, CL_MEM_READ_WRITE, maxIntervals * sizeof(float), NULL, &err);
-    CHKERR(err, "Failed to allocate device memory!");
+	CHKERR(err, "Failed to allocate device memory!");
 	d_episodeIntervalsBuffer = clCreateBuffer(context, CL_MEM_READ_WRITE, maxIntervals * sizeof(float), NULL, &err);
-    CHKERR(err, "Failed to allocate device memory!");
+	CHKERR(err, "Failed to allocate device memory!");
 
 	h_episodeIntervals = (float*)malloc( maxIntervals*sizeof(float) );
 	h_episodeIntervalsBuffer = (float*)malloc( maxIntervals*sizeof(float) );
 
-    // Results
+	// Results
 	h_episodeSupport = (float*)malloc( maxCandidates*sizeof(float) );
 	d_episodeSupport = clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates * sizeof(float), NULL, &err);
-    CHKERR(err, "Failed to allocate device memory!");
+	CHKERR(err, "Failed to allocate device memory!");
 
 	//h_mapRecords = (float*)malloc( 3 * numSections * maxLevel * maxCandidates * sizeof(float) );
 	//CUDA_SAFE_CALL( cudaMalloc( (void**)&d_mapRecords, 3 * numSections * maxLevel * maxCandidates * sizeof(float)) );
 
-    /////////////////////////////////////////////////////////////
+	/////////////////////////////////////////////////////////////
 }
 
 void countCandidates(size_t* globalWork, size_t* localWork, cl_mem episodeSupport, long eventSize, int level, int sType, int numCandidates,
-                    cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
+		cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
 {
-    int errcode;
-    errcode  = clSetKernelArg(kernel_countCandidates, 0, sizeof(cl_mem), (void *) &episodeSupport);
-    errcode |= clSetKernelArg(kernel_countCandidates, 1, sizeof(long), (void *) &eventSize);
-    errcode |= clSetKernelArg(kernel_countCandidates, 2, sizeof(int), (void *) &level);
-    errcode |= clSetKernelArg(kernel_countCandidates, 3, sizeof(int), (void *) &sType);
-    errcode |= clSetKernelArg(kernel_countCandidates, 4, sizeof(int), (void *) &numCandidates);
-    errcode |= clSetKernelArg(kernel_countCandidates, 5, sizeof(cl_mem), (void *) &candidateTex);
-    errcode |= clSetKernelArg(kernel_countCandidates, 6, sizeof(cl_mem), (void *) &intervalTex);
-    errcode |= clSetKernelArg(kernel_countCandidates, 7, sizeof(cl_mem), (void *) &eventTex);
-    errcode |= clSetKernelArg(kernel_countCandidates, 8, sizeof(cl_mem), (void *) &timeTex);
-    errcode |= clSetKernelArg(kernel_countCandidates, 9, sharedMemNeeded, NULL);
-    CHKERR(errcode, "Unable to set arguments for countCandidates");
+	int errcode;
+	errcode  = clSetKernelArg(kernel_countCandidates, 0, sizeof(cl_mem), (void *) &episodeSupport);
+	errcode |= clSetKernelArg(kernel_countCandidates, 1, sizeof(long), (void *) &eventSize);
+	errcode |= clSetKernelArg(kernel_countCandidates, 2, sizeof(int), (void *) &level);
+	errcode |= clSetKernelArg(kernel_countCandidates, 3, sizeof(int), (void *) &sType);
+	errcode |= clSetKernelArg(kernel_countCandidates, 4, sizeof(int), (void *) &numCandidates);
+	errcode |= clSetKernelArg(kernel_countCandidates, 5, sizeof(cl_mem), (void *) &candidateTex);
+	errcode |= clSetKernelArg(kernel_countCandidates, 6, sizeof(cl_mem), (void *) &intervalTex);
+	errcode |= clSetKernelArg(kernel_countCandidates, 7, sizeof(cl_mem), (void *) &eventTex);
+	errcode |= clSetKernelArg(kernel_countCandidates, 8, sizeof(cl_mem), (void *) &timeTex);
+	errcode |= clSetKernelArg(kernel_countCandidates, 9, sharedMemNeeded, NULL);
+	CHKERR(errcode, "Unable to set arguments for countCandidates");
 
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidates, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	clFinish(commands);
+	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
-    END_TIMER(ocdTempTimer)
-    CHKERR(errcode, "Error running countCandidates");
+		END_TIMER(ocdTempTimer)
+		CHKERR(errcode, "Error running countCandidates");
 }
 
 void countCandidatesMapMerge(size_t* globalWork, size_t* localWork, cl_mem episodeSupport, long padEventSize, int level, int sType, int sections, int x, int numCandidates,
-                    cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
+		cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
 {
-    int errcode;
-    errcode  = clSetKernelArg(kernel_countCandidatesMapMerge, 0, sizeof(cl_mem), (void *) &episodeSupport);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 1, sizeof(long), (void *) &padEventSize);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 2, sizeof(int), (void *) &level);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 3, sizeof(int), (void *) &sType);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 4, sizeof(int), (void *) &sections);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 5, sizeof(int), (void *) &x);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 6, sizeof(int), (void *) &numCandidates);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 7, sizeof(cl_mem), (void *) &candidateTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 8, sizeof(cl_mem), (void *) &intervalTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 9, sizeof(cl_mem), (void *) &eventTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 10,sizeof(cl_mem), (void *) &timeTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 11, sharedMemNeeded, NULL);
-    CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
+	int errcode;
+	errcode  = clSetKernelArg(kernel_countCandidatesMapMerge, 0, sizeof(cl_mem), (void *) &episodeSupport);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 1, sizeof(long), (void *) &padEventSize);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 2, sizeof(int), (void *) &level);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 3, sizeof(int), (void *) &sType);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 4, sizeof(int), (void *) &sections);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 5, sizeof(int), (void *) &x);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 6, sizeof(int), (void *) &numCandidates);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 7, sizeof(cl_mem), (void *) &candidateTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 8, sizeof(cl_mem), (void *) &intervalTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 9, sizeof(cl_mem), (void *) &eventTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 10,sizeof(cl_mem), (void *) &timeTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMerge, 11, sharedMemNeeded, NULL);
+	CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
 
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMerge, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	clFinish(commands);
+	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
-    END_TIMER(ocdTempTimer)
-    CHKERR(errcode, "Error running countCandidatesMapMerge");
+		END_TIMER(ocdTempTimer)
+		CHKERR(errcode, "Error running countCandidatesMapMerge");
 }
 void countCandidatesStatic(size_t* globalWork, size_t* localWork, cl_mem episodeSupport, long eventSize, int level, int sType, int numCandidates,
-                    cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
+		cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
 {
-    int errcode;
-    errcode  = clSetKernelArg(kernel_countCandidatesStatic, 0, sizeof(cl_mem), (void *) &episodeSupport);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 1, sizeof(long), (void *) &eventSize);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 2, sizeof(int), (void *) &level);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 3, sizeof(int), (void *) &sType);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 4, sizeof(int), (void *) &numCandidates);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 5, sizeof(cl_mem), (void *) &candidateTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 6, sizeof(cl_mem), (void *) &intervalTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 7, sizeof(cl_mem), (void *) &eventTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 8, sizeof(cl_mem), (void *) &timeTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesStatic, 9, sharedMemNeeded, NULL);
-    CHKERR(errcode, "Unable to set arguments for countCandidates");
+	int errcode;
+	errcode  = clSetKernelArg(kernel_countCandidatesStatic, 0, sizeof(cl_mem), (void *) &episodeSupport);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 1, sizeof(long), (void *) &eventSize);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 2, sizeof(int), (void *) &level);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 3, sizeof(int), (void *) &sType);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 4, sizeof(int), (void *) &numCandidates);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 5, sizeof(cl_mem), (void *) &candidateTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 6, sizeof(cl_mem), (void *) &intervalTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 7, sizeof(cl_mem), (void *) &eventTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 8, sizeof(cl_mem), (void *) &timeTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesStatic, 9, sharedMemNeeded, NULL);
+	CHKERR(errcode, "Unable to set arguments for countCandidates");
 
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesStatic, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	clFinish(commands);
+	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
-    END_TIMER(ocdTempTimer)
-    CHKERR(errcode, "Error running countCandidatesStatic");
+	END_TIMER(ocdTempTimer)
+	CHKERR(errcode, "Error running countCandidatesStatic");
 }
 
 void countCandidatesMapMergeStatic(size_t* globalWork, size_t* localWork, cl_mem episodeSupport, long padEventSize, int level, int sType, int sections, int x, int numCandidates,
-                    cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
+		cl_mem candidateTex, cl_mem intervalTex, cl_mem eventTex, cl_mem timeTex, size_t sharedMemNeeded)
 {
-    int errcode;
-    errcode  = clSetKernelArg(kernel_countCandidatesMapMergeStatic, 0, sizeof(cl_mem), (void *) &episodeSupport);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 1, sizeof(long), (void *) &padEventSize);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 2, sizeof(int), (void *) &level);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 3, sizeof(int), (void *) &sType);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 4, sizeof(int), (void *) &sections);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 5, sizeof(int), (void *) &x);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 6, sizeof(int), (void *) &numCandidates);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 7, sizeof(cl_mem), (void *) &candidateTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 8, sizeof(cl_mem), (void *) &intervalTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 9, sizeof(cl_mem), (void *) &eventTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 10,sizeof(cl_mem), (void *) &timeTex);
-    errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 11, sharedMemNeeded, NULL);
-    CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
+	int errcode;
+	errcode  = clSetKernelArg(kernel_countCandidatesMapMergeStatic, 0, sizeof(cl_mem), (void *) &episodeSupport);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 1, sizeof(long), (void *) &padEventSize);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 2, sizeof(int), (void *) &level);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 3, sizeof(int), (void *) &sType);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 4, sizeof(int), (void *) &sections);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 5, sizeof(int), (void *) &x);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 6, sizeof(int), (void *) &numCandidates);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 7, sizeof(cl_mem), (void *) &candidateTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 8, sizeof(cl_mem), (void *) &intervalTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 9, sizeof(cl_mem), (void *) &eventTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 10,sizeof(cl_mem), (void *) &timeTex);
+	errcode |= clSetKernelArg(kernel_countCandidatesMapMergeStatic, 11, sharedMemNeeded, NULL);
+	CHKERR(errcode, "Unable to set arguments for countCandidatesMapMerge");
 
 	errcode = clEnqueueNDRangeKernel(commands, kernel_countCandidatesMapMergeStatic, 3, NULL, globalWork, localWork, 0, NULL, &ocdTempEvent);
-    	clFinish(commands);
+	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "TDM Candidate Kernels", ocdTempTimer)
-    END_TIMER(ocdTempTimer)
-    CHKERR(errcode, "Error running countCandidatesMapMergeStatic");
+	END_TIMER(ocdTempTimer)
+	CHKERR(errcode, "Error running countCandidatesMapMergeStatic");
 }
 
 void cleanup()
 {
 	printf("Cleaning up memory...\n");
-    clReleaseMemObject(eventTex);
-    clReleaseMemObject(timeTex);
+	clReleaseMemObject(eventTex);
+	clReleaseMemObject(timeTex);
 
 	clReleaseMemObject(d_events);
 	clReleaseMemObject(d_episodeSupport);
@@ -749,8 +749,8 @@ void cleanup()
 void calculateGrid(size_t grid[3], int threads, int candidates )
 {
 	grid[0] = threads * (numCandidates / threads + (numCandidates % threads == 0 ? 0 : 1));
-    //printf("t = %d, numCan = %d\n", threads, numCandidates);
-    //printf("g0 = %d\n", grid[0]);
+	//printf("t = %d, numCan = %d\n", threads, numCandidates);
+	//printf("g0 = %d\n", grid[0]);
 	grid[1] = 1;
 	grid[2] = 1;
 }
@@ -779,34 +779,34 @@ void getDeviceVariables(cl_device_id device)
 {
 	MinThreads = 32;
 	int err;
-    err = clGetDeviceInfo(device_id,CL_DEVICE_MAX_WORK_GROUP_SIZE,sizeof(size_t),&MaxThreads, NULL);
-    CHKERR(err, "Error checking for work group size\n");
+	err = clGetDeviceInfo(device_id,CL_DEVICE_MAX_WORK_GROUP_SIZE,sizeof(size_t),&MaxThreads, NULL);
+	CHKERR(err, "Error checking for work group size\n");
 	err = clGetDeviceInfo(device_id,CL_DEVICE_LOCAL_MEM_SIZE,sizeof(size_t),&MaxSharedMemory, NULL);
-    CHKERR(err, "Error checking for local memory size\n");
+	CHKERR(err, "Error checking for local memory size\n");
 
 	size_t maxThreads[3];
 	err = clGetDeviceInfo(device_id,CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3,&maxThreads, NULL);
-    CHKERR(err, "Error checking for work item sizes\n");
+	CHKERR(err, "Error checking for work item sizes\n");
 	MaxSections = maxThreads[0];
 
-    cl_bool images;
+	cl_bool images;
 	err = clGetDeviceInfo(device_id,CL_DEVICE_IMAGE_SUPPORT,sizeof(cl_bool),&images, NULL);
-    CHKERR(err, "Error checking for image capability\n");
-    if(images == CL_FALSE)
-    {
-        printf("This device does not support images\n");
-        exit(1);
-    }
+	CHKERR(err, "Error checking for image capability\n");
+	if(images == CL_FALSE)
+	{
+		printf("This device does not support images\n");
+		exit(1);
+	}
 	err = clGetDeviceInfo(device_id,CL_DEVICE_IMAGE2D_MAX_WIDTH,sizeof(size_t),&MaxImageWidth, NULL);
-    CHKERR(err, "Unable to get image width\n");
+	CHKERR(err, "Unable to get image width\n");
 
 	err = clGetDeviceInfo(device_id,CL_DEVICE_IMAGE2D_MAX_HEIGHT,sizeof(size_t),&MaxImageHeight, NULL);
-    CHKERR(err, "Unable to get image width\n");
+	CHKERR(err, "Unable to get image width\n");
 
-    //printf("MaxImageWidth: %d\n", MaxImageWidth);
-    //printf("MaxImageHeight: %d\n", MaxImageHeight);
+	//printf("MaxImageWidth: %d\n", MaxImageWidth);
+	//printf("MaxImageHeight: %d\n", MaxImageHeight);
 
-    //printf( "MinThreads: %d\n", MinThreads );
+	//printf( "MinThreads: %d\n", MinThreads );
 	//printf( "MaxThreads: %d\n", MaxThreads );
 	//printf( "MaxSharedMemory: %d\n", MaxSharedMemory );
 	//printf( "MaxSections: %d\n", MaxSections );
@@ -838,7 +838,7 @@ void calculateLevelParameters(int level, size_t* block, size_t* grid, int& secti
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
 ////////////////////////////////////////////////////////////////////////////////
-int
+	int
 main( int argc, char** argv)
 {
 	ocd_init(&argc, &argv, NULL);
@@ -849,7 +849,7 @@ main( int argc, char** argv)
 ////////////////////////////////////////////////////////////////////////////////
 //! Run a simple test for CUDA
 ////////////////////////////////////////////////////////////////////////////////
-void
+	void
 runTest( int argc, char** argv)
 {
 
@@ -858,16 +858,16 @@ runTest( int argc, char** argv)
 		printf("Usage: %s [<platform> <device> | <type> --] <file path> <temporal constraint path> <threads> <support> <(a)bsolute or (r)atio> <(s)tatic | (d)ynamic> <(m)ap and merge | (n)aive | (o)hybrid>\n", argv[0]);
 		return;
 	}
-	
-    ocd_initCL();
 
-    getDeviceVariables(device_id);
+	ocd_initCL();
+
+	getDeviceVariables(device_id);
 
 	printf("Dataset, Support Threshold, PTPE or MapMerge, A1 or A1+A2, Level, Episodes (N), Episodes Culled (X), A1 Counting Time, A2 Counting Time, Generation Time, Total Counting Time\n");
 
-    unsigned int num_threads = atoi(argv[3]);
-    // allocate host memory
-    //initEpisodeCandidates();
+	unsigned int num_threads = atoi(argv[3]);
+	// allocate host memory
+	//initEpisodeCandidates();
 	if ( loadData( argv[1] ) != 0 )
 		return;
 	if ( loadTemporalConstraints(argv[2]) != 0 )
@@ -879,15 +879,15 @@ runTest( int argc, char** argv)
 
 	switch (*(argv[7]))
 	{
-	case 'm':
-		algorithmType = MAP_AND_MERGE;
-		break;
-	case 'n':
-		algorithmType = NAIVE;
-		break;
-	case 'o':
-		algorithmType = OPTIMAL;
-		break;
+		case 'm':
+			algorithmType = MAP_AND_MERGE;
+			break;
+		case 'n':
+			algorithmType = NAIVE;
+			break;
+		case 'o':
+			algorithmType = OPTIMAL;
+			break;
 	}
 
 	support = atof(argv[4]);
@@ -899,8 +899,8 @@ runTest( int argc, char** argv)
 	setupGpu();
 
 	// setup execution parameters
-    size_t grid[3];
-    size_t threads[3];
+	size_t grid[3];
+	size_t threads[3];
 
 	//printf("Event stream size: %i\n", eventSize);
 
@@ -911,14 +911,14 @@ runTest( int argc, char** argv)
 
 		if(level != 1){
 			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * (level-1) * sizeof(UBYTE) );
-		unbindTexture(&intervalTex, d_episodeIntervals, numCandidates * (level-2) * 2 * sizeof(float));
-        }
+			unbindTexture(&intervalTex, d_episodeIntervals, numCandidates * (level-2) * 2 * sizeof(float));
+		}
 
-//		int test1, test = numCandidates;
-//		generateEpisodeCandidatesCPU( level );
-//		test1 = numCandidates;
-//		numCandidates = test;
-        printf("Generating Episodes\n");
+		//		int test1, test = numCandidates;
+		//		generateEpisodeCandidatesCPU( level );
+		//		test1 = numCandidates;
+		//		numCandidates = test;
+		printf("Generating Episodes\n");
 #ifdef CPU_EPISODE_GENERATION
 		generateEpisodeCandidatesCPU( level );
 #else
@@ -928,19 +928,19 @@ runTest( int argc, char** argv)
 
 		if ( numCandidates == 0 )
 			break;
-        printf("Writing to buffer\n");
+		printf("Writing to buffer\n");
 		// Copy candidates to GPU
 #ifdef CPU_EPISODE_GENERATION
 		clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-        START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
-        END_TIMER(ocdTempTimer)
-		clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &ocdTempEvent);
-        clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
-        END_TIMER(ocdTempTimer)
+		END_TIMER(ocdTempTimer)
+		clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &ocdTempEvent);
+		clFinish(commands);
+		START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
 #endif
 
-        bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
+		bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
 
 		bindTexture( 0, &intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float), CL_FLOAT );
 
@@ -952,7 +952,7 @@ runTest( int argc, char** argv)
 
 		int sections;
 		unsigned int shared_mem_needed;
-	
+
 
 		int aType = algorithmType;
 		if ( algorithmType == OPTIMAL )
@@ -963,18 +963,18 @@ runTest( int argc, char** argv)
 			if ( aType == NAIVE )
 			{
 				shared_mem_needed = MaxListSize*level*threads[0]*sizeof(float);
-                printf("Shared memory needed %d\n", shared_mem_needed);
+				printf("Shared memory needed %d\n", shared_mem_needed);
 				countCandidates(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates, candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 
 			}
 			else
 			{
-                printf("DYNAMIC MAP MERGE\n");
+				printf("DYNAMIC MAP MERGE\n");
 				calculateLevelParameters(level, threads, grid, sections);
 				shared_mem_needed = 16000;
-                printf("numCandidates=%d\n", numCandidates);
+				printf("numCandidates=%d\n", numCandidates);
 				countCandidatesMapMerge(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates,
-                    candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
+						candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 				//countCandidatesMapMergeStatic<<< grid, threads, shared_mem_needed >>>( d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates );
 			}
 		}
@@ -991,17 +991,17 @@ runTest( int argc, char** argv)
 			}
 
 			if ( aType == NAIVE )
-                countCandidatesStatic(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates, candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed  );
+				countCandidatesStatic(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates, candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed  );
 			else
-                countCandidatesMapMergeStatic(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates,
-                    candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
+				countCandidatesMapMergeStatic(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates,
+						candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 			clFinish(commands);
 
-            int err;
-            err = clEnqueueReadBuffer(commands,d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
-            clFinish(commands);
-            START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
-            END_TIMER(ocdTempTimer)
+			int err;
+			err = clEnqueueReadBuffer(commands,d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
 			CHKERR(err, "Unable to read buffer from device.");
 
 			unbindTexture(&candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE) );
@@ -1025,19 +1025,19 @@ runTest( int argc, char** argv)
 			}
 
 #ifdef CPU_EPISODE_GENERATION
-            err = clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
-            END_TIMER(ocdTempTimer)
-            CHKERR(err, "Unable to write buffer 1.");
-            if(numCandidates * (level - 1) * 2 * sizeof(float) != 0)
-            err = clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &ocdTempEvent);
-        clFinish(commands);
-            START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
-        CHKERR(err, "Unable to write buffer 2.");
-		END_TIMER(ocdTempTimer)
+			err = clEnqueueWriteBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
+			START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
+			END_TIMER(ocdTempTimer)
+			CHKERR(err, "Unable to write buffer 1.");
+			if(numCandidates * (level - 1) * 2 * sizeof(float) != 0)
+				err = clEnqueueWriteBuffer(commands, d_episodeIntervals, CL_TRUE, 0, numCandidates * (level-1) * 2 * sizeof(float), h_episodeIntervals, 0, NULL, &ocdTempEvent);
+			clFinish(commands);
+			START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "TDM Episode Copy", ocdTempTimer)
+			CHKERR(err, "Unable to write buffer 2.");
+			END_TIMER(ocdTempTimer)
 #endif
-            bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
-            bindTexture( 0, &intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float), CL_FLOAT );
+			bindTexture( 0, &candidateTex, d_episodeCandidates, numCandidates * level * sizeof(UBYTE), CL_UNSIGNED_INT8);
+			bindTexture( 0, &intervalTex, d_episodeIntervals, numCandidates * (level-1) * 2 * sizeof(float), CL_FLOAT );
 
 			if ( algorithmType == OPTIMAL )
 				aType = chooseAlgorithmType( level, numCandidates, mmthreads );
@@ -1054,48 +1054,48 @@ runTest( int argc, char** argv)
 				calculateLevelParameters(level, threads, grid, sections);
 				shared_mem_needed = 16000;
 			}
-			
+
 			if ( aType == NAIVE )
-                countCandidates(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates,
-                    candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
+				countCandidates(grid, threads, d_episodeSupport, eventSize, level, supportType, numCandidates,
+						candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 			else
-                countCandidatesMapMerge(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates,
-                    candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
+				countCandidatesMapMerge(grid, threads, d_episodeSupport, padEventSize, level, supportType, sections, padEventSize / sections, numCandidates,
+						candidateTex, intervalTex, eventTex, timeTex, shared_mem_needed );
 
 		}
-        printf("Finishing\n");
+		printf("Finishing\n");
 		clFinish(commands);
-		
+
 
 		//printf("Copying result back to host...\n\n");
 
-        int err = clEnqueueReadBuffer(commands, d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
-        clFinish(commands);
+		int err = clEnqueueReadBuffer(commands, d_episodeSupport, CL_TRUE, 0, numCandidates * sizeof(float), h_episodeSupport, 0, NULL, &ocdTempEvent);
+		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
-        END_TIMER(ocdTempTimer)
+		END_TIMER(ocdTempTimer)
 		CHKERR(err, "Unable to read memory 1.");
 		err = clEnqueueReadBuffer(commands, d_episodeCandidates, CL_TRUE, 0, numCandidates * level * sizeof(UBYTE), h_episodeCandidates, 0, NULL, &ocdTempEvent);
-                clFinish(commands);
-                START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
-                END_TIMER(ocdTempTimer)
+		clFinish(commands);
+		START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "TDM Episode Copy", ocdTempTimer)
+		END_TIMER(ocdTempTimer)
 		CHKERR(err, "Unable to read memory 2.");
 		//CUDA_SAFE_CALL( cudaMemcpy( h_mapRecords, d_mapRecords, 3 * numSections * maxLevel * maxCandidates * sizeof(float), cudaMemcpyDeviceToHost ));
 		saveResult(level);
 		fflush(dumpFile);
-	
+
 		// Print Statistics for this run
 		printf("%s, %f, %s, %s, %d, %d, %d\n",
-			argv[1],											// Dataset
-			support,											// Support Threshold
-			algorithmType == NAIVE ? "PTPE" : algorithmType == MAP_AND_MERGE ? "MapMerge" : "Episode-Based",		// PTPE or MapMerge or Episode-Based
-			memoryModel == STATIC ? "A1+A2" : "A1",				// A1 or A1+A2
-			level,												// Level
-			numCandidates+episodesCulled,						// Episodes counted
-			episodesCulled  									// Episodes removed by A2
-            );
+				argv[1],											// Dataset
+				support,											// Support Threshold
+				algorithmType == NAIVE ? "PTPE" : algorithmType == MAP_AND_MERGE ? "MapMerge" : "Episode-Based",		// PTPE or MapMerge or Episode-Based
+				memoryModel == STATIC ? "A1+A2" : "A1",				// A1 or A1+A2
+				level,												// Level
+				numCandidates+episodesCulled,						// Episodes counted
+				episodesCulled  									// Episodes removed by A2
+		      );
 	}
 	printf("Done!\n");
 
-    cleanup();
+	cleanup();
 
 }

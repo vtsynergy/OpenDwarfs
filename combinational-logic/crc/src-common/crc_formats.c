@@ -18,7 +18,7 @@ unsigned int* read_crc(unsigned int* num_pages,unsigned int* page_size,const cha
 	{
 		read_count = 0;
 		for(i=0; i<num_words; i++)
-		  read_count += fscanf(fp,"%u ",&page[j*num_words+i]);
+			read_count += fscanf(fp,"%u ",&page[j*num_words+i]);
 		check(read_count == num_words,"crc_formats.read_crc() - Input file corrupted! Read count differs from page size");
 		fscanf(fp,"\n");
 	}
@@ -41,7 +41,7 @@ void write_crc(const unsigned int** pages, const unsigned int num_pages, const u
 	for(j=0; j<num_pages; j++)
 	{
 		for(i=0; i<num_words; i++)
-		  fprintf(fp,"%u ",pages[j][i]);
+			fprintf(fp,"%u ",pages[j][i]);
 		fprintf(fp,"\n");
 	}
 

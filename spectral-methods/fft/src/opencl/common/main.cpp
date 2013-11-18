@@ -75,177 +75,177 @@ void RunBenchmark(OptionParser &op);
 int main(int argc, char *argv[])
 {
 	ocd_init(&argc, &argv, NULL);
-    int ret = 0;
+	int ret = 0;
 
-    try
-    {
+	try
+	{
 #ifdef PARALLEL
-        int rank, size;
-        MPI_Init(&argc,&argv);
-        MPI_Comm_size(MPI_COMM_WORLD, &size);
-        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-        cout << "MPI Task "<< rank << "/" << size - 1 << " starting....\n";
+		int rank, size;
+		MPI_Init(&argc,&argv);
+		MPI_Comm_size(MPI_COMM_WORLD, &size);
+		MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+		cout << "MPI Task "<< rank << "/" << size - 1 << " starting....\n";
 #endif
 
-        OptionParser op;
-       
-        //Add shared options to the parser
-        op.addOption("platform", OPT_INT, "0", "specify OpenCL platform to use",
-                'p');
-        op.addOption("device", OPT_VECINT, "", "specify device(s) to run on", 'd');
-        op.addOption("passes", OPT_INT, "10", "specify number of passes", 'n');
-        op.addOption("size", OPT_VECINT, "1", "specify problem size", 's');
-        op.addOption("infoDevices", OPT_BOOL, "",
-                "show info for available platforms and devices", 'i');
-        op.addOption("verbose", OPT_BOOL, "", "enable verbose output", 'v');
-        op.addOption("quiet", OPT_BOOL, "", "write minimum necessary to standard output", 'q');
-                
-        addBenchmarkSpecOptions(op);
+		OptionParser op;
 
-        if (!op.parse(argc, argv))
-        {
+		//Add shared options to the parser
+		op.addOption("platform", OPT_INT, "0", "specify OpenCL platform to use",
+				'p');
+		op.addOption("device", OPT_VECINT, "", "specify device(s) to run on", 'd');
+		op.addOption("passes", OPT_INT, "10", "specify number of passes", 'n');
+		op.addOption("size", OPT_VECINT, "1", "specify problem size", 's');
+		op.addOption("infoDevices", OPT_BOOL, "",
+				"show info for available platforms and devices", 'i');
+		op.addOption("verbose", OPT_BOOL, "", "enable verbose output", 'v');
+		op.addOption("quiet", OPT_BOOL, "", "write minimum necessary to standard output", 'q');
+
+		addBenchmarkSpecOptions(op);
+
+		if (!op.parse(argc, argv))
+		{
 #ifdef PARALLEL
-            if (rank == 0)
-                op.usage();
-            MPI_Finalize();
+			if (rank == 0)
+				op.usage();
+			MPI_Finalize();
 #else
-            op.usage();
+			op.usage();
 #endif
-            return (op.HelpRequested() ? 0 : 1 );
-        }
-        
-        if (op.getOptionBool("infoDevices"))
-        {
+			return (op.HelpRequested() ? 0 : 1 );
+		}
+
+		if (op.getOptionBool("infoDevices"))
+		{
 #define DEBUG_DEVICE_CONTAINER 0
 #ifdef PARALLEL
-            // execute following code only if I am the process of lowest 
-            // rank on this node
-            NodeInfo NI;
-            int mynoderank = NI.nodeRank();
-            if (mynoderank==0)
-            {
-                int nlrrank, nlrsize;
-                MPI_Comm nlrcomm = NI.getNLRComm();
-                MPI_Comm_size(nlrcomm, &nlrsize);
-                MPI_Comm_rank(nlrcomm, &nlrrank);
-                
-                OpenCLNodePlatformContainer ndc1;
-                OpenCLMultiNodeContainer localMnc(ndc1);
-                localMnc.doMerge (nlrrank, nlrsize, nlrcomm);
-                if (rank==0)  // I am the global rank 0, print all configurations
-                    localMnc.Print (cout);
-            }
+			// execute following code only if I am the process of lowest 
+			// rank on this node
+			NodeInfo NI;
+			int mynoderank = NI.nodeRank();
+			if (mynoderank==0)
+			{
+				int nlrrank, nlrsize;
+				MPI_Comm nlrcomm = NI.getNLRComm();
+				MPI_Comm_size(nlrcomm, &nlrsize);
+				MPI_Comm_rank(nlrcomm, &nlrrank);
+
+				OpenCLNodePlatformContainer ndc1;
+				OpenCLMultiNodeContainer localMnc(ndc1);
+				localMnc.doMerge (nlrrank, nlrsize, nlrcomm);
+				if (rank==0)  // I am the global rank 0, print all configurations
+					localMnc.Print (cout);
+			}
 #else
-            OpenCLNodePlatformContainer ndc1;
-            ndc1.Print (cout);
+			OpenCLNodePlatformContainer ndc1;
+			ndc1.Print (cout);
 #if DEBUG_DEVICE_CONTAINER
-            OpenCLMultiNodeContainer mnc1(ndc1), mnc2;
-            mnc1.Print (cout);
-            ostringstream oss;
-            mnc1.writeObject (oss);
-            std::string temp(oss.str());
-            cout << "Serialized MultiNodeContainer:\n" << temp;
-            istringstream iss(temp);
-            mnc2.readObject (iss);
-            cout << "Unserialized object2:\n";
-            mnc2.Print (cout);
-            mnc1.merge (mnc2);
-            cout << "==============\nObject1 after merging 1:\n";
-            mnc1.Print (cout);
-            mnc1.merge (mnc2);
-            cout << "==============\nObject1 after merging 2:\n";
-            mnc1.Print (cout);
+			OpenCLMultiNodeContainer mnc1(ndc1), mnc2;
+			mnc1.Print (cout);
+			ostringstream oss;
+			mnc1.writeObject (oss);
+			std::string temp(oss.str());
+			cout << "Serialized MultiNodeContainer:\n" << temp;
+			istringstream iss(temp);
+			mnc2.readObject (iss);
+			cout << "Unserialized object2:\n";
+			mnc2.Print (cout);
+			mnc1.merge (mnc2);
+			cout << "==============\nObject1 after merging 1:\n";
+			mnc1.Print (cout);
+			mnc1.merge (mnc2);
+			cout << "==============\nObject1 after merging 2:\n";
+			mnc1.Print (cout);
 #endif  // DEBUG
 #endif  // PARALLEL
-            return (0);
-        }
+			return (0);
+		}
 
-        bool verbose = op.getOptionBool("verbose");
-        
-        // The device option supports specifying more than one device
-        // for now, just choose the first one.
-        int platform = op.getOptionInt("platform");
+		bool verbose = op.getOptionBool("verbose");
+
+		// The device option supports specifying more than one device
+		// for now, just choose the first one.
+		int platform = op.getOptionInt("platform");
 
 #ifdef PARALLEL
-        NodeInfo ni;
-        int myNodeRank = ni.nodeRank();
-        if (verbose)
-        cout << "Global rank "<<rank<<" is local rank "<<myNodeRank << endl;
+		NodeInfo ni;
+		int myNodeRank = ni.nodeRank();
+		if (verbose)
+			cout << "Global rank "<<rank<<" is local rank "<<myNodeRank << endl;
 #else
-        int myNodeRank = 0;
+		int myNodeRank = 0;
 #endif
 
-        // If they haven't specified any devices, assume they
-        // want the process with in-node rank N to use device N
-        int device = myNodeRank;
+		// If they haven't specified any devices, assume they
+		// want the process with in-node rank N to use device N
+		int device = myNodeRank;
 
-        // If they have, then round-robin the list of devices
-        // among the processes on a node.
-        vector<long long> deviceVec = op.getOptionVecInt("device");
-        if (deviceVec.size() > 0)
-        {
-        int len = deviceVec.size();
-            device = deviceVec[myNodeRank % len];
-        }
+		// If they have, then round-robin the list of devices
+		// among the processes on a node.
+		vector<long long> deviceVec = op.getOptionVecInt("device");
+		if (deviceVec.size() > 0)
+		{
+			int len = deviceVec.size();
+			device = deviceVec[myNodeRank % len];
+		}
 
-        // Check for an erroneous device
-        if (device >= GetNumOclDevices(platform)) {
-            cerr << "Warning: device index: " << device
-                 << " out of range, defaulting to device 0.\n";
-            device = 0;
-        }
+		// Check for an erroneous device
+		if (device >= GetNumOclDevices(platform)) {
+			cerr << "Warning: device index: " << device
+				<< " out of range, defaulting to device 0.\n";
+			device = 0;
+		}
 
-	ocd_options opts = ocd_get_options();
-	platform = opts.platform_id;
-	device = opts.device_id;
-        // Initialization
-//        if (verbose) cout << ">> initializing\n";
-//        cl::Device     id    = ListDevicesAndGetDevice(platform, device);
-//        std::vector<cl::Device> ctxDevices;
-//        ctxDevices.push_back( id );
-//        cl::Context ctx( ctxDevices );
-//        cl::CommandQueue queue( ctx, id, CL_QUEUE_PROFILING_ENABLE );
-//        ResultDatabase resultDB;
+		ocd_options opts = ocd_get_options();
+		platform = opts.platform_id;
+		device = opts.device_id;
+		// Initialization
+		//        if (verbose) cout << ">> initializing\n";
+		//        cl::Device     id    = ListDevicesAndGetDevice(platform, device);
+		//        std::vector<cl::Device> ctxDevices;
+		//        ctxDevices.push_back( id );
+		//        cl::Context ctx( ctxDevices );
+		//        cl::CommandQueue queue( ctx, id, CL_QUEUE_PROFILING_ENABLE );
+		//        ResultDatabase resultDB;
 
-        // Run the benchmark
-        RunBenchmark(op);
+		// Run the benchmark
+		RunBenchmark(op);
 
 #ifndef PARALLEL
-   //     resultDB.DumpDetailed(cout);
+		//     resultDB.DumpDetailed(cout);
 #else
-        ParallelResultDatabase pardb;
-        pardb.MergeSerialDatabases(resultDB,MPI_COMM_WORLD);
-        if (rank==0)
-        {
-            pardb.DumpSummary(cout);
-            pardb.DumpOutliers(cout);
-        }
+		ParallelResultDatabase pardb;
+		pardb.MergeSerialDatabases(resultDB,MPI_COMM_WORLD);
+		if (rank==0)
+		{
+			pardb.DumpSummary(cout);
+			pardb.DumpOutliers(cout);
+		}
 #endif
-    }
-    catch( cl::Error e )
-    {
-        std::cerr << e.what() << '(' << e.err() << ')' << std::endl;
-        ret = 1;
-    }
-    catch( InvalidArgValue& e )
-    {
-        std::cerr << e.what() << ": " << e.GetMessage() << std::endl;
-        ret = 1;
-    }
-    catch( std::exception& e )
-    {
-        std::cerr << e.what() << std::endl;
-        ret = 1;
-    }
-    catch( ... )
-    {
-        std::cerr << "unrecognized exception caught" << std::endl;
-        ret = 1;
-    }
+	}
+	catch( cl::Error e )
+	{
+		std::cerr << e.what() << '(' << e.err() << ')' << std::endl;
+		ret = 1;
+	}
+	catch( InvalidArgValue& e )
+	{
+		std::cerr << e.what() << ": " << e.GetMessage() << std::endl;
+		ret = 1;
+	}
+	catch( std::exception& e )
+	{
+		std::cerr << e.what() << std::endl;
+		ret = 1;
+	}
+	catch( ... )
+	{
+		std::cerr << "unrecognized exception caught" << std::endl;
+		ret = 1;
+	}
 
 #ifdef PARALLEL
-    MPI_Finalize();
+	MPI_Finalize();
 #endif
 	ocd_finalize();
-    return ret;
+	return ret;
 }
