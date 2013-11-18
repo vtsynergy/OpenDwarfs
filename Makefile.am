@@ -171,7 +171,7 @@ define run_dwarf_test
 	./bfs -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/graph-traversal/bfs/graph65536.txt; \
 	elif [ $(1) = "tdm" ]; then \
 	echo "Running tdm..."; \
-	./tdm -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/finite-state-machine/tdm/stream-new-1.csv streamIntervals.txt 100 0.5 r s n; \
+	./tdm -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/finite-state-machine/tdm/stream-new-1.csv ../test/finite-state-machine/tdm/streamIntervals.txt 100 0.5 r s n; \
 	##elif [ $(1) = "astar" ]; then \
 	##echo "Running astar..."; \
 	##./astar -p $(platform_n) -d $(device_n) -t $(device_t) --; \
