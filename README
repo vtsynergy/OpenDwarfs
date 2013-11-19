@@ -87,7 +87,7 @@ General format: ./<executable> [-p <platform> -d <device> | -t <type> --] [app-s
     <type>	: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
 
 Example1: ./astar -p 0 -d 0 --
-Example2: ./astar -t 0
+Example2: ./astar -t 0 --
 
 
 Acknowledgements
