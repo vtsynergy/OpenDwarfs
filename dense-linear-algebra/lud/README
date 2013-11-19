@@ -12,12 +12,12 @@ Note: This application was ported from the Rodinia Suite
 Running
 -------
 
-Usage: lud [<platform> <device> | <type> --] [options] -i <input_file>
+Usage: lud [-p <platform> -d <device> | -t <type> --] [options] -i <input_file>
 
     -i input_file :file containing the original matrix
     -v            :verify the computation and print differences, if any
 
-	<platform>	:integer ID of platform to use
+    <platform>	:integer ID of platform to use
     <device>    :integer ID of device in <platform> to use
     <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
     

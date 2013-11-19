@@ -78,6 +78,17 @@ Running
 -------
 
 See the application-specific README file in each application's directory.
+All the dwarf applications support a common list of options for optionally specifying the OpenCL platform ID (-p) and OpenCL device ID (-d), or alternatively, the device type (-t). These options, if supplied, must follow the executable name and be delimited from the application-specific options by double dashes (--).
+
+General format: ./<executable> [-p <platform> -d <device> | -t <type> --] [app-specific options]
+
+    <platform>	:integer ID of platform to use
+    <device>    :integer ID of device in <platform> to use
+    <type>	: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
+
+Example1: ./astar -p 0 -d 0 --
+Example2: ./astar -t 0
+
 
 Acknowledgements
 ----------------

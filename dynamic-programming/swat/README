@@ -11,7 +11,7 @@ description of the Needleman-Wunsch global sequence alignment algorithm.
 Running
 -------
 
-Usage: swat [<platform> <device> | <type> --] <queryFile> <dbFile> [<openPenalty> <extensionPenalty> <workGroups>]
+Usage: swat [-p <platform> -d <device> | -t <type> --] <queryFile> <dbFile> [<openPenalty> <extensionPenalty> <workGroups>]
 
     queryFile           :filename of query sequence
     dbFile              :filename of sequence database
@@ -19,7 +19,7 @@ Usage: swat [<platform> <device> | <type> --] <queryFile> <dbFile> [<openPenalty
     extensionPenalty    :penalty for gap extensions (Default: 0.5)
     workGroups          :number of OpenCL work-groups to request (Default: 14)
 
-	<platform>	:integer ID of platform to use
+    <platform>	:integer ID of platform to use
     <device>    :integer ID of device in <platform> to use
     <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
     

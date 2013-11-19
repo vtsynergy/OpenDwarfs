@@ -16,14 +16,14 @@ Note: This program has been adapted from http://forum.beyond3d.com/showthread.ph
 Running
 -------
 
-Usage: nqueens [<platform> <device> | <type> --] [options] N
+Usage: nqueens [-p <platform> -d <device> | -t <type> --] [options] N
 
 	-cpu: use CPU implementation (single threaded)
 	N: the board size (1 ~ 32)
 
 	<platform>	:integer ID of platform to use
-    <device>    :integer ID of device in <platform> to use
-    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+   	<device>    :integer ID of device in <platform> to use
+    	<type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
     
 Example: ./nqueens 16
 

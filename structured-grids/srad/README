@@ -16,7 +16,7 @@ Running
 
 In srad.h, define either GPU or CPU computation.
 
-Usage: srad [<platform> <device> | <type> --] <rows> <columns> <y1 position of speckle> <y2 position of speckle>
+Usage: srad [-p <platform> -d <device> | -t <type> --] <rows> <columns> <y1 position of speckle> <y2 position of speckle>
             <x1 position of speckle> <x2 position of speckle> <lambda value>
             <num iterations>
 

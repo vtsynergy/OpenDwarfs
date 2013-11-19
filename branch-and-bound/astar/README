@@ -10,10 +10,10 @@ performs a pair-wise set of A* searches for a given graph.
 Running
 -------
 
-Usage: astar [<platform> <device> | <type> --]
+Usage: astar [-p <platform> -d <device> | -t <type> --]
 
 	<platform>	:integer ID of platform to use
-    <device>    :integer ID of device in <platform> to use
-    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+	<device>    :integer ID of device in <platform> to use
+    	<type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
 
 Example: astar

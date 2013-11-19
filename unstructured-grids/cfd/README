@@ -12,7 +12,7 @@ Copyright 2009, Andrew Corrigan, acorrigan@gmu.edu
 Running
 -------
 
-Usage: cfd [<platform> <device> | <type> --] <filename>
+Usage: cfd [-p <platform> -d <device> | -t <type> --] <filename>
 
     <platform>	:integer ID of platform to use
     <device>    :integer ID of device in <platform> to use

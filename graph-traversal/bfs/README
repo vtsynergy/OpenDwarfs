@@ -15,11 +15,11 @@ Note: This application was ported from the Rodinia Suite
 Running
 -------
 
-Usage: bfs [<platform> <device> | <type> --] <filename>
+Usage: bfs [-p <platform> -d <device> | -t <type> --] <filename>
 
-	<filename> - name of the graph file
+    <filename> - name of the graph file
 
-	<platform>	:integer ID of platform to use
+    <platform>	:integer ID of platform to use
     <device>    :integer ID of device in <platform> to use
     <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
     

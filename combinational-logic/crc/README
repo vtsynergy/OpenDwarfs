@@ -18,7 +18,7 @@ algorithm published by Intel.
 Running
 -------
 
-Usage: crc [<platform> <device> | <type> --] -i <input_file> [hvpw] [-r <num_execs>] [-w <wg_size-1>][-w <wg_size-2>]...[-w <wg_size-m>] [-k <kernel_file-1>][-k <kernel_file-2>]...[-k <kernel_file-n>]
+Usage: crc [-p <platform> -d <device> | -t <type> --] -i <input_file> [hvpw] [-r <num_execs>] [-w <wg_size-1>][-w <wg_size-2>]...[-w <wg_size-m>] [-k <kernel_file-1>][-k <kernel_file-2>]...[-k <kernel_file-n>]
 	
 	-h | 'Print this help message'
 	-v | 'Increase verbosity level by 1 - Default is 0 - Max is 2'

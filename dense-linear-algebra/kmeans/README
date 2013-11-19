@@ -17,7 +17,7 @@ Note: This application was ported from the Rodinia Suite
 Running
 -------
 
-Usage: kmeans [<platform> <device> | <type> --] [options] -i <filename>
+Usage: kmeans [-p <platform> -d <device> | -t <type> --] [options] -i <filename>
 
     -i filename      :file containing data to be clustered
     -m max_nclusters :maximum number of clusters allowed    [default=5]

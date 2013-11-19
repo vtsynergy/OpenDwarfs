@@ -11,9 +11,9 @@ the unknown parameters of a hidden Markov model (HMM).
 Running
 -------
 
-Usage: bwa_hmm [<platform> <device> | <type> --] (see examples below for available run parameters, while keeping some parameters fixed)
+Usage: bwa_hmm [-p <platform> -d <device> | -t <type> --] (see examples below for available run parameters, while keeping some parameters fixed)
 
-	<platform>	:integer ID of platform to use
+    <platform>	:integer ID of platform to use
     <device>    :integer ID of device in <platform> to use
     <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
     

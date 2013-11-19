@@ -13,7 +13,7 @@ for OpenCL specification 1.2
 Running
 -------
 
-Usage: tdm [<platform> <device> | <type> --] <filepath> <temporal constraints path> <threads> <support>
+Usage: tdm [-p <platform> -d <device> | -t <type> --] <filepath> <temporal constraints path> <threads> <support>
        <(a)bsolute | (r)atio> <(s)tatic |(d)ynamic>
        <(m)ap and merge | (n)aive | (h)ybrid>
 
@@ -26,7 +26,7 @@ Usage: tdm [<platform> <device> | <type> --] <filepath> <temporal constraints pa
     <(m)ap and merge | (n)aive  :algorithm type to use
         | (h)ybrid>           
 
-	<platform>                  :integer ID of platform to use
+    <platform>                  :integer ID of platform to use
     <device>                    :integer ID of device in <platform> to use
     <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
 

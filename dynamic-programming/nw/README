@@ -15,11 +15,11 @@ Note: This application was ported from the Rodinia Suite
 Running
 -------
 
-Usage: needle [<platform> <device> | <type> --] <length of sequences> <penalty value>  
+Usage: needle [-p <platform> -d <device> | -t <type> --] <length of sequences> <penalty value>  
 
 	<platform>	:integer ID of platform to use
-    <device>    :integer ID of device in <platform> to use
-    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+	<device>    :integer ID of device in <platform> to use
+    	<type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
     
 Example: needle 2048 10
 
