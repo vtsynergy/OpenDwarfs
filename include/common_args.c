@@ -1,6 +1,6 @@
 #include "common_args.h"
 
-ocd_options _settings = {0, 0, 0};
+ocd_options _settings = {0, -1, -1};
 ocd_requirements _requirements = {0,0,0};
 option* _options = NULL;
 
@@ -87,6 +87,8 @@ cl_device_id _ocd_get_device(int platform, int device, cl_int dev_type)
 {
     cl_int err;
     cl_uint nPlatforms = 1;
+    char DeviceName[100];
+    cl_device_id* devices;
     err = clGetPlatformIDs(0, NULL, &nPlatforms);
     CHECK_ERROR(err);
 
@@ -109,37 +111,60 @@ cl_device_id _ocd_get_device(int platform, int device, cl_int dev_type)
     CHECK_ERROR(err);
     printf("Platform Chosen : %s\n", platformName);
 
-    // query devices
-	err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
-	if(err == CL_DEVICE_NOT_FOUND)
-	{
-		fprintf(stderr,"No Supported Device Found of Type %d. Falling back to CPU.\n",dev_type);
-		dev_type = CL_DEVICE_TYPE_CPU;
-		err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
-		if(err == CL_DEVICE_NOT_FOUND){
-			fprintf(stderr, "No CPU device available in this platform. Please, check your available OpenCL devices.\n"); 
-			exit(-4);
-		}
-	}
-	CHECK_ERROR(err);
-	
-	printf("Number of available devices: %d\n", nDevices);
-    if (nDevices <= 0) {
-        printf("No OpenCL Device found. Exiting.\n");
-        exit(0);
-    }
-    if (device < 0 || device >= nDevices) // platform ID out of range
-    {
-        printf("Device index %d is out of range. \n", device);
-        exit(-4);
-    }
-    cl_device_id* devices = (cl_device_id *) malloc(sizeof (cl_device_id) * nDevices);
-    err = clGetDeviceIDs(platforms[platform], dev_type, nDevices, devices, NULL);
-    char DeviceName[100];
-    err = clGetDeviceInfo(devices[device], CL_DEVICE_NAME, sizeof (DeviceName), DeviceName, NULL);
-    CHECK_ERROR(err);
-    printf("Device Chosen : %s\n", DeviceName);
 
+	//IF given device ID, use this, and disregard -t parameter if given
+	if(device!=-1){
+		err = clGetDeviceIDs(platforms[platform], CL_DEVICE_TYPE_ALL, 0, NULL, &nDevices);
+		printf("Number of available devices: %d\n", nDevices);
+    	if (nDevices <= 0) {
+        	printf("No OpenCL Device found. Exiting.\n");
+        	exit(0);
+    	}
+		if (device < 0 || device >= nDevices) // platform ID out of range
+    	{
+        	printf("Device index %d is out of range. \n", device);
+        	exit(-4);
+    	}
+    	devices = (cl_device_id *) malloc(sizeof (cl_device_id) * nDevices);
+		err = clGetDeviceIDs(platforms[platform], CL_DEVICE_TYPE_ALL, nDevices, devices, NULL);
+    	err = clGetDeviceInfo(devices[device], CL_DEVICE_NAME, sizeof (DeviceName), DeviceName, NULL);
+    	CHECK_ERROR(err);
+	}
+	//OTHERWISE, check at the device type parameter
+	else{
+		// query devices
+		err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
+		if(err == CL_DEVICE_NOT_FOUND)
+		{
+			fprintf(stderr,"No Supported Device Found of Type %d. Falling back to CPU.\n",dev_type);
+			dev_type = CL_DEVICE_TYPE_CPU;
+			err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
+			if(err == CL_DEVICE_NOT_FOUND){
+				fprintf(stderr, "No CPU device available in this platform. Please, check your available OpenCL devices.\n"); 
+				exit(-4);
+			}
+		}
+		CHECK_ERROR(err);
+		printf("Number of available devices: %d\n", nDevices);
+    	if (nDevices <= 0) {
+        	printf("No OpenCL Device found. Exiting.\n");
+        	exit(0);
+    	}
+		//if (device < 0 || device >= nDevices) // platform ID out of range
+    	//{
+       	//	printf("Device index %d is out of range. \n", device);
+        //	exit(-4);
+    	//}
+    	devices = (cl_device_id *) malloc(sizeof (cl_device_id) * nDevices);
+    	err = clGetDeviceIDs(platforms[platform], dev_type, nDevices, devices, NULL);
+    	//Get the first available device of requested type
+    	err = clGetDeviceInfo(devices[0], CL_DEVICE_NAME, sizeof (DeviceName), DeviceName, NULL);
+    	device=0;
+    	CHECK_ERROR(err);	
+	}
+	    
+    //Return
+    printf("Device Chosen : %s\n", DeviceName);
     return devices[device];
 }
 
@@ -234,14 +259,16 @@ void ocd_finalize()
 void checkDeviceChoice(int devType)
 {
 
-	if ( devType == 1)
+	if ( devType == 0)
+		printf("CPU was selected\n");
+	else if ( devType == 1)
 		printf("GPU was selected\n");
 	else if ( devType == 2)
 		printf("MIC was selected\n");
 	else if ( devType == 3)
 		printf("FPGA was selected\n");
 	else
-		printf("CPU was selected\n");
+		printf("Selection based on platform and device ID\n");
 
 }
 
