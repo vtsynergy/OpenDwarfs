@@ -86,9 +86,12 @@ General format: ./<executable> [-p <platform> -d <device> | -t <type> --] [app-s
     <device>    :integer ID of device in <platform> to use
     <type>	: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
 
-Example1: ./astar -p 0 -d 0 --
-Example2: ./astar -t 0 --
+Example1: ./astar -p 0 -d 0 -- (selects device with device ID 0 on platform with platform ID 0)
+Example2: ./astar -t 0 -- (selects CPU device type on default platform with platform ID 0, if available)
 
+Notes:	If no parameters are supplied, default platform ID is 0 and default device type is CPU.
+	If -t parameter is given, default platform ID 0 is searched for supplied device type <type>. If not available, CPU device type selection will be attempted. 
+	If device ID is unknown, a combination of -p and -t is available to search for device of selected <type> on platform ID <platform>.	
 
 Acknowledgements
 ----------------

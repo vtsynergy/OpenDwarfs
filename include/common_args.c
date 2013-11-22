@@ -1,6 +1,6 @@
 #include "common_args.h"
 
-ocd_options _settings = {0, -1, -1};
+ocd_options _settings = {0, -1, 0};
 ocd_requirements _requirements = {0,0,0};
 option* _options = NULL;
 
@@ -136,7 +136,7 @@ cl_device_id _ocd_get_device(int platform, int device, cl_int dev_type)
 		err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
 		if(err == CL_DEVICE_NOT_FOUND)
 		{
-			fprintf(stderr,"No Supported Device Found of Type %d. Falling back to CPU.\n",dev_type);
+			fprintf(stderr,"No supported device of requested type found. Falling back to CPU.\n");
 			dev_type = CL_DEVICE_TYPE_CPU;
 			err = clGetDeviceIDs(platforms[platform], dev_type, 0, NULL, &nDevices);
 			if(err == CL_DEVICE_NOT_FOUND){
