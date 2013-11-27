@@ -7,27 +7,17 @@ The Temporal Data Mining(TDM) code is a restricted variant of association rule
 data mining.  In this case, temporal data is also considered as part of the
 association process.
 
-Due to deprecation of the clCreateImage2d command, TDM is known to lack support
-for OpenCL specification 1.2
-
 Running
 -------
 
-Usage: tdm [-p <platform> -d <device> | -t <type> --] <filepath> <temporal constraints path> <threads> <support>
-       <(a)bsolute | (r)atio> <(s)tatic |(d)ynamic>
-       <(m)ap and merge | (n)aive | (h)ybrid>
+Usage: tdm [<platform> <device> | <type> --] <filepath> <temporal constraints path> <threads>
 
-    <filepath>                  :file containing temporal database
-    <temporal constraints path> :path containing temporal constraints  
+    <temporal database>         :file containing temporal database (in csv format)
+    <temporal constraints file> :file containing temporal constraints 
+    <episodes file>				:file containing episode information 
     <threads>                   :maximum number of threads to use      
-    <support>                   :culling threshold value                       
-    <(a)bsolute | (r)atio>      :culling threshold type                
-    <(s)tatic | (d)ynamic>      :static or dynamic memory management
-    <(m)ap and merge | (n)aive  :algorithm type to use
-        | (h)ybrid>           
-
     <platform>                  :integer ID of platform to use
     <device>                    :integer ID of device in <platform> to use
-    <type>		: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
+    <type>						: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)	
 
-Example: tdm 0 0 -- test/finite-state-machine/tdm/stream-new-1.csv test/finite-state-machine/tdm/streamIntervals.txt 100 0.5 r s n   
+Example: ./tdm ../test/finite-state-machine/tdm/sim-64-size200.csv ../test/finite-state-machine/tdm/ivl.txt ../test/finite-state-machine/tdm/30-episodes.txt 128
