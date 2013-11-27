@@ -66,7 +66,7 @@ main ( int argc, char *argv[] )
 			case 's':
 				matrix_dim = atoi(optarg);
 				fprintf(stderr, "Currently not supported, use -i instead\n");
-				fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file|-p platform|-d device]\n", argv[0]);
+				fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
 				exit(EXIT_FAILURE);
 			case '?':
 				fprintf(stderr, "invalid option\n");
@@ -82,7 +82,7 @@ main ( int argc, char *argv[] )
 	}
 
 	if ( (optind < argc) || (optind == 1)) {
-		fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file|-p platform|-d device]\n", argv[0]);
+		fprintf(stderr, "Usage: %s [-v] [-s matrix_size|-i input_file]\n", argv[0]);
 		exit(EXIT_FAILURE);
 	}
 

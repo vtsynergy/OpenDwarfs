@@ -11,14 +11,14 @@ lud_diagonal(__global float *m, int matrix_dim, int offset)
 			for(j=0; j < i; j++)
 				m[array_offset+get_local_id(0)*matrix_dim+i] -= m[array_offset+get_local_id(0)*matrix_dim+j]*m[array_offset+j*matrix_dim+i];
 			m[array_offset+get_local_id(0)*matrix_dim+i] /= m[array_offset+i*matrix_dim+i];
-
-			barrier(CLK_GLOBAL_MEM_FENCE);
-
+		}
+		barrier(CLK_GLOBAL_MEM_FENCE);
+		if (get_local_id(0)>i){
 			for(j=0; j < i+1; j++)
 				m[array_offset+(i+1)*matrix_dim+get_local_id(0)] -= m[array_offset+(i+1)*matrix_dim+j]*m[array_offset+j*matrix_dim+get_local_id(0)];
-
-			barrier(CLK_GLOBAL_MEM_FENCE);
 		}
+		barrier(CLK_GLOBAL_MEM_FENCE);
+		
 	}
 
 }
