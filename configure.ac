@@ -16,8 +16,10 @@ PAC_PUSH_ALL_FLAGS
 LT_INIT
 PAC_POP_ALL_FLAGS
 
-PAC_PROG_CC
-PAC_PROG_CXX
+AC_PROG_CC([pgcc gcc icc])
+AC_PROG_CXX([pgc++ g++ ])
+
+AC_PROG_CC_C_O
 
 AC_CONFIG_HEADER(config.h)
 
@@ -25,6 +27,7 @@ AC_CONFIG_HEADER(config.h)
 # remaining tests behave
 PAC_ARG_STRICT
 
+AM_PROG_AR
 AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_MKDIR_P
@@ -77,6 +80,16 @@ if test ! -z "$OPENCL_PREFIX" ; then
    PAC_APPEND_FLAG([-Wl,-rpath=${OPENCL_PREFIX}],[LDFLAGS])
 fi
 
+# AC_ARG_WITH([pgi], AS_HELP_STRING([--with-pgi],[path to PGI compilers]),
+# 	[PGI_PATH=$withval],[PGI_PATH=])
+#
+# if test ! -z "$PGI_PATH"; then
+#   CC=${PGI_PATH}/bin/pgcc
+#   CXX=${PGI_PATH}/bin/pgcpp
+#   CFLAGS="${CFLAGS} -c99 -fPIC -acc "
+#   CXXFLAGS="${CXXFLAGS} --c++11 -acc "
+# fi
+
 ###Specify build with Altera OpenCL SDK
 AC_ARG_WITH([AOCL], AS_HELP_STRING([--with-AOCL],[path to Altera OpenCl SDK]),
 	[AOCL_ROOT=$withval],[AOCL_ROOT=])
@@ -84,14 +97,14 @@ AC_ARG_WITH([AOCL], AS_HELP_STRING([--with-AOCL],[path to Altera OpenCl SDK]),
 
 AC_CHECK_HEADER([CL/cl.h], [HEADER_LINUX=1], [])
 AC_CHECK_HEADER([OpenCL/OpenCL.h], [HEADER_APPLE=1], [])
-	
+
 if test ! -z "$HEADER_LINUX";
 then
     AC_DEFINE(OPENCL_HEADER_CL_CL, 1, [use non-apple header])
     if test -n "$AOCL_ROOT";
     then	###If AOCL option passed (build for Altera FPGA)
     	PAC_APPEND_FLAG([-I${AOCL_ROOT}/host/include],[CPPFLAGS])
-		PAC_APPEND_FLAG([-L${AOCL_ROOT}/linux64/lib],[LDFLAGS])	
+		PAC_APPEND_FLAG([-L${AOCL_ROOT}/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-L${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
@@ -106,7 +119,7 @@ then
     else	### default (CPU or GPU)
     ### Check for the libraries that we need
     	AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
-        AC_MSG_ERROR([OpenCL library not found]))
+                      AC_MSG_ERROR([OpenCL library not found]))
     fi
 else
     if test ! -z "$HEADER_APPLE" ; then
@@ -150,7 +163,7 @@ AC_LANG_POP([C++])
 #	AC_HELP_STRING([--with-apps],[Applications to build (gem,matmult,mattran,swat)]),
 #	[app_list=$withval],[app_list=gem,matmult,mattran,swat])
 AC_ARG_WITH([apps],
-	AS_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar,nqueens,bwa_hmm)]),
+	AS_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar,nqueens,bwa_hmm,openacc)]),
 	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar,nqueens,bwa_hmm])
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
@@ -176,6 +189,7 @@ build_tdm=false
 build_astar=false
 build_nqueens=false
 build_bwa_hmm=false
+build_openacc=false
 
 selected_apps=""
 for app in ${app_names}; do
@@ -272,6 +286,10 @@ for app in ${app_names}; do
      	build_bwa_hmm=true
      	selected_apps="$selected_apps bwa_hmm"
      	;;
+     openacc)
+          build_openacc=true
+          selected_apps="$selected_apps openacc"
+     	;;
 	 *)
 		AC_MSG_ERROR([unrecognized application $app])
 		;;
@@ -306,6 +324,7 @@ AM_CONDITIONAL([build_tdm], [$build_tdm])
 AM_CONDITIONAL([build_astar], [$build_astar])
 AM_CONDITIONAL([build_nqueens], [$build_nqueens])
 AM_CONDITIONAL([build_bwa_hmm], [$build_bwa_hmm])
+AM_CONDITIONAL([build_openacc], [$build_openacc])
 
 # Final output
 AC_OUTPUT(Makefile)

@@ -28,3 +28,4 @@ gem-all-local:
 
 gem-exec-local:
 	cp $(top_srcdir)/n-body-methods/gem/calculate_potential.cl ${DESTDIR}${bindir}
+

@@ -1,0 +1,14 @@
+.deps
+.dirstamp
+*~
+*.swp
+*.o
+*.lo
+*.a
+
+configure
+config.log
+config.system
+
+Makefile
+Makefile.in

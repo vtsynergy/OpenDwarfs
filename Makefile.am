@@ -8,8 +8,10 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -Werror
+# disabled for incompatibility with pgcc
+# AM_CPPFLAGS = -Werror
 
+lib_LIBRARIES =
 bin_PROGRAMS =
 all_local =
 exec_local =
@@ -114,6 +116,11 @@ endif
 if build_bwa_hmm
 include graphical-models/hmm/Makefile.mk
 testruns += bwa_hmm
+endif
+
+if build_openacc
+include openacc-tests/Makefile.mk
+# testruns += bwa_hmm
 endif
 
 all-local: $(all_local)
