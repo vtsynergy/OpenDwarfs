@@ -84,14 +84,14 @@ AC_ARG_WITH([AOCL], AS_HELP_STRING([--with-AOCL],[path to Altera OpenCl SDK]),
 
 AC_CHECK_HEADER([CL/cl.h], [HEADER_LINUX=1], [])
 AC_CHECK_HEADER([OpenCL/OpenCL.h], [HEADER_APPLE=1], [])
-	
+
 if test ! -z "$HEADER_LINUX";
 then
     AC_DEFINE(OPENCL_HEADER_CL_CL, 1, [use non-apple header])
     if test -n "$AOCL_ROOT";
     then	###If AOCL option passed (build for Altera FPGA)
     	PAC_APPEND_FLAG([-I${AOCL_ROOT}/host/include],[CPPFLAGS])
-		PAC_APPEND_FLAG([-L${AOCL_ROOT}/linux64/lib],[LDFLAGS])	
+		PAC_APPEND_FLAG([-L${AOCL_ROOT}/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-L${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
@@ -150,8 +150,8 @@ AC_LANG_POP([C++])
 #	AC_HELP_STRING([--with-apps],[Applications to build (gem,matmult,mattran,swat)]),
 #	[app_list=$withval],[app_list=gem,matmult,mattran,swat])
 AC_ARG_WITH([apps],
-	AS_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar,nqueens,bwa_hmm)]),
-	[app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,astar,nqueens,bwa_hmm])
+            AS_HELP_STRING([--with-apps],[Applications to build (gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,nqueens,bwa_hmm)]),
+            [app_list=$withval],[app_list=gem,nw,srad,lud,kmeans,fft,swat,samplecl,crc,cfd,bfs,csr,tdm,nqueens,bwa_hmm])
 app_names="`echo $app_list | sed -e 's/:/ /g' -e 's/,/ /g'`"
 
 build_gem=false
@@ -173,7 +173,6 @@ build_cfd=false
 #build_oesort=false
 build_bfs=false
 build_tdm=false
-build_astar=false
 build_nqueens=false
 build_bwa_hmm=false
 
@@ -260,10 +259,6 @@ for app in ${app_names}; do
         build_csr=true
         selected_apps="$selected_apps csr"
         ;;
-     astar)
-        build_astar=true
-        selected_apps="$selected_apps astar"
-        ;;
      nqueens)
     	build_nqueens=true
     	selected_apps="$selected_apps nqueens"
@@ -303,7 +298,6 @@ AM_CONDITIONAL([build_cfd], [$build_cfd])
 #AM_CONDITIONAL([build_oesort], [$build_oesort])
 AM_CONDITIONAL([build_bfs], [$build_bfs])
 AM_CONDITIONAL([build_tdm], [$build_tdm])
-AM_CONDITIONAL([build_astar], [$build_astar])
 AM_CONDITIONAL([build_nqueens], [$build_nqueens])
 AM_CONDITIONAL([build_bwa_hmm], [$build_bwa_hmm])
 

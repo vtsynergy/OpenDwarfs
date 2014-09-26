@@ -101,12 +101,8 @@ include finite-state-machine/tdm/Makefile.mk
 testruns += tdm
 endif
 
-if build_astar
-include branch-and-bound/astar/Makefile.mk
-testruns += astar
-endif
 
-if build_astar
+if build_nqueens
 include branch-and-bound/nqueens/Makefile.mk
 testruns += nqueens
 endif
@@ -172,9 +168,6 @@ define run_dwarf_test
 	elif [ $(1) = "tdm" ]; then \
 	echo "Running tdm..."; \
 	./tdm -p $(platform_n) -d $(device_n) -t $(device_t) -- ../test/finite-state-machine/tdm/sim-64-size200.csv ../test/finite-state-machine/tdm/ivl.txt ../test/finite-state-machine/tdm/30-episodes.txt 128; \
-	##elif [ $(1) = "astar" ]; then \
-	##echo "Running astar..."; \
-	##./astar -p $(platform_n) -d $(device_n) -t $(device_t) --; \
 	elif [ $(1) = "nqueens" ]; then \
 	echo "Running nqueens..."; \
 	./nqueens -p $(platform_n) -d $(device_n) -t $(device_t) -- 16; \
