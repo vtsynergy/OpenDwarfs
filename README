@@ -50,7 +50,6 @@ openacc-tests:
   syr2k
 
 Alpha:
-astar
 tdm
 
 Requirements
