@@ -2,10 +2,14 @@ OpenDwarfs
 =============
 The OpenDwarfs project provides a benchmark suite consisting of different
 computation/communication idioms, i.e., dwarfs, for state-of-art multicore and
-GPU systems.  The first instantiation of the OpenDwarfs has been realized in
+GPU systems. The first instantiation of the OpenDwarfs has been realized in
 OpenCL, as described in part in "OpenCL and the 13 Dwarfs: A Work in Progress"
 by Feng, Lin, Scogland, and Zhang in the 3rd ACM/SPEC International Conference
-on Performance Engineering, April 2012.
+on Performance Engineering, April 2012. The most up-to-date version is described
+in "On the Characterization of OpenCL Dwarfs on Fixed and Reconfigurable Platforms"
+by Krommydas, Feng, Owaida, Antonopoulos, and Bellas in the 25th IEEE International
+Conference on Application-specific Systems, Architectures and Processors (ASAP), 
+June 2014.
 
 
 The computation/communication idioms are based on the 13 Berkeley Dwarfs:
