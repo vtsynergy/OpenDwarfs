@@ -15,6 +15,9 @@ return no remainder on a successful transmission.
 This application computes a 32-bit Ethernet standard CRC using the "Slice-by-8"
 algorithm published by Intel.
 
+You can create test files as desired by executing the createcrc program (source 
+provided under ./src_test/ subfolder.
+
 Running
 -------
 
