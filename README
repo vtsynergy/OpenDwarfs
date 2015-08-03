@@ -1,8 +1,8 @@
 OpenDwarfs
-=============
+==========
   The OpenDwarfs project provides a benchmark suite consisting of different computation/communication idioms, i.e., dwarfs, for state-of-art multicore CPUs, GPUs, Intel MICs and  Altera FPGAs. 
-  The first instantiation of the OpenDwarfs has been realized in OpenCL, as described in part in "OpenCL and the 13 Dwarfs: A Work in Progress" by Feng, Lin, Scogland, and Zhang in the 3rd ACM/SPEC International Conference on Performance Engineering, April 2012. 
-  The most up-to-date version (please, use this citation in your published work) is described in "On the Characterization of OpenCL Dwarfs on Fixed and Reconfigurable Platforms" by Krommydas, Feng, Owaida, Antonopoulos, and Bellas in the 25th IEEE International Conference on Application-specific Systems, Architectures and Processors (ASAP), June 2014.
+  The first instantiation of the OpenDwarfs has been realized in OpenCL, as briefly described in "OpenCL and the 13 Dwarfs: A Work in Progress" by Feng, Lin, Scogland, and Zhang in the 3rd ACM/SPEC International Conference on Performance Engineering, April 2012. 
+  The latest version, which contains an in-depth performance evaluation on a subset of OpenDwarfs, is described in "On the Characterization of OpenCL Dwarfs on Fixed and Reconfigurable Platforms" by Krommydas, Feng, Owaida, Antonopoulos, and Bellas in the 25th IEEE International Conference on Application-specific Systems, Architectures and Processors (ASAP), June 2014.
 
 The computation/communication idioms are based on the 13 Berkeley Dwarfs:
 (http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
@@ -91,7 +91,7 @@ Notes:	If no parameters are supplied, default platform ID is 0 and default devic
 Acknowledgements
 ----------------
 
-This project has been supported in part by Air Force Research Lab, Altera, AMD, Department of Defense, Harris, Los Alamos National Laboratory, and Xilinx via the NSF Center for High-Performance Reconfigurable Computing (CHREC) under NSF grant IIP-0804155 and indirectly by NSF grants CNS-0916719 and MRI-0960081.
+This project has been supported in part by Air Force Research Lab, Altera, AMD, Department of Defense, Harris, Los Alamos National Laboratory, and Xilinx via the NSF Center for High-Performance Reconfigurable Computing (CHREC) under NSF grant IIP-0804155 and indirectly by AFOSR grant FA9550-12-1-0442 and NSF grants CNS-0916719 and MRI-0960081.
 
 Integration for Altera FPGA support for crc and csr, as well as extensions for these
 benchmarks, have been contributed by Tyler Kenney at IBM.
