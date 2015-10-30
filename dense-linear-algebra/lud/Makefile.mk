@@ -14,6 +14,8 @@ exec_local += lud-exec-local
 
 lud-all-local:
 	cp $(top_srcdir)/dense-linear-algebra/lud/lud_kernel.cl .
+	cp $(top_srcdir)/dense-linear-algebra/lud/lud_kernel_opt_gpu.cl .
 
 lud-exec-local:
 	cp $(top_srcdir)/dense-linear-algebra/lud/lud_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/dense-linear-algebra/lud/lud_kernel_opt_gpu.cl ${DESTDIR}${bindir}

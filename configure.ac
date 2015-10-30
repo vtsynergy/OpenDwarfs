@@ -85,24 +85,27 @@ AC_ARG_WITH([AOCL], AS_HELP_STRING([--with-AOCL],[path to Altera OpenCl SDK]),
 AC_CHECK_HEADER([CL/cl.h], [HEADER_LINUX=1], [])
 AC_CHECK_HEADER([OpenCL/OpenCL.h], [HEADER_APPLE=1], [])
 
+
 if test ! -z "$HEADER_LINUX";
 then
     AC_DEFINE(OPENCL_HEADER_CL_CL, 1, [use non-apple header])
     if test -n "$AOCL_ROOT";
     then	###If AOCL option passed (build for Altera FPGA)
-    	PAC_APPEND_FLAG([-I${AOCL_ROOT}/host/include],[CPPFLAGS])
-		PAC_APPEND_FLAG([-L${AOCL_ROOT}/linux64/lib],[LDFLAGS])
+   		AC_DEFINE(__FPGA__, , [Use FPGA])
+   		PAC_APPEND_FLAG([-I${AOCL_ROOT}/host/include],[CPPFLAGS])
+   		PAC_APPEND_FLAG([-I${AOCL_ROOT}/host/include/CL],[CPPFLAGS])
+		PAC_APPEND_FLAG([-L${AOCL_ROOT}/board/bittware/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-L${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
-		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/linux64/lib],[LDFLAGS])
+		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/board/bittware/linux64/lib],[LDFLAGS])
 		PAC_APPEND_FLAG([-Wl,-rpath=${AOCL_ROOT}/host/linux64/lib],[LDFLAGS])
-		PAC_APPEND_FLAG([-lalterahalmmd],[LIBS])
-		PAC_APPEND_FLAG([-lalterammdpcie],[LIBS])
-		PAC_APPEND_FLAG([-lpkg_editor],[LIBS])
 		PAC_APPEND_FLAG([-lalteracl],[LIBS])
+		PAC_APPEND_FLAG([-ldl],[LIBS])
+		PAC_APPEND_FLAG([-lacl_emulator_kernel_rt],[LIBS])
+		PAC_APPEND_FLAG([-laltera_s5phq_mmd],[LIBS])
+		PAC_APPEND_FLAG([-lalterahalmmd],[LIBS])
 		PAC_APPEND_FLAG([-lelf],[LIBS])
 		PAC_APPEND_FLAG([-lrt],[LIBS])
 		PAC_APPEND_FLAG([-lstdc++],[LIBS])
-    	###AC_DEFINE(USE_AFPGA,1,[Use Altera FPGA])
     else	### default (CPU or GPU)
     ### Check for the libraries that we need
     	AC_CHECK_LIB(OpenCL,clGetPlatformIDs,[PAC_PREPEND_FLAG([-lOpenCL],[LIBS])],
@@ -278,6 +281,7 @@ done
 AC_ARG_ENABLE([timing],
 	AS_HELP_STRING([--disable-timing], [Disable automatic macro-based timing (enabled by default)]),	, AC_DEFINE(ENABLE_TIMER, 1, [Enable the OCD suite of automatic timing and output macros.])
 )
+
 
 AC_MSG_RESULT([building applications... ${selected_apps}])
 AM_CONDITIONAL([build_gem], [$build_gem])

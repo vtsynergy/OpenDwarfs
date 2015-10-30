@@ -137,7 +137,7 @@ void setup_device(const char* kernel_file)
 {
 	cl_int err;
 
-	program = ocdBuildProgramFromFile(context,device_id,kernel_file);
+	program = ocdBuildProgramFromFile(context,device_id,kernel_file, NULL);
 	kernel_compute = clCreateKernel(program, "crc32_slice8", &err); // Create the compute kernel in the program we wish to run
 	CHKERR(err, "Failed to create a compute kernel!");
 
@@ -299,10 +299,7 @@ int main(int argc, char** argv)
 	{
 		num_kernels = 1;
 		kernel_files = malloc(sizeof(char*)*num_kernels);
-		if(_deviceType == 3) //USE_AFPGA
-			kernel_files[0] = "crc_kernel_fpga_optimized.aocx";
-		else //CPU or GPU or MIC
-			kernel_files[0] = "crc_kernel.cl";
+		kernel_files[0] = "crc_kernel";
 	}
 
 	for(h=0; h<num_block_sizes; h++)

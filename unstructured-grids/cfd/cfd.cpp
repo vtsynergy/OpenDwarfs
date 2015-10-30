@@ -6,6 +6,9 @@
 #include <iostream>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include <malloc.h>
+
+#define AOCL_ALIGNMENT 64
 
 typedef struct{
 	float x;
@@ -122,18 +125,19 @@ void getKernelSource(char* output, long size)
 
 void dump(cl_command_queue commands, cl_mem variables, int nel, int nelr)
 {
-	float* h_variables = new float[nelr*NVAR];
+	float* h_variables;
+    h_variables  = (float*)  memalign(AOCL_ALIGNMENT,nelr*NVAR*sizeof(float));
 	download(commands, h_variables, variables, nelr*NVAR);
 
 	{
-		std::ofstream file("density");
+		std::ofstream file("density.txt");
 		file << nel << " " << nelr << std::endl;
 		for(int i = 0; i < nel; i++) file << h_variables[i + VAR_DENSITY*nelr] << std::endl;
 	}
 
 
 	{
-		std::ofstream file("momentum");
+		std::ofstream file("momentum.txt");
 		file << nel << " " << nelr << std::endl;
 		for(int i = 0; i < nel; i++)
 		{
@@ -144,7 +148,7 @@ void dump(cl_command_queue commands, cl_mem variables, int nel, int nelr)
 	}
 
 	{
-		std::ofstream file("density_energy");
+		std::ofstream file("density_energy.txt");
 		file << nel << " " << nelr << std::endl;
 		for(int i = 0; i < nel; i++) file << h_variables[i + VAR_DENSITY_ENERGY*nelr] << std::endl;
 	}
@@ -269,9 +273,22 @@ int main(int argc, char** argv)
 
 		nelr = block_length*((nel / block_length )+ std::min(1, nel % block_length));
 
-		float* h_areas = new float[nelr];
-		int* h_elements_surrounding_elements = new int[nelr*NNB];
-		float* h_normals = new float[nelr*NDIM*NNB];
+		//float* h_areas = new float[nelr];
+		//int* h_elements_surrounding_elements = new int[nelr*NNB];
+		//float* h_normals = new float[nelr*NDIM*NNB];
+
+		float* h_areas ;
+		int* h_elements_surrounding_elements ;
+		float* h_normals ;
+
+        h_areas                         = (float*)  memalign(AOCL_ALIGNMENT,nelr*sizeof(float));
+        h_elements_surrounding_elements = (int*)    memalign(AOCL_ALIGNMENT,nelr*NNB*sizeof(int));
+        h_normals                       = (float *) memalign(AOCL_ALIGNMENT,nelr*NDIM*NNB*sizeof(float));
+
+
+        //posix_memalign(&h_areas                         , AOCL_ALIGNMENT, nelr);
+        //posix_memalign(&h_elements_surrounding_elements , AOCL_ALIGNMENT, nelr*NNB);
+        //posix_memalign(&h_normals                       , AOCL_ALIGNMENT, nelr*NDIM*NNB);
 
 
 		// read in data
@@ -319,30 +336,13 @@ int main(int argc, char** argv)
 		delete[] h_normals;
 	}
 
-	// Get program source.
-	long kernelSize = getKernelSize();
-	char* kernelSource = new char[kernelSize];
-	getKernelSource(kernelSource, kernelSize);
+	char* kernel_files;
+	int num_kernels = 20;
+	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
 
-	// Create the compute program from the source buffer
-	program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, NULL, &err);
-	CHKERR(err, "Failed to create a compute program!");
-
-	// Build the program executable
-	err = clBuildProgram(program, 0, NULL, NULL, NULL, NULL);
-	if (err == CL_BUILD_PROGRAM_FAILURE)
-	{
-		char *log;
-		size_t logLen;
-		err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLen);
-		log = (char *) malloc(sizeof(char)*logLen);
-		err = clGetProgramBuildInfo(program, device_id, CL_PROGRAM_BUILD_LOG, logLen, (void *) log, NULL);
-		fprintf(stderr, "CL Error %d: Failed to build program! Log:\n%s", err, log);
-		free(log);
-		exit(1);
-	}
-	CHKERR(err, "Failed to build program!");
-	delete[] kernelSource;
+	strcpy(kernel_files,"cfd_kernel");
+      
+    program = ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
 
 	// Create the compute kernel in the program we wish to run
 	kernel_compute_flux = clCreateKernel(program, "compute_flux", &err);

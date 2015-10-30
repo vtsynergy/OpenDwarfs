@@ -19,6 +19,8 @@ exec_local += kmeans-exec-local
 
 kmeans-all-local:
 	cp $(top_srcdir)/dense-linear-algebra/kmeans/kmeans_opencl_kernel.cl .
+	cp $(top_srcdir)/dense-linear-algebra/kmeans/kmeans_opencl_kernel_opt_gpu.cl .
 
 kmeans-exec-local:
 	cp $(top_srcdir)/dense-linear-algebra/kmeans/kmeans_opencl_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/dense-linear-algebra/kmeans/kmeans_opencl_kernel_out_gpu.cl ${DESTDIR}${bindir}

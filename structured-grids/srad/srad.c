@@ -5,9 +5,12 @@
 #include <math.h>
 #include "srad.h"
 #include <string.h>
+#include <malloc.h>
+//#include "/home/pallavid/altera/14.0/hld/host/include/CL/cl_ext.h"
+
 
 //#define OUTPUT
-
+#define AOCL_ALIGNMENT 64
 int  BLOCK_SIZE = 16;
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
@@ -93,15 +96,15 @@ runTest( int argc, char** argv)
 
 
 
-	kernelFile = fopen("srad_kernel.cl", "r");
+	/* kernelFile = fopen("srad_kernel.cl", "r");
 	fseek(kernelFile, 0, SEEK_END);
 	kernelLength = (size_t) ftell(kernelFile);
 	kernelSource = (char *) malloc(sizeof(char)*kernelLength);
 	rewind(kernelFile);
 	fread((void *) kernelSource, kernelLength, 1, kernelFile);
 	fclose(kernelFile);
-
-	clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
+*/
+	/* clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
 	CHKERR(errcode, "Failed to create program with source!");
 
 	free(kernelSource);
@@ -120,6 +123,15 @@ runTest( int argc, char** argv)
 		return;
 	}
 	CHKERR(errcode, "Failed to build program!");
+*/    
+
+   
+     char* kernel_files;
+     int num_kernels = 1;
+     kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	 strcpy(kernel_files,"srad_kernel");
+        
+     clProgram=ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
 
 	clKernel_srad1 = clCreateKernel(clProgram, "srad_cuda_1", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
@@ -129,7 +141,7 @@ runTest( int argc, char** argv)
 #endif
 
 	unsigned int r1, r2, c1, c2;
-	float *c;
+	int *c;
 
 
 
@@ -157,9 +169,15 @@ runTest( int argc, char** argv)
 	size_I = cols * rows;
 	size_R = (r2-r1+1)*(c2-c1+1);   
 
-	I = (float *)malloc( size_I * sizeof(float) );
-	J = (float *)malloc( size_I * sizeof(float) );
-	c  = (float *)malloc(sizeof(float)* size_I) ;
+	I = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I );
+	J = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I );
+	c  = (int*) memalign(AOCL_ALIGNMENT, sizeof(int)*size_I) ;
+
+      /*  I = (float*) malloc(sizeof(float)*size_I );
+	J = (float*) malloc(sizeof(float)*size_I );
+	c  = (int*) malloc(sizeof(int)*size_I) ;
+      */
+     
 
 
 #ifdef CPU
@@ -198,7 +216,7 @@ runTest( int argc, char** argv)
 	CHKERR(errcode, "Failed to create buffer!");
 	C_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
-	E_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
+	E_C = clCreateBuffer(context, CL_MEM_READ_WRITE , sizeof(float)*size_I, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
 	W_C = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float)*size_I, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");

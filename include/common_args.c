@@ -1,6 +1,6 @@
 #include "common_args.h"
 
-ocd_options _settings = {0, -1, 0};
+ocd_options _settings = {0, -1, 0, 0};
 ocd_requirements _requirements = {0,0,0};
 option* _options = NULL;
 
@@ -9,6 +9,7 @@ int _options_size = 0;
 
 int n_platform;
 int n_device;
+int optimized;  //If otimized kernel shall be used
 cl_device_id device_id;
 cl_context context;
 cl_command_queue commands;
@@ -18,13 +19,15 @@ int _deviceType=0;//default for CPU, if no device option given
 void _ocd_create_arguments()
 {
 	free(_options);
-	_options = (option*)malloc(sizeof(option) * 5);
-	option ops[4] = {{OTYPE_INT, 'p', (char*)"platform", (char*)"OpenCL Platform ID",
+	_options = (option*)malloc(sizeof(option) * 6);
+	option ops[5] = {{OTYPE_INT, 'p', (char*)"platform", (char*)"OpenCL Platform ID",
                      OFLAG_NONE, &_settings.platform_id, NULL, NULL, NULL, NULL},
 		{OTYPE_INT, 'd', (char*)"device", (char*)"OpenCL Device ID",
                      OFLAG_NONE, &_settings.device_id, NULL, NULL, NULL, NULL},
         {OTYPE_INT, 't', (char*)"device type", (char*)"OpenCL Device type",
                      OFLAG_NONE, &_settings.device_type, NULL, NULL, NULL, NULL},
+        {OTYPE_BOL, 'o', (char*)"Optimized Kernel", (char*)"Use Optimized kernel for the given platform",
+                     OFLAG_SET, &_settings.optimized, NULL, NULL, NULL, NULL},
 		{OTYPE_END, '\0', (char*)"", NULL,
                      OFLAG_NONE, NULL, NULL, NULL, NULL, NULL}};
 	
@@ -32,8 +35,9 @@ void _ocd_create_arguments()
 	_options[1] = ops[1];
 	_options[2] = ops[2];
 	_options[3] = ops[3];
-	_options_length = 5;// why?
-	_options_size = 4;
+	_options[4] = ops[4];
+	_options_length = 6; // why?
+	_options_size = 5;
 }
 
 ocd_options ocd_get_options()
@@ -280,7 +284,9 @@ void ocd_initCL()
 	ocd_options opts = ocd_get_options();
     n_platform = opts.platform_id;
     n_device = opts.device_id;
+    optimized = opts.optimized;
     _deviceType = opts.device_type;
+    printf("Opt.optimized = %0d \n", opts.optimized);
 
 	if (_deviceType == 1){
 		 dev_type = CL_DEVICE_TYPE_GPU;
@@ -320,7 +326,10 @@ void check(int b,const char* msg)
 	}
 }
 
-cl_program ocdBuildProgramFromFile(cl_context context, cl_device_id device_id, const char* kernel_file_name)
+cl_program ocdBuildProgramFromFile(cl_context   context
+                                 , cl_device_id device_id
+                                 , const  char* kernel_file_name
+                                 , const  char* args)
 {
 	cl_int err;
 	cl_program program;
@@ -329,15 +338,50 @@ cl_program ocdBuildProgramFromFile(cl_context context, cl_device_id device_id, c
 	FILE* kernel_fp;
 	size_t items_read;
 	const char* kernel_file_mode;
+    char kernel_file[80];
+    char define_argument[100];
+    cl_device_type device_type; //Reconfirming that it was correct
 
-	if (_deviceType == 3) //FPGA
+    clGetDeviceInfo(device_id
+                   ,CL_DEVICE_TYPE
+                   ,sizeof(cl_device_type)
+                   ,&device_type
+                   ,NULL); 
+
+    printf("Device type is ");
+    strcpy(kernel_file, kernel_file_name);
+    strcpy(define_argument, " -DOPENCL -I. ");
+
+    if(optimized)
+        strcat(kernel_file,"_opt");
+
+	kernel_file_mode = "r";
+    if(device_type == CL_DEVICE_TYPE_CPU) {
+        printf("CPU\n");
+        strcat(kernel_file,optimized ? "_cpu.cl" : ".cl");
+        if(args != NULL) strcat(define_argument,args);
+    }
+    else if(device_type == CL_DEVICE_TYPE_GPU) {
+        printf("GPU\n");
+        strcat(kernel_file,optimized ? "_gpu.cl" : ".cl");
+        if(args != NULL) strcat(define_argument,args);
+    }
+    else if(device_type == CL_DEVICE_TYPE_ACCELERATOR) {
+        printf("FPGA\n");
+        strcat(kernel_file,optimized ? "_fpga.aocx" : ".aocx");
 		kernel_file_mode = "rb";
-	else //CPU or GPU or MIC
-		kernel_file_mode = "r";
+    }
+    else { 
+        printf("Default\n");
+        strcat(kernel_file,".cl");
+        if(args != NULL) strcat(define_argument,args);
+    }
 
-	kernel_fp = fopen(kernel_file_name, kernel_file_mode);
+    printf("Kernel file %s: Defines = %s\n", kernel_file, define_argument);
+
+	kernel_fp = fopen(kernel_file, kernel_file_mode);
 	if(kernel_fp == NULL){
-		fprintf(stderr,"common_ocl.ocdBuildProgramFromFile() - Cannot open kernel file!");
+		fprintf(stderr,"common_ocl.ocdBuildProgramFromFile() - Cannot open kernel file! %s", kernel_file);
 		exit(-1);
 	}
 	fseek(kernel_fp, 0, SEEK_END);
@@ -356,17 +400,19 @@ cl_program ocdBuildProgramFromFile(cl_context context, cl_device_id device_id, c
 	fclose(kernel_fp);
 
 	/* Create the compute program from the source buffer */
-	if (_deviceType == 3) //use Altera FPGA
+	if (_deviceType == 3) { //use Altera FPGA
+        printf("Creating program from binary %s\n", kernel_file);
 		program = clCreateProgramWithBinary(context,1,&device_id,&kernelLength,(const unsigned char**)&kernelSource,NULL,&err);
+    }
 	else //CPU or GPU or MIC
 		program = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &err);
 	CHKERR(err, "common_ocl.ocdBuildProgramFromFile() - Failed to create a compute program!");
 
 	/* Build the program executable */
 	if (_deviceType == 3) //use Altera FPGA
-		err = clBuildProgram(program,1,&device_id,"-DOPENCL -I.",NULL,NULL);
+		err = clBuildProgram(program,1,&device_id,define_argument,NULL,NULL);
 	else
-		err = clBuildProgram(program, 0, NULL, "-DOPENCL -I.", NULL, NULL);
+		err = clBuildProgram(program, 0, NULL,define_argument, NULL, NULL);
 	
 	if (err == CL_BUILD_PROGRAM_FAILURE)
 	{

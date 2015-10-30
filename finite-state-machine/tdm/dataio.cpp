@@ -1,8 +1,10 @@
 #include "dataio.h"
 #include "global.h"
-
+#include <malloc.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#define AOCL_ALIGNMENT 64
 
 char symbolToChar( char l, int n )
 {
@@ -57,7 +59,8 @@ void loadTemporalConstraints(char* filename, float** constraints, unsigned int* 
 	  return;
 	}
 
-	float* tc = (float*)malloc(count*2*sizeof(float));
+	//float* tc = (float*)malloc(count*2*sizeof(float));
+	float* tc = (float*)memalign ( AOCL_ALIGNMENT,count*2*sizeof(float));
 	//printf("Count: %d\n", count);
 	for ( uint idx = 0; idx < count; idx++ ) {
 	  fscanf( temporalFile, "%f %f\n", &tc[2*idx+0], &tc[2*idx+1] );
@@ -77,9 +80,12 @@ void loadData(char* filename, ubyte** events, float** times, uint* eventCount, u
 	*eventCount = eventSize = countLinesInFile(filename);
 	eventFile =  fopen( filename, "r" );
 	
-	*events = (ubyte*)malloc(eventSize * sizeof(ubyte));
+	/* *events = (ubyte*)malloc(eventSize * sizeof(ubyte));
 	*times = (float*)malloc(eventSize * sizeof(float));
+    */
 
+	*events = (ubyte*)memalign ( AOCL_ALIGNMENT,eventSize * sizeof(ubyte));
+	*times = (float*)memalign ( AOCL_ALIGNMENT,eventSize * sizeof(float));
 	// test file for one or two-char inputs
 	char c1, c2;
 	fscanf( eventFile, "%c%c", &c1, &c2 );

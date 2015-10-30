@@ -9,14 +9,14 @@
 #include <string.h>
 #include <math.h>
 #include <stdio.h>
-
+#include <malloc.h>
 #include "types.h"
 #include "global.h"
 #include "dataio.h"
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
-
+#define AOCL_ALIGNMENT 64
 unsigned int numCandidates;
 int episodesCulled = 0;
 
@@ -124,8 +124,12 @@ void loadCandidateEpisodes(char* filename, int& level)
 void indexEvents() {
 	char start = eventType == EVENT_26 ? 'A' : '!';
 
-	h_eventIndex = (cl_uint2**)malloc(uniqueEvents*sizeof(cl_uint2*));
+	/*h_eventIndex = (cl_uint2**)malloc(uniqueEvents*sizeof(cl_uint2*));
 	h_eventCounts = (uint*)malloc(uniqueEvents*sizeof(uint));
+        */
+
+        h_eventIndex = (cl_uint2**) memalign ( AOCL_ALIGNMENT, uniqueEvents*sizeof(cl_uint2*));
+	h_eventCounts = (uint*) memalign ( AOCL_ALIGNMENT, uniqueEvents*sizeof(uint));
 
 	// First pass to how many events of each type
 	memset(h_eventCounts, 0, uniqueEvents*sizeof(unsigned int) );
@@ -136,7 +140,8 @@ void indexEvents() {
 	// Generate index arrays
 	for ( long idx = 0; idx < uniqueEvents; idx++ ) {
 		//printf("%c: %d\n", start+idx, h_eventCounts[idx]);
-		h_eventIndex[idx] = (cl_uint2*)malloc(h_eventCounts[idx]*sizeof(cl_uint2) );
+		//h_eventIndex[idx] = (cl_uint2*)malloc(h_eventCounts[idx]*sizeof(cl_uint2) );
+		h_eventIndex[idx] = (cl_uint2*) memalign ( AOCL_ALIGNMENT, h_eventCounts[idx]*sizeof(cl_uint2) );
 	}
 
 	// Second pass to index events
@@ -156,7 +161,8 @@ int compareUint2ByY( const void* v1, const void* v2 ) {
 }
 
 cl_uint2* eliminateConflicts(cl_uint2* records, uint recordCount, uint* resultCount) {
-	cl_uint2* result = (cl_uint2*)malloc(recordCount*sizeof(cl_uint2));
+	//cl_uint2* result = (cl_uint2*)malloc(recordCount*sizeof(cl_uint2));
+	cl_uint2* result = (cl_uint2*) memalign ( AOCL_ALIGNMENT,recordCount*sizeof(cl_uint2));
 	uint count = 0;
 	uint lastRecord = 0;
 
@@ -188,9 +194,12 @@ void setupGpu()
 	d_episodeSupport=clCreateBuffer(context, CL_MEM_READ_WRITE, maxCandidates * sizeof(uint), NULL, &errcode);
 	d_startRecords=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint2), NULL, &errcode);
 	d_foundRecords=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint2), NULL, &errcode);
+	/*
 	h_startRecords = (cl_uint2*)malloc(MaxRecords*sizeof(cl_uint2));
 	h_foundRecords = (cl_uint2*)malloc(MaxRecords*sizeof(cl_uint2));
-
+        */
+	h_startRecords = (cl_uint2*)memalign ( AOCL_ALIGNMENT, MaxRecords*sizeof(cl_uint2));
+	h_foundRecords = (cl_uint2*)memalign ( AOCL_ALIGNMENT, MaxRecords*sizeof(cl_uint2));
 	// Variables for compaction
 	d_recCount=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint), NULL, &errcode);
 	d_recOffSet=clCreateBuffer(context, CL_MEM_READ_WRITE, MaxRecords*sizeof(cl_uint), NULL, &errcode);
@@ -255,31 +264,7 @@ void runTest( int argc, char** argv) {
 		return;
 	}
 
-	kernelFile = fopen("tdm_ocl_kernel.cl", "r");
-	fseek(kernelFile, 0, SEEK_END);
-	kernelLength = (size_t) ftell(kernelFile);
-	kernelSource = (char *) malloc(sizeof(char)*kernelLength);
-	rewind(kernelFile);
-	fread((void *) kernelSource, kernelLength, 1, kernelFile);
-	fclose(kernelFile);
-
-	clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
-	CHKERR(errcode, "Failed to create program with source!");
-
-	free(kernelSource);	
-	errcode = clBuildProgram(clProgram, 1, &device_id, NULL, NULL, NULL);
-	if (errcode == CL_BUILD_PROGRAM_FAILURE)                                                                                                                                       
-	{
-		char *log;
-		size_t logLength;
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
-		log = (char *) malloc(sizeof(char)*logLength);
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
-		fprintf(stderr, "Kernel build error! Log:\n%s", log);
-		free(log);
-		return;
-	}
-	CHKERR(errcode, "Failed to build program!");
+ 	clProgram = ocdBuildProgramFromFile(context,device_id,"tdm_ocl_kernel", NULL);
 
 	clKernel_writeCandidates = clCreateKernel(clProgram, "writeCandidates", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
@@ -300,9 +285,13 @@ void runTest( int argc, char** argv) {
 	loadTemporalConstraints(argv[2], &temporalConstraint, &temporalConstraintSize );
 
 	// Allocate host intervals, support, and candidates
-	h_episodeIntervals = (float*)malloc( maxIntervals*sizeof(float) );
+	/* h_episodeIntervals = (float*)malloc( maxIntervals*sizeof(float) );
 	h_episodeCandidates = (ubyte*)malloc( maxCandidates*sizeof(ubyte) );
 	h_episodeSupport = (uint*)malloc( maxCandidates*sizeof(float) );
+*/
+       h_episodeIntervals = (float*)memalign ( AOCL_ALIGNMENT, maxIntervals*sizeof(float) );
+	h_episodeCandidates = (ubyte*)memalign ( AOCL_ALIGNMENT, maxCandidates*sizeof(ubyte) );
+	h_episodeSupport = (uint*)memalign ( AOCL_ALIGNMENT,maxCandidates*sizeof(float) );
 
 	loadCandidateEpisodes(argv[3], maxLevel);
 	setupGpu();
@@ -357,13 +346,15 @@ void runTest( int argc, char** argv) {
 			END_TIMER(ocdTempTimer)
 
 			
-			buff1=(unsigned int*)malloc(sizeof(unsigned int)*(h_foundCount));
+			//buff1=(unsigned int*)malloc(sizeof(unsigned int)*(h_foundCount));
+			buff1=(unsigned int*) memalign (AOCL_ALIGNMENT,sizeof(unsigned int)*(h_foundCount));			
 			if(buff1==NULL){
 				printf("Failed to allocate memory\n");
 				return;
 			}
 			
-			buff2=(unsigned int*)malloc(sizeof(unsigned int)*(h_foundCount+1));
+			buff2=(unsigned int*) memalign (AOCL_ALIGNMENT,sizeof(unsigned int)*(h_foundCount+1));
+//buff2=(unsigned int*)malloc(sizeof(unsigned int)*(h_foundCount+1));
 			if(buff2==NULL){
 				printf("Failed to allocate memory\n");
 				return;
@@ -430,12 +421,12 @@ void runTest( int argc, char** argv) {
 
 	saveResult( dumpFile, maxLevel, numCandidates, h_episodeSupport, h_episodeCandidates, h_episodeIntervals, eventType );
 	
-	//printf("Total Count:            %d\n", resultCount );
-	//for ( uint idx = 0; idx < resultCount; idx++ ) {
-	//  fprintf( dumpFile, "(%d,%d)\n", result[idx].x, result[idx].y );
-	//}
-
-	//printf("Cleaning up memory...\n");
+	/*printf("Total Count:            %d\n", resultCount );
+	for ( uint idx = 0; idx < resultCount; idx++ ) {
+	 fprintf( dumpFile, "(%d,%d)\n", result[idx].x, result[idx].y );
+	}
+*/
+	printf("Cleaning up memory...\n");
 	clReleaseMemObject(d_events);
 	clReleaseMemObject(d_times);
 	clReleaseMemObject(d_startRecords);

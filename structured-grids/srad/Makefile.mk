@@ -16,6 +16,8 @@ exec_local += srad-exec-local
 
 srad-all-local:
 	cp $(top_srcdir)/structured-grids/srad/srad_kernel.cl .
+	cp $(top_srcdir)/structured-grids/srad/srad_kernel_opt_gpu.cl .
 
 srad-exec-local:
 	cp $(top_srcdir)/structured-grids/srad/srad_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/structured-grids/srad/srad_kernel_opt_gpu.cl ${DESTDIR}${bindir}

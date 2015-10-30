@@ -124,6 +124,9 @@ void NQueenSolver::InitKernels(int i, int block_size)
 
 	std::stringstream ext(extensions);
 	m_SolverInfo[i].m_bEnableAtomics = false;
+    //FIXME: Temporary for FPGA
+    if(_deviceType == 3)
+	    m_SolverInfo[i].m_bEnableAtomics = true;
 	while(!ext.eof()) {
 		std::string name;
 		ext >> name;
@@ -140,7 +143,8 @@ void NQueenSolver::InitKernels(int i, int block_size)
 	}
 
 	// load program
-	std::ifstream in("kernels_nqueens.cl");
+    std::ifstream in;
+	in.open("kernels_nqueens.cl", std::ifstream::in);
 	in.seekg(0, std::ios_base::end);
 	std::ifstream::pos_type size = in.tellg();
 	in.seekg(0, std::ios_base::beg);
@@ -166,7 +170,9 @@ void NQueenSolver::InitKernels(int i, int block_size)
 		m_SolverInfo[i].m_nMaxWorkItems = block_size * (m_SolverInfo[i].m_bEnableVectorize ? (m_bForceVec4 ? 4 : 2) : 1);
 	}
 
+    if(_deviceType == 3) max_size = (max_size+1)/4096;
 	int block_multiplier = (max_size + 255) / 256;
+
 
 	if(m_SolverInfo[i].m_nThreads == 0) {
 		if(m_SolverInfo[i].m_bEnableAtomics) {
@@ -179,7 +185,6 @@ void NQueenSolver::InitKernels(int i, int block_size)
 			m_SolverInfo[i].m_nThreads = m_SolverInfo[i].m_nMaxWorkItems * units * block_multiplier * 4;
 		}
 	}
-
 	if(m_bForceLocal && m_SolverInfo[i].m_nMaxWorkItems < 256) {
 		// rebuild program
 		if(m_SolverInfo[i].m_NQueen != 0) {
@@ -200,6 +205,7 @@ void NQueenSolver::InitKernels(int i, int block_size)
 			m_SolverInfo[i].m_nThreads = (m_SolverInfo[i].m_nThreads / m_SolverInfo[i].m_nMaxWorkItems) * m_SolverInfo[i].m_nMaxWorkItems;
 		}
 	}
+
 	
 }
 
@@ -211,8 +217,13 @@ void NQueenSolver::BuildProgram(int i, const std::string& program, int vector_wi
 	cl_int err;
 	cl_device_id device = m_Devices[i % m_Devices.size()];
 
-	m_SolverInfo[i].m_Program = clCreateProgramWithSource(m_Context, 1, bufs, lengths, &err);
-	CHECK_ERROR(err);
+    //if(_deviceType == 3) {
+    //    printf("Creating Kernel for FPGA\n");
+	//    m_SolverInfo[i].m_Program = clCreateProgramWithBinary(m_Context, 1, &device_id, lengths, (const unsigned char **) bufs, NULL, &err);
+    //}
+    //else 
+	//    m_SolverInfo[i].m_Program = clCreateProgramWithSource(m_Context, 1, bufs, lengths, &err);
+	//CHECK_ERROR(err);
 
 	std::stringstream settings;
 
@@ -241,44 +252,30 @@ void NQueenSolver::BuildProgram(int i, const std::string& program, int vector_wi
 		settings << " -D ENABLE_CHAR";
 	}
 
-	err = clBuildProgram(m_SolverInfo[i].m_Program, 1, &device, settings.str().c_str(), 0, 0);
-	if(err != CL_SUCCESS) {
-		size_t param_size;
-		clGetProgramBuildInfo(m_SolverInfo[i].m_Program, device, CL_PROGRAM_BUILD_LOG, 0, 0, &param_size);
-		std::string log;
-		log.resize(param_size);
-		clGetProgramBuildInfo(m_SolverInfo[i].m_Program, device, CL_PROGRAM_BUILD_LOG, param_size, &log[0], 0);
-		std::cerr << log.c_str() << "\n";
-		
-		CHECK_ERROR(err);
-	}
-/*
-	cl_uint devices;
-	err = clGetProgramInfo(m_Program, CL_PROGRAM_NUM_DEVICES, sizeof(devices), &devices, 0);
-	CHECK_ERROR(err);
+    
+	m_SolverInfo[i].m_Program = ocdBuildProgramFromFile(context,device_id,"kernels_nqueens",settings.str().c_str());
+    //if(_deviceType == 3) {
+	//    err = clBuildProgram(m_SolverInfo[i].m_Program, 1, &device, "-DOPENCL -I.", NULL, NULL);
+    //}
+    //else
+	//    err = clBuildProgram(m_SolverInfo[i].m_Program, 1, &device, settings.str().c_str(), 0, 0);
+    //std::cout << settings.str() << std::endl;
+	//if(err != CL_SUCCESS) {
+	//	size_t param_size;
+	//	clGetProgramBuildInfo(m_SolverInfo[i].m_Program, device, CL_PROGRAM_BUILD_LOG, 0, 0, &param_size);
+	//	std::string log;
+	//	log.resize(param_size);
+	//	clGetProgramBuildInfo(m_SolverInfo[i].m_Program, device, CL_PROGRAM_BUILD_LOG, param_size, &log[0], 0);
+	//	std::cerr << log.c_str() << "\n";
+	//	
+	//	CHECK_ERROR(err);
+	//}
 
-	std::vector<size_t> binary_size(devices);
-	err = clGetProgramInfo(m_Program, CL_PROGRAM_BINARY_SIZES, sizeof(size_t) * devices, &binary_size[0], 0);
-	CHECK_ERROR(err);
-
-	std::vector<unsigned char*> binary_pointer(devices);
-	std::vector<std::vector<unsigned char> > binary(devices);
-	for(size_t i = 0; i < devices; i++) {
-		binary[i].resize(binary_size[i]);
-		binary_pointer[i] = &binary[i][0];
-	}
-	err = clGetProgramInfo(m_Program, CL_PROGRAM_BINARIES, sizeof(unsigned char*) * devices, &binary_pointer[0], 0);
-	CHECK_ERROR(err);
-
-	std::ofstream out("kernels.bin", std::ios_base::binary);
-	out.write(reinterpret_cast<const char*>(&binary[0][0]), binary_size[0]);
-*/
 	m_SolverInfo[i].m_NQueen = clCreateKernel(m_SolverInfo[i].m_Program, m_SolverInfo[i].m_bEnableVectorize ? "nqueen_vec" : "nqueen", &err);
 	CHECK_ERROR(err);
 
 	m_SolverInfo[i].m_NQueen1 = clCreateKernel(m_SolverInfo[i].m_Program, m_SolverInfo[i].m_bEnableVectorize ? "nqueen1_vec": "nqueen1", &err);
 	CHECK_ERROR(err);
-	
 }
 
 
@@ -306,6 +303,7 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 		i--;
 		level++;
 	}
+
 
 	if(level > board_size - 2) {
 		level = board_size - 2;
@@ -343,11 +341,12 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 	for(int i = 0; i < threads.size(); i++) { //Will be always 1 in OpenDwarfs
 		// create data buffer
 		if(m_SolverInfo[i].m_ParamBuffer != 0) clReleaseMemObject(m_SolverInfo[i].m_ParamBuffer);
-		m_SolverInfo[i].m_ParamBuffer = clCreateBuffer(m_Context, CL_MEM_READ_ONLY, max_pitch * sizeof(int) * (4 + 32), 0, &err);
+		m_SolverInfo[i].m_ParamBuffer = clCreateBuffer(m_Context, CL_MEM_READ_ONLY, max_pitch * sizeof(int) * (32 + 32), 0, &err);
 		CHECK_ERROR(err);
 
 		if(m_SolverInfo[i].m_ResultBuffer != 0) clReleaseMemObject(m_SolverInfo[i].m_ResultBuffer);
-		m_SolverInfo[i].m_ResultBuffer = clCreateBuffer(m_Context, CL_MEM_WRITE_ONLY, max_pitch * sizeof(int) * 4, 0, &err);
+		//m_SolverInfo[i].m_ResultBuffer = clCreateBuffer(m_Context, CL_MEM_WRITE_ONLY, max_pitch * sizeof(int) * 4, 0, &err);
+		m_SolverInfo[i].m_ResultBuffer = clCreateBuffer(m_Context, CL_MEM_WRITE_ONLY, max_pitch * sizeof(int) * 64, 0, &err);
 		CHECK_ERROR(err);
 
 		if(m_SolverInfo[i].m_ForbiddenBuffer != 0) clReleaseMemObject(m_SolverInfo[i].m_ForbiddenBuffer);
@@ -727,7 +726,6 @@ long long NQueenSolver::Compute(int board_size, long long* unique)
 
 				for(int k = 0; k < m_SolverInfo[device_idx].m_nLastTotalSize; k++) {
 					if(results[k + max_pitch * 2] != results[k + max_pitch * 3]) {
-						printf("k=%d, max_pitch=%d results[%d]=%d results[%d]=%d\n", k, max_pitch, k+max_pitch*2, k+max_pitch*3);
 						throw CLError(2);
 					}
 

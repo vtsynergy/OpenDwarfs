@@ -8,6 +8,7 @@
 #endif
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#define AOCL_ALIGNMENT 64
 
 /*************************************************************
  **************** Version 1 **********************************
@@ -30,7 +31,10 @@ char * loadSource(char *filePathName, size_t *fileSize)
 	FILE *pfile;
 	size_t tmpFileSize;
 	char *fileBuffer;
-	pfile = fopen(filePathName, "rb");
+    if(_deviceType == 3)
+	    pfile = fopen(filePathName, "rb");
+    else
+	    pfile = fopen(filePathName, "r");
 
 	if (pfile == NULL)
 	{
@@ -142,26 +146,22 @@ int main(int argc, char ** argv)
 				sizeof(cl_ulong), &maxLocalSize, 0), \
 			"Error while querying CL_DEVICE_LOCAL_MEM_SIZE.");
 
-	//load the source file
-	char kernel_file[] = "kernels.cl";
-	cSourceCL = loadSource(kernel_file, &sourceFileSize);
-
-	hProgram = clCreateProgramWithSource(context, 1, (const char **)&cSourceCL, 
-			&sourceFileSize, &err);
-	CHKERR(err, "Create program with source error");
-
-	err = clBuildProgram(hProgram, 0, 0, 0, 0, 0);
+	hProgram = ocdBuildProgramFromFile(context,device_id,"kernels",NULL);
+    
 	//debug================================
 	int logSize = 3000, i;
 	size_t retSize;
 	char logTxt[3000];
-	err = clGetProgramBuildInfo(hProgram, device_id, CL_PROGRAM_BUILD_LOG, logSize, logTxt, &retSize);
-	for (i = 0; i < retSize; i++)
-	{
-		printf("%c", logTxt[i]);
-	}
+    if(_deviceType != 3) {
+	    err = clGetProgramBuildInfo(hProgram, device_id, CL_PROGRAM_BUILD_LOG, logSize, logTxt, &retSize);
+	    for (i = 0; i < retSize; i++)
+	    {
+	    	printf("%c", logTxt[i]);
+	    }
+    }
 	//===================================
 	CHKERR(err, "Build program error");
+
 
 	hMatchStringKernel = clCreateKernel(hProgram, "MatchStringGPUSync", &err);
 	CHKERR(err, "Create MatchString kernel error");
@@ -178,7 +178,9 @@ int main(int argc, char ** argv)
 	char *seq1, *seq2;
 	cl_mem seq1D, seq2D;
 
-	allSequences = new char[2 * (MAX_LEN)];
+	//allSequences = new char[2 * (MAX_LEN)];
+    posix_memalign((void **) &allSequences, AOCL_ALIGNMENT, sizeof(char *)*2*MAX_LEN);
+    
 	if (allSequences == NULL)
 	{
 		printf("Allocate sequence buffer error!\n");
@@ -223,8 +225,10 @@ int main(int argc, char ** argv)
 	//allocate thread number per launch and 
 	//location difference information
 	int *threadNum, *diffPos;
-	threadNum = new int[2 * MAX_LEN];
-	diffPos = new int[2 * MAX_LEN];
+	//threadNum = new int[2 * MAX_LEN];
+	//diffPos = new int[2 * MAX_LEN];
+    posix_memalign((void **) &diffPos, AOCL_ALIGNMENT, sizeof(int *)*2*MAX_LEN);
+    posix_memalign((void **) &threadNum, AOCL_ALIGNMENT, sizeof(int *)*2*MAX_LEN);
 	if (threadNum == NULL ||
 			diffPos == NULL)
 	{
@@ -268,7 +272,7 @@ int main(int argc, char ** argv)
 	CHKERR(err, "Create hGapDistD memory");
 	vGapDistD = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(cl_float) * maxElemNum, 0, &err);
 	CHKERR(err, "Create vGapDistD memory");
-
+    
 	//Allocate the MAX INFO structure
 	MAX_INFO *maxInfo;
 	maxInfo = new MAX_INFO[1];
@@ -286,8 +290,17 @@ int main(int argc, char ** argv)
 	cl_mem blosum62D;
 	int nblosumHeight = 23;
 	blosum62D = clCreateBuffer(context, CL_MEM_READ_ONLY, sizeof(cl_float) * nblosumWidth * nblosumHeight, 0, &err);
+    float *blosum62_1d = NULL; 
+    posix_memalign((void **) &blosum62_1d, AOCL_ALIGNMENT, sizeof(float *)*23*23);
+    for(int i =0; i< 23; i++) 
+        for(int j=0;j<23;j++)
+            blosum62_1d[23*i + j] = blosum62[i][j];
+
+	//err = clEnqueueWriteBuffer(commands, blosum62D, CL_TRUE, 0,
 	err = clEnqueueWriteBuffer(commands, blosum62D, CL_TRUE, 0,
 			nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62[0], 0, NULL, &ocdTempEvent);
+			//nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62_1d, 0, NULL, &ocdTempEvent);
+			//nblosumWidth * nblosumHeight * sizeof(cl_float), blosum62[0], 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "SWAT Scoring Matrix Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)

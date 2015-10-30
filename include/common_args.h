@@ -33,9 +33,10 @@ extern int _deviceType;
 
 typedef struct ocd_options
 {
-	int platform_id;
-	int device_id;
-	int device_type;
+	int  platform_id;
+	int  device_id;
+	int  device_type;
+    int  optimized;
 } ocd_options;
 extern ocd_options _settings;
 
@@ -74,7 +75,7 @@ extern void ocd_initCL();
 
 //From nz-ocl
 extern void check(int b,const char* msg);
-extern cl_program ocdBuildProgramFromFile(cl_context context,cl_device_id device_id,const char* kernel_file_name);
+extern cl_program ocdBuildProgramFromFile(cl_context context,cl_device_id device_id,const char* kernel_file_name, const char* args);
 extern void* char_new_array(const size_t N,const char* error_msg);
 extern void* int_new_array(const size_t N,const char* error_msg);
 extern void* long_new_array(const size_t N,const char* error_msg);

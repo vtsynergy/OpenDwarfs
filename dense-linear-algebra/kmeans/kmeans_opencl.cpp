@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <malloc.h>
 #include <assert.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
@@ -10,7 +11,7 @@
 
 #define THREADS_PER_DIM 16
 #define BLOCKS_PER_DIM 16
-
+#define AOCL_ALIGNMENT 64
 
 //#define BLOCK_DELTA_REDUCE
 //#define BLOCK_CENTER_REDUCE
@@ -67,33 +68,12 @@ void initCL()
 	num_threads = num_threads_perdim*num_threads_perdim;
 
 
-
-	kernelFile = fopen("kmeans_opencl_kernel.cl", "r");
-	fseek(kernelFile, 0, SEEK_END);
-	kernelLength = (size_t) ftell(kernelFile);
-	kernelSource = (char *) malloc(sizeof(char)*kernelLength);
-	rewind(kernelFile);
-	fread((void *) kernelSource, kernelLength, 1, kernelFile);
-	fclose(kernelFile);
-
-	clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
-	CHKERR(errcode, "Failed to create program with source!");
-
-	free(kernelSource);
-
-	errcode = clBuildProgram(clProgram, 1, &device_id, NULL, NULL, NULL);
-	if (errcode == CL_BUILD_PROGRAM_FAILURE)
-	{
-		char *log;
-		size_t logLength;
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
-		log = (char *) malloc(sizeof(char)*logLength);
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
-		fprintf(stderr, "Kernel build error! Log:\n%s", log);
-		free(log);
-		return;
-	}
-	CHKERR(errcode, "Failed to build program!");
+    char* kernel_files;
+	int num_kernels = 50;
+	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	strcpy(kernel_files,"kmeans_opencl_kernel");
+               
+    clProgram = ocdBuildProgramFromFile(context,device_id,kernel_files,NULL);
 
 	clKernel_invert_mapping = clCreateKernel(clProgram, "invert_mapping", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
@@ -122,13 +102,15 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	num_blocks = num_blocks_perdim*num_blocks_perdim;
 
 	/* allocate memory for memory_new[] and initialize to -1 (host) */
-	membership_new = (int*) malloc(npoints * sizeof(int));
+	membership_new = (int*) memalign ( AOCL_ALIGNMENT, npoints * sizeof(int));
+	//membership_new = (int*) malloc(npoints * sizeof(int));
 	for(int i=0;i<npoints;i++) {
 		membership_new[i] = -1;
 	}
 
 	/* allocate memory for block_new_centers[] (host) */
-	block_new_centers = (float *) malloc(nclusters*nfeatures*sizeof(float));
+	block_new_centers = (float *) memalign ( AOCL_ALIGNMENT, nclusters*nfeatures*sizeof(float));
+        //block_new_centers = (float *) malloc(nclusters*nfeatures*sizeof(float));
 
 	/* allocate memory for feature_flipped_d[][], feature_d[][] (device) */
 	feature_flipped_d = clCreateBuffer(context, CL_MEM_READ_ONLY, npoints*nfeatures*sizeof(float), NULL, &errcode);
@@ -220,6 +202,7 @@ main( int argc, char** argv)
 	// as done in the CUDA start/help document provided
 	ocd_init(&argc, &argv, NULL);
 	setup(argc, argv);   
+    printf("Setup done\n");
 	ocd_finalize();
 }
 
@@ -330,9 +313,12 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 #ifdef BLOCK_CENTER_REDUCE
 	/*** Copy back arrays of per block sums ***/
-	float * block_clusters_h = (float *) malloc(
+	float * block_clusters_h = (float *) memalign ( AOCL_ALIGNMENT,
 			num_blocks_perdim * num_blocks_perdim * 
 			nclusters * nfeatures * sizeof(float));
+//	float * block_clusters_h = (float *) malloc(
+			//num_blocks_perdim * num_blocks_perdim * 
+			//nclusters * nfeatures * sizeof(float));
 
 	errcode = clEnqueueReadBuffer(commands, block_clusters_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*nclusters*nfeatures*sizeof(float), (void *) block_clusters_h, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
@@ -341,8 +327,10 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 #endif
 #ifdef BLOCK_DELTA_REDUCE
-	int * block_deltas_h = (int *) malloc(
+	int * block_deltas_h = (int *) memalign ( AOCL_ALIGNMENT,
 			num_blocks_perdim * num_blocks_perdim * sizeof(int));
+	//int * block_deltas_h = (int *) malloc(
+		//	num_blocks_perdim * num_blocks_perdim * sizeof(int));
 
 	errcode = clEnqueueReadBuffer(commands, block_deltas_d, CL_TRUE, 0, num_blocks_perdim*num_blocks_perdim*sizeof(int), (void *) block_deltas_h, 0, NULL, &ocdTempEvent);
 	clFinish(commands);

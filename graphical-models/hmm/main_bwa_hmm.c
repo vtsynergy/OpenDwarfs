@@ -5,9 +5,18 @@
 #include <math.h>
 #include <sys/time.h>
 #include <getopt.h>
-
+#include <malloc.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+
+#ifdef __FPGA__ 
+    #include "cl_ext.h"
+    #define AOCL_ALIGNMENT 64
+#else 
+    #define CL_MEM_BANK_1_ALTERA              0
+    #define CL_MEM_BANK_2_ALTERA              0
+    #define AOCL_ALIGNMENT                    0
+#endif
 
 /*
 #ifdef __APPLE__
@@ -112,12 +121,12 @@ void init_cl()
 	progLen = LoadProgramSource("bwa_hmm_opencl.cl", &progSrc);
 
 	/* create program from the source code */
-	_cl_program = clCreateProgramWithSource(context, 1, &progSrc, &progLen, NULL);
+	/* _cl_program = clCreateProgramWithSource(context, 1, &progSrc, &progLen, NULL);
 	CHECK_NULL_ERROR(_cl_program, "_cl_program");
 	free((void *)progSrc);
 
 	/* compile the source code for the device in the context */
-	errNum = clBuildProgram(_cl_program, 1, &device_id, "-I .", NULL, NULL);
+	/* errNum = clBuildProgram(_cl_program, 1, &device_id, "-I .", NULL, NULL);
 	if(errNum != CL_SUCCESS)
 	{
 		char buildLog[16384];
@@ -125,6 +134,12 @@ void init_cl()
 		fprintf(stderr, "Error in compiling the kernels: \n");
 		fprintf(stderr, "%s\n", buildLog);
 	}
+*/
+
+
+
+    cl_program _cl_program;
+    _cl_program = ocdBuildProgramFromFile(context,device_id,"bwa_hmm_opencl",NULL);
 
 	/* create the kernels from the program */
 	_cl_kernel_init_ones_dev   = clCreateKernel(_cl_program, "init_ones_dev", NULL);
@@ -200,6 +215,7 @@ void toc(struct timeval *timer)
 }
 
 /* individual paramters of a Hidden Markov Model */
+__attribute__((aligned(64)))
 typedef struct {
 	int nstates;            /**< number of states in the HMM */
 	int nsymbols;           /**< number of possible symbols */
@@ -284,10 +300,10 @@ float dot_production(int n, cl_mem paramA, int offsetA, cl_mem paramB, int offse
 	}
 
 	/* for the sum reduction on CPU */
-	float *partialSum = (float*)calloc(n, sizeof(float));
+	float *partialSum = (float*) memalign ( AOCL_ALIGNMENT,n * sizeof(float));
 
 	cl_mem partialSum_d;
-	partialSum_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * n, NULL, NULL);
+	partialSum_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * n, NULL, NULL);
 	CHECK_NULL_ERROR(commands, "partialSum_d");
 
 	/* set partialSum_d to all zeros */
@@ -969,23 +985,24 @@ float run_hmm_bwa(  Hmm *hmm,
 	length = in_obs->length;
 
 	/* Allocate host memory */
-	scale = (float *) malloc(sizeof(float) * length);
+	//scale = (float *) malloc(sizeof(float) * length);
+        scale = (float *) memalign(AOCL_ALIGNMENT, sizeof(float) * length);
 	if (scale == 0) {
 		fprintf (stderr, "ERROR: Host memory allocation error (scale)\n");
 		return EXIT_ERROR;
 	}
 
 	/* Allocate device memory */
-	a_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates * nstates, NULL, NULL);
-	b_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates * nsymbols, NULL, NULL);
-	pi_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates, NULL, NULL);
-	alpha_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates * length, NULL, NULL);
-	beta_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates * length, NULL, NULL);
-	gamma_sum_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates, NULL, NULL);
-	xi_sum_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates * nstates, NULL, NULL);
-	c_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates, NULL, NULL);
-	ones_n_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nstates, NULL, NULL);
-	ones_s_d = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(float) * nsymbols, NULL, NULL);
+	a_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * nstates, NULL, NULL);
+	b_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates * nsymbols, NULL, NULL);
+	pi_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates, NULL, NULL);
+	alpha_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates * length, NULL, NULL);
+	beta_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * length, NULL, NULL);
+	gamma_sum_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates, NULL, NULL);
+	xi_sum_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * nstates, NULL, NULL);
+	c_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates, NULL, NULL);
+	ones_n_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates, NULL, NULL);
+	ones_s_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nsymbols, NULL, NULL);
 
 	CHECK_NULL_ERROR( a_d, "Error creating buffer for a_d");
 	CHECK_NULL_ERROR( b_d, "Error creating buffer for  b_d");
@@ -1190,14 +1207,16 @@ int main(int argc, char *argv[])
 	} 
 
 	/* Initialize HMM and observation sequence */
-	hmm = (Hmm *)malloc(sizeof(Hmm));
-	obs = (Obs *)malloc(sizeof(Obs));
-
+	//hmm = (Hmm *)malloc(sizeof(Hmm));
+	//obs = (Obs *)malloc(sizeof(Obs));
+	hmm = (Hmm *)memalign(AOCL_ALIGNMENT,sizeof(Hmm));
+	obs = (Obs *)memalign(AOCL_ALIGNMENT,sizeof(Obs));
 	if(v_model == 'n')
 	{
 		/* Create observation sequence */
 		obs->length = T;
-		obs_seq = (int *)malloc(sizeof(int) * T);
+		//obs_seq = (int *)malloc(sizeof(int) * T);
+                obs_seq = (int *)memalign(AOCL_ALIGNMENT,sizeof(int) * T);
 		for (i = 0; i < T; i++) {
 			obs_seq[i] = 0;
 		}
@@ -1214,17 +1233,21 @@ int main(int argc, char *argv[])
 		/* Assign HMM parameters */
 		hmm->nstates = n;
 		hmm->nsymbols = S;
-		a = (float *)malloc(sizeof(float) * n * n);
+		//a = (float *)malloc(sizeof(float) * n * n);
+                a = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * n * n);
 		for (i = 0; i < (n * n); i++) {
 			a[i] = 1.0f/(float)n;
 		}
 		hmm->a = a;
-		b = (float *)malloc(sizeof(float) * n * S);
+		//b = (float *)malloc(sizeof(float) * n * S);
+		b = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * n * S);
+
 		for (i = 0; i < (n * S); i++) {
 			b[i] = 1.0f/(float)S;
 		}
 		hmm->b = b;
-		pi = (float *)malloc(sizeof(float) * n);
+		//pi = (float *)malloc(sizeof(float) * n);
+		pi = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * n);
 		for (i = 0; i < n; i++) {
 			pi[i] = 1.0f/(float)n;
 		}
@@ -1254,7 +1277,8 @@ int main(int argc, char *argv[])
 	{	
 		/* Create observation sequence */
 		obs->length = T;
-		obs_seq = (int *)malloc(sizeof(int) * T);
+		//obs_seq = (int *)malloc(sizeof(int) * T);
+		obs_seq = (int *)  memalign(AOCL_ALIGNMENT,sizeof(int) * T);
 		for (i = 0; i < T; i++) {
 			obs_seq[i] = 0;
 		}
@@ -1270,17 +1294,20 @@ int main(int argc, char *argv[])
 		/* Assign HMM parameters */
 		hmm->nstates = N;
 		hmm->nsymbols = s;
-		a = (float *)malloc(sizeof(float) * N * N);
+		//a = (float *)malloc(sizeof(float) * N * N);
+		a = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * N * N);
 		for (i = 0; i < (N * N); i++) {
 			a[i] = 1.0f/(float)N;
 		}
 		hmm->a = a;
-		b = (float *)malloc(sizeof(float) * N * s);
+		//b = (float *)malloc(sizeof(float) * N * s);
+		b = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * N * s);
 		for (i = 0; i < (N * s); i++) {
 			b[i] = 1.0f/(float)s;
 		}
 		hmm->b = b;
-		pi = (float *)malloc(sizeof(float) * N);
+		//pi = (float *)malloc(sizeof(float) * N);
+		pi = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * N);
 		for (i = 0; i < N; i++) {
 			pi[i] = 1.0f/(float)N;
 		}
@@ -1316,17 +1343,20 @@ int main(int argc, char *argv[])
 		/* Create HMM */
 		hmm->nstates = N;
 		hmm->nsymbols = S;
-		a = (float *)malloc(sizeof(float) * N * N);
+		//a = (float *)malloc(sizeof(float) * N * N);
+		a = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * N * N);
 		for (i = 0; i < (N * N); i++) {
 			a[i] = 1.0f/(float)N;
 		}
 		hmm->a = a;
-		b = (float *)malloc(sizeof(float) * N * S);
+		//b = (float *)malloc(sizeof(float) * N * S);
+		b = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * N * S);
 		for (i = 0; i < (N * S); i++) {
 			b[i] = 1.0f/(float)S;
 		}
 		hmm->b = b;
-		pi = (float *)malloc(sizeof(float) * N);
+		//pi = (float *)malloc(sizeof(float) * N);
+		pi = (float *) memalign(AOCL_ALIGNMENT,sizeof(float) * N);
 		for (i = 0; i < N; i++) {
 			pi[i] = 1.0f/(float)N;
 		}
@@ -1337,7 +1367,8 @@ int main(int argc, char *argv[])
 
 		/* Create observation sequence */
 		obs->length = t;
-		obs_seq = (int *)malloc(sizeof(int) * t);
+		//obs_seq = (int *)malloc(sizeof(int) * t);
+		obs_seq = (int *) memalign(AOCL_ALIGNMENT,sizeof(int) * t);
 		for (i = 0; i < t; i++) {
 			obs_seq[i] = 0;
 		}

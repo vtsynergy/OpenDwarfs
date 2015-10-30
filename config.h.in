@@ -52,9 +52,6 @@
    */
 #undef LT_OBJDIR
 
-/* Define to 1 if your C compiler doesn't accept -c and -o together. */
-#undef NO_MINUS_C_MINUS_O
-
 /* use non-apple header */
 #undef OPENCL_HEADER_CL_CL
 
@@ -87,6 +84,12 @@
 
 /* Version number of package */
 #undef VERSION
+
+/* Use Optimized Dwarfs */
+#undef _OPTIMIZED_
+
+/* Use FPGA */
+#undef __FPGA__
 
 /* Define to empty if `const' does not conform to ANSI C. */
 #undef const

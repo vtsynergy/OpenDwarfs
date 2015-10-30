@@ -11,6 +11,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <malloc.h>
+
+//#include "/home/pallavid/altera/14.0/hld/host/include/CL/cl_ext.h" //for memory banks
+
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
 
@@ -18,6 +22,8 @@
 #define __NO_STD_VECTOR // Use cl::vector and cl::string and 
 #define __NO_STD_STRING  // not STL versions, more on this later
 #include <ctime>
+
+#define AOCL_ALIGNMENT 64
 
 const char* kernelSource1 = "bfs_kernel.cl";
 const char* kernelSource2 = "kernel2.cl";
@@ -27,6 +33,8 @@ unsigned int edge_list_size;
 FILE *fp;
 
 //Structure for Nodes in the graph
+//__attribute__((packed))
+//__attribute__((aligned(16)))
 struct Node
 {
 	int starting;     //Index where the edges of the node start
@@ -95,12 +103,20 @@ void BFSGraph(int argc, char ** argv)
 
 	int source = 0;
 	fscanf(fp, "%d", &no_of_nodes);
+         
+         Node* h_graph_nodes = (Node*) memalign ( AOCL_ALIGNMENT, sizeof(Node) * no_of_nodes);
+         int* h_graph_mask= (int*) memalign ( AOCL_ALIGNMENT, sizeof(int) * no_of_nodes);
+         int* h_updating_graph_mask= (int*) memalign (AOCL_ALIGNMENT, sizeof(int) * no_of_nodes);
+         int* h_graph_visited= (int*) memalign (AOCL_ALIGNMENT, sizeof(int) * no_of_nodes);
 
-	//allocate host memory
-	Node* h_graph_nodes = (Node*) malloc(sizeof(Node) * no_of_nodes);
+
+        //allocate host memory
+       
+       /* Node* h_graph_nodes = (Node*) malloc(sizeof(Node) * no_of_nodes);
 	int* h_graph_mask = (int*) malloc(sizeof(int) * no_of_nodes);
 	int* h_updating_graph_mask = (int*) malloc(sizeof(int) * no_of_nodes);
 	int* h_graph_visited = (int*) malloc(sizeof(int) * no_of_nodes);
+*/
 
 	int start, edgeno;
 	//initalize the memory
@@ -125,7 +141,9 @@ void BFSGraph(int argc, char ** argv)
 	fscanf(fp, "%d", &edge_list_size);
 
 	int id, cost;
-	int* h_graph_edges = (int*) malloc(sizeof(int) * edge_list_size);
+	//int* h_graph_edges = (int*) memalign(AOCL_ALIGNMENT, sizeof(int) * edge_list_size);
+        int* h_graph_edges = (int*) malloc(sizeof(int) * edge_list_size);
+
 	for(unsigned int i = 0; i < edge_list_size; i++)
 	{
 		fscanf(fp, "%d", &id);
@@ -177,7 +195,11 @@ void BFSGraph(int argc, char ** argv)
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "BFS Graph Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
-	int* h_cost = (int*) malloc(sizeof(int) * no_of_nodes);
+
+
+	int* h_cost = (int*) memalign(AOCL_ALIGNMENT, sizeof(int) * no_of_nodes);
+	//int* h_cost = (int*) malloc(sizeof(int) * no_of_nodes);
+
 	for(unsigned int i = 0; i < no_of_nodes; i++)
 		h_cost[i] = -1;
 	h_cost[source] = 0;
@@ -196,9 +218,9 @@ void BFSGraph(int argc, char ** argv)
 	//setup execution parameters (compile code)
 	size_t szKernelLength;
 	//const char* cPathAndName = shrFindFilePath(kernelSource1, argv[0]);
-	const char* cSourceCL = oclLoadProgSource(kernelSource1, &szKernelLength);
+	
 
-	cl_program kernel1Program = clCreateProgramWithSource(context, 1, (const char**) &cSourceCL, &szKernelLength, &err);
+	/* cl_program kernel1Program = clCreateProgramWithSource(context, 1, (const char**) &cSourceCL, &szKernelLength, &err);
 	if(err != CL_SUCCESS)
 		printf("ERROR COMPILING KERNEL 1 (%d)\n", err);
 
@@ -211,7 +233,17 @@ void BFSGraph(int argc, char ** argv)
 		char programLog[1024];
 		clGetProgramBuildInfo(kernel1Program, device_id, CL_PROGRAM_BUILD_LOG, 1024, programLog, 0);
 		printf("%s\n",programLog);
-	}
+	} */
+
+             // To use aocx files for FPGA
+     	
+	char* kernel_files;
+	int num_kernels = 20;
+
+	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+    strcpy(kernel_files,"bfs_kernel");
+
+    cl_program kernel1Program = ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
 
 	cl_kernel kernel1 = clCreateKernel(kernel1Program, "kernel1", &err);
 	if(err != CL_SUCCESS)
@@ -244,7 +276,7 @@ void BFSGraph(int argc, char ** argv)
 	err = clGetDeviceInfo(device_id,CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3,&maxThreads, NULL);
 	CHKERR(err, "Error checking for work item sizes\n");
 
-	maxThreads[0] = no_of_nodes < maxThreads[0] ? no_of_nodes : maxThreads[0];
+	maxThreads[0] = no_of_nodes < 256? no_of_nodes: 256; //maxThreads[0];
 
 	//size_t WorkSize[1] = {no_of_nodes + (no_of_nodes%maxThreads[0])}; // one dimensional Range
 	size_t WorkSize[1] = {(no_of_nodes/maxThreads[0])*maxThreads[0] + ((no_of_nodes%maxThreads[0])==0?0:maxThreads[0])}; // one dimensional Range
@@ -295,11 +327,11 @@ void BFSGraph(int argc, char ** argv)
 	END_TIMER(ocdTempTimer)
 
 	//Store the result into a file
-	FILE* fpo = fopen("result.txt", "w");
+	FILE* fpo = fopen("bfs_result.txt", "w");
 	for(unsigned int i = 0; i < no_of_nodes; i++)
 		fprintf(fpo, "%d) cost:%d\n", i, h_cost[i]);
 	fclose(fpo);
-	printf("Result stored in result.txt\n");
+	printf("Result stored in bfs_result.txt\n");
 
 	//cleanup memory
 	//Free Host memory

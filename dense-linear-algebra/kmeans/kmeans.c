@@ -78,9 +78,10 @@
 #include <fcntl.h>
 #include <omp.h>
 #include "kmeans.h"
-
+#include <malloc.h>
 #include "../../include/common_args.h"
 
+#define AOCL_ALIGNMENT 64
 extern double wtime(void);
 
 
@@ -177,9 +178,9 @@ int setup(int argc, char **argv) {
 		read(infile, &nfeatures, sizeof(int));        
 
 		/* allocate space for features[][] and read attributes of all objects */
-		buf         = (float*) malloc(npoints*nfeatures*sizeof(float));
-		features    = (float**)malloc(npoints*          sizeof(float*));
-		features[0] = (float*) malloc(npoints*nfeatures*sizeof(float));
+		buf         = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
+		features    = (float**)memalign(AOCL_ALIGNMENT,npoints*          sizeof(float*));
+		features[0] = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
 		for (i=1; i<npoints; i++)
 			features[i] = features[i-1] + nfeatures;
 
@@ -206,9 +207,9 @@ int setup(int argc, char **argv) {
 		}        
 
 		/* allocate space for features[] and read attributes of all objects */
-		buf         = (float*) malloc(npoints*nfeatures*sizeof(float));
-		features    = (float**)malloc(npoints*          sizeof(float*));
-		features[0] = (float*) malloc(npoints*nfeatures*sizeof(float));
+		buf         = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
+		features    = (float**)memalign(AOCL_ALIGNMENT,npoints*          sizeof(float*));
+		features[0] = (float*) memalign(AOCL_ALIGNMENT,npoints*nfeatures*sizeof(float));
 		for (i=1; i<npoints; i++)
 			features[i] = features[i-1] + nfeatures;
 		rewind(infile);
@@ -261,7 +262,7 @@ int setup(int argc, char **argv) {
 			nloops);				/* number of iteration for each number of clusters */		
 
 	//cluster_timing = omp_get_wtime() - cluster_timing;
-
+    
 
 	/* =============== Command Line Output =============== */
 
@@ -280,9 +281,9 @@ int setup(int argc, char **argv) {
 
 	len = (float) ((max_nclusters - min_nclusters + 1)*nloops);
 
-	//	printf("Number of Iteration: %d\n", nloops);
-	//printf("Time for I/O: %.5fsec\n", io_timing);
-	//printf("Time for Entire Clustering: %.5fsec\n", cluster_timing);
+    //printf("Number of Iteration: %d\n", nloops);
+    //printf("Time for I/O: %.5fsec\n", io_timing);
+    //printf("Time for Entire Clustering: %.5fsec\n", cluster_timing);
 
 	if(min_nclusters != max_nclusters){
 		if(nloops != 1){									//range of k, multiple iteration
@@ -311,8 +312,10 @@ int setup(int argc, char **argv) {
 
 
 	/* free up memory */
+#ifndef __FPGA__
 	free(features[0]);
 	free(features);    
+#endif
 	return(0);
 }
 

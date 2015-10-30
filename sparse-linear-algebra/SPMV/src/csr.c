@@ -322,17 +322,14 @@ int main(int argc, char** argv)
 	{
 		num_kernels = 1;
 		kernel_files = malloc(sizeof(char*)*num_kernels);
-		if (_deviceType == 3)
-			kernel_files[0] = "spmv_kernel_fpga_optimized.aocx";
-		else //CPU or GPU or MIC
-			kernel_files[0] = "spmv_kernel.cl";
+		kernel_files[0] = "spmv_kernel";
 
 	}
 
 	for(iii=0; iii<num_kernels; iii++) //loop through all kernels that need to be tested
 	{
 		printf("Kernel #%d: '%s'\n\n",iii+1,kernel_files[iii]);
-		program = ocdBuildProgramFromFile(context,device_id,kernel_files[iii]);
+		program = ocdBuildProgramFromFile(context,device_id,kernel_files[iii], NULL);
 
 		if(!wg_sizes) //use default work-group size if none was specified on command line
 		{

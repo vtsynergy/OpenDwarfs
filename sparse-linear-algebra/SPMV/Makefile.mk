@@ -21,9 +21,7 @@ exec_local += csr-exec-local
 
 csr-all-local:
 	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel.cl .
-	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel_fpga_optimized.aocx .
 
 csr-exec-local:
 	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel.cl ${DESTDIR}${bindir}
-	cp $(top_srcdir)/sparse-linear-algebra/SPMV/src/spmv_kernel_fpga_optimized.aocx .
 	

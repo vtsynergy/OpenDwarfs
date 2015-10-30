@@ -1,12 +1,14 @@
+#define BLOCK_SIZE 16
 
+__attribute__((num_simd_work_items(4)))
 	__kernel void
 srad_cuda_1(
-		__global float *E_C, 
-		__global float *W_C, 
-		__global float *N_C, 
-		__global float *S_C,
-		__global float * J_cuda, 
-		__global float * C_cuda, 
+		__global float* restrict E_C, 
+		__global float* restrict W_C, 
+		__global float* restrict N_C, 
+		__global float* restrict S_C,
+		__global float* restrict J_cuda, 
+		__global float* restrict C_cuda, 
 		int cols, 
 		int rows, 
 		float q0sqr
@@ -23,10 +25,10 @@ srad_cuda_1(
 
 	//indices
 	int index   = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + tx;
-	int index_n = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + tx - cols;
-	int index_s = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * BLOCK_SIZE + tx;
-	int index_w = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty - 1;
-	int index_e = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + BLOCK_SIZE;
+	int index_n = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + tx - cols;   //up
+	int index_s = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * BLOCK_SIZE + tx; //down
+	int index_w = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty - 1;  //left
+	int index_e = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + BLOCK_SIZE;  //right
 
 	float n, w, e, s, jc, g2, l, num, den, qsqr, c;
 
@@ -48,7 +50,7 @@ srad_cuda_1(
 	//Corresponding to [ty+1][x], [ty-1][x], etc.
 	int index_yp1_x = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * (ty + 1) + tx;
 	int index_ym1_x = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * (ty - 1) + tx;
-	int index_y_xp1 = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + (tx + 1);
+	int index_y_xp1 = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols  * ty + (tx + 1);
 	int index_y_xm1 = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + (tx - 1);
 
 
@@ -63,7 +65,7 @@ srad_cuda_1(
 	else if ( ty == 0 && tx == BLOCK_SIZE-1 ){ //ne
 		n  = J_cuda[index_n] - jc;
 		s  = J_cuda[index_yp1_x] - jc;
-		w  = J_cuda[index_y_xm1] - jc; 
+		w  = J_cuda[index_y_xm1] - jc;
 		e  = J_cuda[index_e] - jc;
 	}
 	else if ( ty == BLOCK_SIZE -1 && tx == BLOCK_SIZE - 1){ //se
@@ -136,14 +138,16 @@ srad_cuda_1(
 
 }
 
+
+__attribute__((num_simd_work_items(4)))
 	__kernel void
 srad_cuda_2(
-		__global float *E_C, 
-		__global float *W_C, 
-		__global float *N_C, 
-		__global float *S_C,	
-		__global float * J_cuda, 
-		__global float * C_cuda, 
+		__global float* restrict E_C, 
+		__global float* restrict W_C, 
+		__global float* restrict N_C, 
+		__global float* restrict S_C,	
+		__global float* restrict J_cuda, 
+		__global float* restrict C_cuda, 
 		int cols, 
 		int rows, 
 		float lambda,
@@ -157,6 +161,7 @@ srad_cuda_2(
 	//thread id
 	int tx = get_local_id(0);
 	int ty = get_local_id(1);
+
 
 	//indices
 	int index   = cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + tx;
@@ -172,6 +177,8 @@ srad_cuda_2(
 	cn = cc;
 	cw = cc;
 
+
+//This kind of branching degrades fpga performance.
 	if ( ty == BLOCK_SIZE -1 && tx == BLOCK_SIZE - 1){ //se
 		if ( by == get_num_groups(1) - 1 )
 			cs = C_cuda[cols * BLOCK_SIZE * by + BLOCK_SIZE * bx + cols * ty + tx];

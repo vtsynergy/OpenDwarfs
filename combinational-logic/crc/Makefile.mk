@@ -23,7 +23,6 @@ exec_local += dwarf-crc-exec-local
 
 dwarf-crc-all-local:
 	cp $(top_srcdir)/combinational-logic/crc/src/crc_kernel.cl .
-	cp $(top_srcdir)/combinational-logic/crc/src/crc_kernel_fpga_optimized.aocx .
 
 dwarf-crc-exec-local:
 	cp $(top_srcdir)/combinational-logic/crc/src/crc_algo_kernel_2.cl ${DESTDIR}${bindir}

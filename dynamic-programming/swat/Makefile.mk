@@ -21,6 +21,8 @@ exec_local += swat-exec-local
 
 swat-all-local:
 	cp $(top_srcdir)/dynamic-programming/swat/kernels.cl .
+	cp $(top_srcdir)/dynamic-programming/swat/kernels_opt_gpu.cl .
 
 swat-exec-local:
 	cp $(top_srcdir)/dynamic-programming/swat/kernels.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/dynamic-programming/swat/kernels_opt_gpu.cl ${DESTDIR}${bindir}

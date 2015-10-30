@@ -7,6 +7,9 @@
 #include <sys/time.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include <malloc.h>
+#define AOCL_ALIGNMENT 64
+
 
 //#define TRACE
 
@@ -113,9 +116,15 @@ void runTest( int argc, char** argv)
 
 	max_rows = max_rows + 1;
 	max_cols = max_cols + 1;
-	referrence = (int *)malloc( max_rows * max_cols * sizeof(int) );
-	input_itemsets = (int *)malloc( max_rows * max_cols * sizeof(int) );
-	output_itemsets = (int *)malloc( max_rows * max_cols * sizeof(int) );
+    if(_deviceType == 3) {
+	    referrence      = (int *)memalign(AOCL_ALIGNMENT, max_rows * max_cols * sizeof(int) );
+	    input_itemsets  = (int *)memalign(AOCL_ALIGNMENT, max_rows * max_cols * sizeof(int) );
+	    output_itemsets = (int *)memalign(AOCL_ALIGNMENT, max_rows * max_cols * sizeof(int) );
+    } else { 
+        referrence      = (int *)malloc( max_rows * max_cols * sizeof(int) );
+	    input_itemsets  = (int *)malloc(max_rows * max_cols * sizeof(int) );
+	    output_itemsets = (int *)malloc(max_rows * max_cols * sizeof(int) );
+    }
 
 	if (!input_itemsets)
 		fprintf(stderr, "error: can not allocate memory");
@@ -144,7 +153,7 @@ void runTest( int argc, char** argv)
 		}
 	}
 
-	//Fill first row and first column with initial scores -10, -20, -30, ... (upper left corner is set to zero).
+	//Fill first row and first column with initial scores -10, -20itouch, -30, ... (upper left corner is set to zero).
 	for(i = 1; i< max_rows ; i++)
 		input_itemsets[i*max_cols] = -i * penalty;
 	for(j = 1; j< max_cols ; j++)
@@ -161,33 +170,11 @@ void runTest( int argc, char** argv)
 	FILE *kernelFile;
 	char *kernelSource;
 	size_t kernelLength;
-
-	kernelFile = fopen("needle_kernel.cl", "r");
-	fseek(kernelFile, 0, SEEK_END);
-	kernelLength = (size_t) ftell(kernelFile);
-	kernelSource = (char *) malloc(sizeof(char)*kernelLength);
-	rewind(kernelFile);
-	fread((void *) kernelSource, kernelLength, 1, kernelFile);
-	fclose(kernelFile);
-
-	clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
-	CHKERR(errcode, "Failed to create program with source!");
-
-	free(kernelSource);
-
-	errcode = clBuildProgram(clProgram, 1, &device_id, NULL, NULL, NULL);
-	if (errcode == CL_BUILD_PROGRAM_FAILURE)
-	{
-		char *log;
-		size_t logLength;
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
-		log = (char *) malloc(sizeof(char)*logLength);
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
-		fprintf(stderr, "Kernel build error! Log:\n%s", log);
-		free(log);
-		return;
-	}
-	CHKERR(errcode, "Failed to get program build info!");
+    char* kernel_files;
+    int num_kernels = 1;
+    kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	strcpy(kernel_files,"needle_kernel");
+    clProgram = ocdBuildProgramFromFile(context,device_id, kernel_files, NULL);
 
 	clKernel_nw1 = clCreateKernel(clProgram, "needle_opencl_shared_1", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
@@ -215,6 +202,9 @@ void runTest( int argc, char** argv)
 	size_t localWorkSize[2] = {BLOCK_SIZE, 1}; //BLOCK_SIZE work items per work-group in 1D only.
 	size_t globalWorkSize[2];
 	int block_width = ( max_cols - 1 )/BLOCK_SIZE;
+
+      //  cl_int query= clGetKernelWorkGroupInfo (clKernel_nw1, device_id,CL_KERNEL_WORK_GROUP_SIZE,0,NULL,0);
+       // printf("query %zd\n",query);
 
 	printf("Processing top-left matrix\n");
 	//process top-left matrix
@@ -268,7 +258,7 @@ void runTest( int argc, char** argv)
 	CHKERR(errcode, "Failed to enqueue read buffer!");
 
 
-#ifdef TRACE
+//#ifdef TRACE
 
 	printf("print traceback value GPU:\n");
 
@@ -318,7 +308,7 @@ void runTest( int argc, char** argv)
 	}
 	printf("\n");
 
-#endif
+//#endif
 
 	clReleaseMemObject(referrence_cuda);
 	clReleaseMemObject(matrix_cuda);

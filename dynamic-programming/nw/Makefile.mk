@@ -14,6 +14,8 @@ exec_local += nw-exec-local
 
 nw-all-local:
 	cp $(top_srcdir)/dynamic-programming/nw/needle_kernel.cl .
+	cp $(top_srcdir)/dynamic-programming/nw/needle_kernel_opt_gpu.cl .
 
 nw-exec-local:
 	cp $(top_srcdir)/dynamic-programming/nw/needle_kernel.cl ${DESTDIR}${bindir}
+	cp $(top_srcdir)/dynamic-programming/nw/needle_kernel_opt_gpu.cl ${DESTDIR}${bindir}

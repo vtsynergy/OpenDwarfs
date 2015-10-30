@@ -3,9 +3,10 @@
 #include <stdio.h>
 #include <time.h>
 #include <math.h>
+#include <malloc.h>
 
 #include "common.h"
-
+#define AOCL_ALIGNMENT 64
 void stopwatch_start(stopwatch *sw){
 	if (sw == NULL)
 		return;
@@ -50,7 +51,7 @@ create_matrix_from_file(float **mp, const char* filename, int *size_p){
 
 	fscanf(fp, "%d\n", &size);
 
-	m = (float*) malloc(sizeof(float)*size*size);
+	m = (float*)memalign ( AOCL_ALIGNMENT,sizeof(float)*size*size);
 	if ( m == NULL) {
 		fclose(fp);
 		return RET_FAILURE;

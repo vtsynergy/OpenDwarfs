@@ -53,7 +53,11 @@ void createKernelWithSource()
 	FILE *kernelFile=NULL;
 	size_t kernelLength;
 	size_t lengthRead;
-	kernelFile = fopen("fft.cl", "r");
+
+    if(_deviceType == 3) 
+	    kernelFile = fopen("fft.aocx", "rb");
+    else
+	    kernelFile = fopen("fft.cl", "r");
 
 	if(kernelFile==NULL){
 		printf("kernel file do not exist!");
@@ -65,7 +69,10 @@ void createKernelWithSource()
 	rewind(kernelFile);
 	lengthRead = fread((void *) cl_source_fft, kernelLength, 1, kernelFile);
 	fclose(kernelFile);
-	fftProg = clCreateProgramWithSource(context, 1, &cl_source_fft, &kernelLength, &err);
+    if(_deviceType == 3) 
+	    fftProg = clCreateProgramWithBinary(context, 1, &device_id, &kernelLength, (const unsigned char **) &cl_source_fft,NULL, &err);
+    else
+	    fftProg = clCreateProgramWithSource(context, 1, &cl_source_fft, &kernelLength, &err);
 	CHKERR(err, "Failed to create program with source!");
 
 }
@@ -243,8 +250,11 @@ init2(OptionParser& op, bool _do_dp, int fftn1, int fftn2)
 	string args = " -cl-mad-enable ";
 
 	setGlobalOption(args, fftn1, fftn2);
-	//	printf(args.c_str());
-	err = clBuildProgram(fftProg, 0, NULL, args.c_str(), NULL, NULL);
+	printf(args.c_str());
+    if(_deviceType == 3) 
+	    err = clBuildProgram(fftProg, 1, &device_id, "-DOPENCL -I.", NULL, NULL);
+    else 
+	    err = clBuildProgram(fftProg, 0, NULL, args.c_str(), NULL, NULL);
 #ifdef ENABLE_DEBUG
 	{
 		char* log = NULL;

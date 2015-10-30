@@ -26,9 +26,24 @@
 #include <fstream>
 #include <cstring>
 #include <sys/time.h>
+#include <malloc.h>
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#define AOCL_ALIGNMENT 64
+
+#ifdef __FPGA__
+    #include "cl_ext.h"
+#else 
+    #define CL_MEM_BANK_1_ALTERA              (0)
+    #define CL_MEM_BANK_2_ALTERA              (0)
+    #define CL_MEM_BANK_3_ALTERA              (0)
+    #define CL_MEM_BANK_4_ALTERA              (0)
+    #define CL_MEM_BANK_5_ALTERA              (0)
+    #define CL_MEM_BANK_6_ALTERA              (0)
+    #define CL_MEM_BANK_7_ALTERA              (0)
+#endif
+
 
 typedef long long int64;
 static struct timeval start_time;
@@ -134,10 +149,11 @@ void calc_potential_single_step(residue *residues,
 	/////////////////////////////////////////////////////////////////
 	// Load CL file, build CL program object, create CL kernel object
 	/////////////////////////////////////////////////////////////////
-	const char * filename  = "calculate_potential.cl";
+/*	const char * filename  = "calculate_potential.cl";
 	std::string  sourceStr = convertToString(filename);
 	const char * source    = sourceStr.c_str();
-	size_t sourceSize[]    = { strlen(source) };
+	size_t sourceSize[]    
+= { strlen(source) };
 
 	program = clCreateProgramWithSource(
 			context,
@@ -153,8 +169,22 @@ void calc_potential_single_step(residue *residues,
 		exit(-1);
 	}
 
+*/
+
 	/* create a cl program executable for all the devices specified */
-	status = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+	//status = clBuildProgram(program, 1, &device_id, NULL, NULL, NULL);
+	char* kernel_files;
+	int num_kernels = 1;
+    std::string kernel_file_name;
+	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+    kernel_file_name = "calculate_potential";
+			
+	
+    kernel_files = new char[kernel_file_name.length()+1];
+    strcpy(kernel_files,kernel_file_name.c_str());
+		
+    cl_program program = ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
+
 	if(status != CL_SUCCESS)
 	{
 		std::cout<<"Error: Building Program (clBuildProgram):"<<status<<std::endl;
@@ -169,7 +199,7 @@ void calc_potential_single_step(residue *residues,
 
 		std::cout << errorbuf << std::endl;
 		exit(-1);
-	}
+	} 
 
 	/* get a kernel object handle for a kernel with the given name */
 	kernel = clCreateKernel(program, "calc_potential_single_step_dev", &status);
@@ -195,24 +225,43 @@ void calc_potential_single_step(residue *residues,
 	}
 
 	cl_int err[17];
-	res_c = (float *) malloc(sizeof(float) * nres);
-	res_x = (float *) malloc(sizeof(float) * nres);
-	res_y = (float *) malloc(sizeof(float) * nres);
-	res_z = (float *) malloc(sizeof(float) * nres);
-	at_c = (float *) malloc(sizeof(float) * natoms);
-	at_x = (float *) malloc(sizeof(float) * natoms);
-	at_y = (float *) malloc(sizeof(float) * natoms);
-	at_z = (float *) malloc(sizeof(float) * natoms);
-	vert_c = (float *) malloc(sizeof(float) * nvert);
-	vert_x = (float *) malloc(sizeof(float) * nvert);
-	vert_y = (float *) malloc(sizeof(float) * nvert);
-	vert_z = (float *) malloc(sizeof(float) * nvert);
-	vert_x_p = (float *) malloc(sizeof(float) * nvert);
-	vert_y_p = (float *) malloc(sizeof(float) * nvert);
-	vert_z_p = (float *) malloc(sizeof(float) * nvert);
-	/* allocate temporary arrays for atoms and start addresses */
-	atom_addrs = (unsigned int *)malloc(nres * sizeof(unsigned int));
-	atom_lengths = (unsigned int *)malloc(nres * sizeof(unsigned int));
+	    res_c = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nres);
+	    res_x = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nres);
+	    res_y = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nres);
+	    res_z = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nres);
+	    at_c = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * natoms);
+	    at_x = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * natoms);
+	    at_y = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * natoms);
+	    at_z = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * natoms);
+	    vert_c = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nvert);
+	    vert_x = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nvert);
+	    vert_y = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nvert);
+	    vert_z = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nvert);
+	    vert_x_p = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nvert);
+	    vert_y_p = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nvert);
+	    vert_z_p = (float *)  memalign ( AOCL_ALIGNMENT,sizeof(float) * nvert);
+	    /* allocate temporary arrays for atoms and start addresses */
+	    atom_addrs = (unsigned int *) memalign ( AOCL_ALIGNMENT,nres * sizeof(unsigned int));
+	    atom_lengths = (unsigned int *) memalign ( AOCL_ALIGNMENT,nres * sizeof(unsigned int));
+
+        //res_c = (float *) malloc(sizeof(float) * nres);
+	    //res_x = (float *) malloc(sizeof(float) * nres);
+	    //res_y = (float *) malloc(sizeof(float) * nres);
+	    //res_z = (float *) malloc(sizeof(float) * nres);
+	    //at_c = (float *) malloc(sizeof(float) * natoms);
+	    //at_x = (float *) malloc(sizeof(float) * natoms);
+	    //at_y = (float *) malloc(sizeof(float) * natoms);
+	    //at_z = (float *) malloc(sizeof(float) * natoms);
+	    //vert_c = (float *) malloc(sizeof(float) * nvert);
+	    //vert_x = (float *) malloc(sizeof(float) * nvert);
+	    //vert_y = (float *) malloc(sizeof(float) * nvert);
+	    //vert_z = (float *) malloc(sizeof(float) * nvert);
+	    //vert_x_p = (float *) malloc(sizeof(float) * nvert);
+	    //vert_y_p = (float *) malloc(sizeof(float) * nvert);
+	    //vert_z_p = (float *) malloc(sizeof(float) * nvert);
+	    //
+	    //atom_addrs = (unsigned int *)malloc(nres * sizeof(unsigned int));
+	    //atom_lengths = (unsigned int *)malloc(nres * sizeof(unsigned int));
 
 
 	/* copy the atom structure to the device */
@@ -283,26 +332,8 @@ void calc_potential_single_step(residue *residues,
 	/* need to estimate r0, dist from atom to surface */
 	/* if we intend to support negative projection lengths <><> */
 	r0 = A/2.;  /* might be tricky ... hrmmm */
-
-	// res_c_s         = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nres,    res_c, &err[0]);
-	// res_x_s         = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nres,    res_x, &err[1]);
-	// res_y_s         = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nres,    res_y, &err[2]);
-	// res_z_s         = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nres,    res_z, &err[3]);
-	// at_c_s          = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*natoms,  at_c, &err[4]);
-	// at_x_s          = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*natoms,  at_x, &err[5]);
-	// at_y_s          = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*natoms,  at_y, &err[6]);
-	// at_z_s          = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*natoms,  at_z, &err[7]);
-	// vert_c_s        = clCreateBuffer( context, CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nvert,  vert_c, &err[8]);
-	// vert_x_s        = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nvert,   vert_x, &err[9]);
-	// vert_y_s        = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nvert,   vert_y, &err[10]);
-	// vert_z_s        = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nvert,   vert_z, &err[11]);
-	// vert_x_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nvert,   vert_x_p, &err[12]);
-	// vert_y_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nvert,   vert_y_p, &err[13]);
-	// vert_z_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_float)*nvert,   vert_z_p, &err[14]);
-	// atom_addrs_s    = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_int)*nres,      atom_addrs, &err[15]);
-	// atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR, sizeof(cl_int)*nres,      atom_lengths, &err[16]);
-
-	res_c_s         = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_float)*nres,    NULL, &err[0]);
+/*
+	res_c_s         = clCreateBuffer( context, CL_MEM_READ_ONLY, sizeof(cl_float)*nres,    NULL, &err[0]);
 	res_x_s         = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_float)*nres,    NULL, &err[1]);
 	res_y_s         = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_float)*nres,    NULL, &err[2]);
 	res_z_s         = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_float)*nres,    NULL, &err[3]);
@@ -319,6 +350,25 @@ void calc_potential_single_step(residue *residues,
 	vert_z_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_float)*nvert,   NULL, &err[14]);
 	atom_addrs_s    = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_int)*nres,      NULL, &err[15]);
 	atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY , sizeof(cl_int)*nres,      NULL, &err[16]);
+*/
+
+	res_c_s         = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA, sizeof(cl_float)*nres,    NULL, &err[0]);
+	res_x_s         = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*nres,    NULL, &err[1]);
+	res_y_s         = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*nres,    NULL, &err[2]);
+	res_z_s         = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*nres,    NULL, &err[3]);
+	at_c_s          = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*natoms,  NULL, &err[4]);
+	at_x_s          = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*natoms,  NULL, &err[5]);
+	at_y_s          = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*natoms,  NULL, &err[6]);
+	at_z_s          = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*natoms,  NULL, &err[7]);
+	vert_c_s        = clCreateBuffer( context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(cl_float)*nvert,   NULL, &err[8]);
+	vert_x_s        = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[9]);
+	vert_y_s        = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[10]);
+	vert_z_s        = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[11]);
+	vert_x_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[12]);
+	vert_y_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[13]);
+	vert_z_p_s      = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_float)*nvert,   NULL, &err[14]);
+	atom_addrs_s    = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_2_ALTERA , sizeof(cl_int)*nres,      NULL, &err[15]);
+	atom_lengths_s  = clCreateBuffer( context, CL_MEM_READ_ONLY|CL_MEM_BANK_1_ALTERA , sizeof(cl_int)*nres,      NULL, &err[16]);
 
 
 	clEnqueueWriteBuffer ( commands, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &ocdTempEvent);

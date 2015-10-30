@@ -6,7 +6,6 @@
 #include <math.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
-
 #include "common.h"
 
 //#define USEGPU 1
@@ -112,33 +111,14 @@ main ( int argc, char *argv[] )
 	while(BLOCK_SIZE*BLOCK_SIZE>max_worksize[0])
 		BLOCK_SIZE = BLOCK_SIZE/2;
 
-	kernelFile = fopen("lud_kernel.cl", "r");
-	fseek(kernelFile, 0, SEEK_END);
-	kernelLength = (size_t) ftell(kernelFile);
-	kernelSource = (char *) malloc(sizeof(char)*kernelLength);
-	rewind(kernelFile);
-	fread((void *) kernelSource, kernelLength, 1, kernelFile);
-	fclose(kernelFile);
-
-	clProgram = clCreateProgramWithSource(context, 1, (const char **) &kernelSource, &kernelLength, &errcode);
-	CHKERR(errcode, "Failed to create program with source!");
-
-	free(kernelSource);
 	char arg[100];
+ 	char* kernel_files;
+	int num_kernels = 1;
 	sprintf(arg,"-D BLOCK_SIZE=%d", (int)BLOCK_SIZE);
-	errcode = clBuildProgram(clProgram, 1, &device_id, arg, NULL, NULL);
-	if (errcode == CL_BUILD_PROGRAM_FAILURE)                                                                                                                                       
-	{
-		char *log;
-		size_t logLength;
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, 0, NULL, &logLength);
-		log = (char *) malloc(sizeof(char)*logLength);
-		errcode = clGetProgramBuildInfo(clProgram, device_id, CL_PROGRAM_BUILD_LOG, logLength, (void *) log, NULL);
-		fprintf(stderr, "Kernel build error! Log:\n%s", log);
-		free(log);
-		return 0;
-	}
-	CHKERR(errcode, "Failed to build program!");
+	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	strcpy(kernel_files,"lud_kernel");
+
+	clProgram = ocdBuildProgramFromFile(context,device_id,kernel_files,arg);
 
 	clKernel_diagonal = clCreateKernel(clProgram, "lud_diagonal", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
@@ -147,7 +127,7 @@ main ( int argc, char *argv[] )
 	clKernel_internal = clCreateKernel(clProgram, "lud_internal", &errcode);
 	CHKERR(errcode, "Failed to create kernel!");
 
-	d_m = clCreateBuffer(context, CL_MEM_READ_WRITE, matrix_dim*matrix_dim*sizeof(float), NULL, &errcode);
+    d_m = clCreateBuffer(context, CL_MEM_READ_WRITE, matrix_dim*matrix_dim*sizeof(float), NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
 
 	/* beginning of timing point */
@@ -164,7 +144,7 @@ main ( int argc, char *argv[] )
 	size_t localWorkSize[2];
 	size_t globalWorkSize[2];
 	//printf("BLOCK_SIZE: %d\n",BLOCK_SIZE);	
-	//	printf("max Work-item Size: %d\n",(int)max_worksize[0]);	
+	//printf("max Work-item Size: %d\n",(int)max_worksize[0]);	
 #ifdef START_POWER
 	for( int iter = 0; iter < 1000; iter++)
 #endif
@@ -179,6 +159,7 @@ main ( int argc, char *argv[] )
 
 			errcode = clEnqueueNDRangeKernel(commands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
+		    printf("max Work-item Size2: %d\n",(int)max_worksize[0]);	
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
 				END_TIMER(ocdTempTimer)
 				CHKERR(errcode, "Failed to enqueue kernel!");
