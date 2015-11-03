@@ -73,20 +73,27 @@ Running
 -------
 
 See the application-specific README file in each application's directory.
-All the dwarf applications support a common list of options for optionally specifying the OpenCL platform ID (-p) and OpenCL device ID (-d), or alternatively, the device type (-t). These options, if supplied, must follow the executable name and be delimited from the application-specific options by double dashes (--).
+All the dwarf applications support a common list of options for optionally specifying the OpenCL platform ID (-p)
+and OpenCL device ID (-d), or alternatively, the device type (-t). Optionally you can provide -o option to use 
+optimized kernels. It picks up the optimized kernel for the given device type. For an example, if the device in use 
+is GPU and -o option is provided, it will use <kenel_name>_opt_gpu.cl file present in the application directory. 
+These options, if supplied, must follow the executable name and be delimited from the application-specific options by double dashes (--).
 
-General format: ./<executable> [-p <platform> -d <device> | -t <type> --] [app-specific options]
+General format: ./<executable> [-p <platform> -d <device> | -t <type> -o --] [app-specific options]
 
     <platform>	:integer ID of platform to use
     <device>    :integer ID of device in <platform> to use
-    <type>	: device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
+    <type>	    : device type to use (0:CPU, 1:GPU, 2:MIC, 3:FPGA)
+    -o          :Optional flag to use the optimzed flag for the device in use
 
 Example1: ./astar -p 0 -d 0 -- (selects device with device ID 0 on platform with platform ID 0)
 Example2: ./astar -t 0 -- (selects CPU device type on default platform with platform ID 0, if available)
+Example2: ./nw -p 0 -d 0 -o -- (Run the optimized dwarf of device ID 0 on platfrom with platform ID 0)
 
 Notes:	If no parameters are supplied, default platform ID is 0 and default device type is CPU.
 	If -t parameter is given, default platform ID 0 is searched for supplied device type <type>. If not available, CPU device type selection will be attempted.
 	If device ID is unknown, a combination of -p and -t is available to search for device of selected <type> on platform ID <platform>.
+    If the optimized kernel does not exist, application wil throw and error and exit. 
 
 Acknowledgements
 ----------------
