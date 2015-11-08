@@ -17,6 +17,9 @@
 //#include "../../../include/common_util.h"
 #include "../inc/common.h"
 #include "../inc/sparse_formats.h"
+#ifdef __FPGA__
+    #include "cl_ext.h"
+#endif
 
 #define START_GTOD_TIMER { \
 	gettimeofday(tv,NULL); \
