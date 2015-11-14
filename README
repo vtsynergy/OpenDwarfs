@@ -95,6 +95,8 @@ Notes:	If no parameters are supplied, default platform ID is 0 and default devic
 	If device ID is unknown, a combination of -p and -t is available to search for device of selected <type> on platform ID <platform>.
     If the optimized kernel does not exist, application wil throw and error and exit. 
 
+Notes: SWAT DOES NOT compile for OpenCl and FFT kernel DID NOT fit on Stratix V in this release. 
+
 Acknowledgements
 ----------------
 
