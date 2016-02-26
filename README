@@ -1,9 +1,12 @@
 OpenDwarfs
 ==========
-  The OpenDwarfs project provides a benchmark suite consisting of different computation/communication idioms, i.e., dwarfs, for state-of-art multicore CPUs, GPUs, Intel MICs and  Altera FPGAs. 
-  The first instantiation of the OpenDwarfs has been realized in OpenCL, as briefly described in "OpenCL and the 13 Dwarfs: A Work in Progress" by Feng, Lin, Scogland, and Zhang in the 3rd ACM/SPEC International Conference on Performance Engineering, April 2012. 
-  The latest version, which contains an in-depth performance evaluation on a subset of OpenDwarfs, is described in "On the Characterization of OpenCL Dwarfs on Fixed and Reconfigurable Platforms" by Krommydas, Feng, Owaida, Antonopoulos, and Bellas in the 25th IEEE International Conference on Application-specific Systems, Architectures and Processors (ASAP), June 2014.
 
+  The OpenDwarfs project provides a benchmark suite consisting of different computation/communication idioms, i.e., dwarfs, for state-of-art multicore CPUs, GPUs, Intel MICs and Altera FPGAs. 
+  
+  The first instantiation of the OpenDwarfs has been realized in OpenCL, as briefly described in "OpenCL and the 13 Dwarfs: A Work in Progress" by Feng, Lin, Scogland, and Zhang in the 3rd ACM/SPEC International Conference on Performance Engineering, April 2012. 
+  The current version, which contains an in-depth performance evaluation on a subset of OpenDwarfs, is described in "On the Characterization of OpenCL Dwarfs on Fixed and Reconfigurable Platforms" by Krommydas, Feng, Owaida, Antonopoulos, and Bellas in the 25th IEEE International Conference on Application-specific Systems, Architectures and Processors (ASAP), June 2014.
+  A more thorough description of the latest version, including further in-depth performance evaluation for a larger number of OpenDwarfs, is described in "OpenDwarfs: Characterization of Dwarf-based Benchmarks on Fixed and Reconfigurable Architectures" by Krommydas, Feng, Antonopoulos, and Bellas in Journal of Signal Processing Systems (JSPS), Springer, October 2015.
+  
 The computation/communication idioms are based on the 13 Berkeley Dwarfs:
 (http://view.eecs.berkeley.edu/wiki/Dwarf_Mine).
 
