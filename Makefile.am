@@ -8,7 +8,7 @@
 AUTOMAKE_OPTIONS = subdir-objects
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CPPFLAGS = -Werror
+AM_CPPFLAGS =
 
 bin_PROGRAMS =
 all_local =
