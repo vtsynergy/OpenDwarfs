@@ -4,8 +4,7 @@ OpenMP-target-offload implementations of 19 Berkeley/OpenDwarfs compute
 motifs across 13 dwarf categories. The implementations use OpenMP target
 offload and are intended to run on any device with a toolchain and runtime
 that support the OpenMP features used here. The supplied CPU, NVIDIA, and
-AMD build presets and hardware profiles are reference configurations, not
-a restriction on which devices can be used.
+AMD build presets and hardware profiles are reference configurations.
 
 This branch uses plain Makefiles in place of the original autoconf build.
 
