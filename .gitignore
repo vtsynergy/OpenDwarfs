@@ -1,0 +1,44 @@
+# Local build outputs
+build*/
+*.o
+*.obj
+*.d
+*.a
+*.so
+*.so.*
+*.bc
+*.ptx
+*.cubin
+*.fatbin
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local scratch files and logs
+tmp/
+temp/
+.cache/
+*.tmp
+*.temp
+*.log
+*.out
+/logs/
+# Some reference inputs include upstream logs/output files.
+!/test/n-body-methods/gem/capsid.log
+!/test/n-body-methods/gem/Mb.Hhelix.bondi.out
+
+# Generated problem-sizing manifests, detected hardware profiles, and sweep
+# results (regenerate via scripts/detect_devices.py,
+# scripts/compute_cache_tier_sizes.py, scripts/run_cache_tier_sweep.sh --
+# never hand-committed; devices.example.json is the one tracked template)
+data/
+results/
+scripts/devices.json
+
+# Editor/OS
+.DS_Store
+*~
+*.swp
+*.swo
