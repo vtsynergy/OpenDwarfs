@@ -1,0 +1,17 @@
+Running gem_no_ui with CHARGE_APPROX= 1
+This file is 476102 lines long.
+It contains 30780 residues and 476040 atoms.
+Total molecular charge: 236.35
+running MSMS with command: ~/ -if capsid.xyzr -of capsid -de 3.00 -probe_radius 3.00 -no_area >/dev/null
+Molecular surface consists of 593615 vertices and 1187226 triangles.
+The estimated electrostatic radius (A) of this molecule is: 164.262
+RMSD of total phi values is 11.147563
+Potential minimum is 9.5065, maximum is 13.5736
+Dumping vertices to capsid.phi
+Running gem_no_ui with CHARGE_APPROX= 0
+This file is 476102 lines long.
+It contains 30780 residues and 476040 atoms.
+Total molecular charge: 236.35
+running MSMS with command: ~/ -if capsid.xyzr -of capsid -de 3.00 -probe_radius 3.00 -no_area >/dev/null
+Molecular surface consists of 593615 vertices and 1187226 triangles.
+The estimated electrostatic radius (A) of this molecule is: 164.262

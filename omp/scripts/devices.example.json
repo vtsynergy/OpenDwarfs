@@ -1,0 +1,8 @@
+{
+  "_comment": "Example hardware profile for the 7-tier cache-bounding methodology. Copy this file, list every device you want tier boundaries derived from, and pass it to compute_cache_tier_sizes.py --devices <file>. Sizes are aggregate device cache capacities in bytes ('null' if a level doesn't apply, e.g. GPUs with no traditional L2/LLC split). Add or remove as many devices as you like -- tier targets are always derived from the min/max across whatever is listed here.",
+  "devices": {
+    "cpu": { "L1": 4194304,   "L2": 67108864,  "LLC": 536870912 },
+    "a100":        { "L1": 21233664, "L2": 41943040,  "LLC": null },
+    "mi100":       { "L1": 1966080,   "L2": 8388608,   "LLC": null }
+  }
+}

@@ -1,0 +1,52 @@
+# ---- build products (every tree builds into per-benchmark build*/ directories) ----
+build/
+build-*/
+*.o
+*.obj
+*.a
+*.so
+*.so.*
+*.d
+*.bc
+*.ptx
+*.cubin
+*.fatbin
+*.aocx
+*.aoco
+
+# ---- run output and generated data ----
+results/
+/data/
+*.log
+# reference input that happens to be named *.log
+!/opencl/test/n-body-methods/gem/capsid.log
+*.csv.tmp
+/logs/
+# files the benchmarks write into their working directory
+bfs_result.txt
+tdm-gpu-csw.txt
+density.txt
+momentum.txt
+density_energy.txt
+phi.out
+kernelTime.txt
+time.out
+
+# ---- internal development / validation tooling (kept local, not part of the repository) ----
+/scripts/validate_translations.sh
+/scripts/diff_outputs.py
+/scripts/fft_check.py
+
+# ---- editor, OS and scratch ----
+*~
+*.swp
+*.swo
+*.tmp
+*.temp
+tmp/
+temp/
+.cache/
+.DS_Store
+__pycache__/
+*.py[cod]
+.pytest_cache/
