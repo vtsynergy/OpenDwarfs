@@ -47,5 +47,10 @@ RUN_ARGS ?=
 GPU_INDEX ?= 0
 run: build
 	CUDA_VISIBLE_DEVICES=$(GPU_INDEX) $(BIN) $(RUN_ARGS)
+# guarded: only the relative directory `build` or a subdirectory of it, without "..", is ever removed
 clean:
-	rm -rf $(BUILD_DIR)
+	@case '$(BUILD_DIR)' in \
+	  *..*|*[[:space:]]*) echo "clean refused: unsafe BUILD_DIR='$(BUILD_DIR)'" >&2; exit 1 ;; \
+	  build|build/?*) rm -rf -- './$(BUILD_DIR)' ;; \
+	  *) echo "clean refused: BUILD_DIR='$(BUILD_DIR)' is not build or build/<sub>" >&2; exit 1 ;; \
+	esac

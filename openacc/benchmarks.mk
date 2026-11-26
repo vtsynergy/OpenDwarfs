@@ -1,3 +1,21 @@
+# The 14 OpenACC translations of the OpenCL dwarfs (rules: dwarf.mk)
+DWARF_BENCHMARK_DIRS := \
+	dense-linear-algebra/lud \
+	sparse-linear-algebra/spmv \
+	graph-traversal/bfs \
+	combinational-logic/crc \
+	dynamic-programming/nw \
+	structured-grids/srad \
+	unstructured-grids/cfd \
+	dense-linear-algebra/kmeans \
+	branch-and-bound/nqueens \
+	graphical-models/hmm \
+	dynamic-programming/swat \
+	finite-state-machine/tdm \
+	n-body-methods/gem-dwarf \
+	spectral-methods/fft
+
+# Legacy 2014 PGI/CoreTSAR sources (rules: common.mk)
 OPENACC_BENCHMARK_DIRS := \
 	polybench-gpu/dense-linear-algebra/2MM \
 	polybench-gpu/dense-linear-algebra/3MM \
