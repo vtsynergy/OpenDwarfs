@@ -11,8 +11,8 @@
 #
 # Result in $OCL_PREFIX:
 #   lib/libpocl.so, include/ (PoCL), etc/OpenCL/vendors/{pocl,nvidia}.icd
-# Benchmarks select the platform with  OCL_ICD_VENDORS=$OCL_PREFIX/etc/OpenCL/vendors
-# plus  OCL_ICD_FILENAMES / -p -d flags (see opencl/README.md).
+# The benchmark Makefiles (opencl/common.mk) select the implementation with a private OCL_ICD_VENDORS directory holding exactly one
+# .icd file (OCL_ICD_FILENAMES would only ADD to the system ICDs, so a CPU run could silently land on the GPU platform).
 #
 # Requirements (checked): cmake, ninja, an LLVM/Clang dev install, libhwloc-dev,
 # ocl-icd-opencl-dev, opencl-headers, pkg-config.
