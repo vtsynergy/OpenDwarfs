@@ -1,0 +1,40 @@
+# Output of GPU_INDEX=1 ./run.sh on 2026-11-25 (H100 NVL, driver 620.70.06). Binary paths vary.
+Cuda compilation tools, release 12.9, V12.9.86
+Build cuda_12.9.r12.9/compiler.36037853_0
+== nvcc -w -gencode arch=compute_90,code=sm_90 -O3 cuda_wa01.cu
+first diagonal-block element written: row 5 col 0
+FAIL: 176 diagonal-block elements modified, 3061 elements differ from the serial reference (no error)
+== nvcc -w -gencode arch=compute_90,code=sm_90 -O3 -Xcicc -O0 cuda_wa01.cu
+PASS: 0 diagonal-block elements modified, 0 elements differ from the serial reference (no error)
+== nvcc -w -gencode arch=compute_90,code=sm_90 -O3 -Xptxas -O0 cuda_wa01.cu
+first diagonal-block element written: row 5 col 0
+FAIL: 176 diagonal-block elements modified, 3064 elements differ from the serial reference (no error)
+== nvcc -w -gencode arch=compute_90,code=sm_90 -O3 -DWORKAROUND cuda_wa01.cu
+PASS: 0 diagonal-block elements modified, 0 elements differ from the serial reference (no error)
+== PTX evidence (<home>/tmp/cuda-work/repro-out/cuda_wa01.ptx): stores with a +64 byte offset, and the +16 element base they are derived from
+42:	add.s32 	%r25, %r63, 16;
+50:	add.s32 	%r68, %r67, 16;
+71:	ld.global.f32 	%f67, [%rd10+64];
+92:	st.global.f32 	[%rd49+64], %f43;
+98:	st.global.f32 	[%rd49+64], %f47;
+104:	st.global.f32 	[%rd49+64], %f51;
+111:	st.global.f32 	[%rd49+64], %f67;
+132:	ld.global.f32 	%f58, [%rd10+64];
+134:	st.global.f32 	[%rd10+64], %f9;
+145:	st.global.f32 	[%rd10+64], %f10;
+156:	st.global.f32 	[%rd10+64], %f65;
+
+== address chain (grep of cuda_wa01.ptx, entry lud_perimeter):
+50:	add.s32 	%r68, %r67, 16;
+51:	mul.wide.s32 	%rd42, %r68, 4;
+52:	add.s64 	%rd7, %rd1, %rd42;
+71:	ld.global.f32 	%f67, [%rd10+64];
+79:	mov.u64 	%rd62, %rd7;
+86:	ld.global.f32 	%f40, [%rd62];
+91:	add.s64 	%rd49, %rd62, %rd48;
+92:	st.global.f32 	[%rd49+64], %f43;
+132:	ld.global.f32 	%f58, [%rd10+64];
+
+Reading: %rd7 = m + 4*%r68 and %r68 = %r67 + 16, so %rd7/%rd62 already point 16 columns right (the peri-row column offset); the
+unrolled loop loads m[row j][target] from [%rd62] with no extra offset (correct), but stores to [%rd49+64] with %rd49 = %rd62 + row
+offset, i.e. the +16 columns are applied twice. The remainder loop stores to [%rd10+64], whose base does not include the +16.
