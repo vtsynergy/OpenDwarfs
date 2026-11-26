@@ -39,11 +39,23 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <dlfcn.h>
+#ifndef RTLD_DEFAULT
+#define RTLD_DEFAULT ((void *)0)
+#endif
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* Optional measurement hook: defined only by a preloaded analysis library (analysis/libmark.so); absent = no-op.
+ * kind: 1 = region/span begin, 0 = region end (rep given), 2 = accumulate-span end, 3 = accumulate commit (rep given). */
+/* looked up once with dlsym (a weak reference is dropped by nvc/nvc++); never defined unless analysis/libmark.so is preloaded */
+static inline void dwarf__probe(int kind, int rep) {
+  static int looked = 0; static void (*fn)(int, int) = 0;
+  if (!looked) { looked = 1; *(void **)&fn = dlsym(RTLD_DEFAULT, "dwarf_probe_mark"); }
+  if (fn) fn(kind, rep);
+}
 #define DWARF_MAX_REPS 4096
 enum { DWARF_PHASE_H2D = 0, DWARF_PHASE_KERNEL = 1, DWARF_PHASE_D2H = 2, DWARF_NPHASES = 3 };
 
@@ -87,10 +99,15 @@ static inline int dwarf_first_rep(void) { return -dwarf__s.warmup; }
 static inline int dwarf_reps(void) { return dwarf__s.repeats; }
 static inline void dwarf_region_begin(void) {
   memset(dwarf__s.pend, 0, sizeof dwarf__s.pend);
+  dwarf__probe(1, 0);
   dwarf__s.t0 = dwarf_now_ms();
 }
+/* Exclude a host-only step (e.g. quality metrics) that sits inside a timed region: its duration is removed from the current repetition. */
+static inline void dwarf_exclude_begin(void) { dwarf__s.t1 = dwarf_now_ms(); }
+static inline void dwarf_exclude_end(void) { dwarf__s.t0 += dwarf_now_ms() - dwarf__s.t1; }
 static inline void dwarf_region_end(int rep) {
   double dt = dwarf_now_ms() - dwarf__s.t0;
+  dwarf__probe(0, rep);
   if (rep >= 0 && dwarf__s.ntimes < DWARF_MAX_REPS) {
     dwarf__s.times[dwarf__s.ntimes++] = dt;
     int p;
@@ -106,9 +123,10 @@ static inline void dwarf_phase_add(int phase, double ms) {
  * search): bracket every offload span with dwarf_acc_begin()/dwarf_acc_end(); dwarf_acc_commit(rep)
  * closes the repetition with the accumulated time (same effect as region_begin/end around it). */
 static inline void dwarf_acc_reset(void) { memset(dwarf__s.pend, 0, sizeof dwarf__s.pend); dwarf__s.t0 = 0; dwarf__s.acc = 0; }
-static inline void dwarf_acc_begin(void) { dwarf__s.t1 = dwarf_now_ms(); }
-static inline void dwarf_acc_end(void) { dwarf__s.acc += dwarf_now_ms() - dwarf__s.t1; }
+static inline void dwarf_acc_begin(void) { dwarf__probe(1, 0); dwarf__s.t1 = dwarf_now_ms(); }
+static inline void dwarf_acc_end(void) { dwarf__s.acc += dwarf_now_ms() - dwarf__s.t1; dwarf__probe(2, 0); }
 static inline void dwarf_acc_commit(int rep) {
+  dwarf__probe(3, rep);
   if (rep >= 0 && dwarf__s.ntimes < DWARF_MAX_REPS) {
     int p;
     dwarf__s.times[dwarf__s.ntimes++] = dwarf__s.acc;

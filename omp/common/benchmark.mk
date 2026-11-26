@@ -55,7 +55,9 @@ V100_ARCH ?= sm_70
 # CUDA toolkit isn't clang's default search path (only the driver is
 # installed, or CUDA ships inside something like the NVIDIA HPC SDK).
 # Default: the CUDA 12.x bundled with the site NVHPC module (CUDA 13 dropped sm_70).
-NVHPC_CUDA_DEFAULT := $(firstword $(wildcard /opt/nvidia/hpc_sdk/Linux_x86_64/*/cuda/12.*))
+# Version: NVHPC_VER (set by toolchains/env.sh: the newest of 25.7 25.5 26.1 25.9 present on the host); else the highest installed.
+NVHPC_ROOT_DIR ?= $(if $(NVHPC_VER),$(wildcard /opt/nvidia/hpc_sdk/Linux_x86_64/$(NVHPC_VER)),$(lastword $(sort $(wildcard /opt/nvidia/hpc_sdk/Linux_x86_64/2[0-9].[0-9]*))))
+NVHPC_CUDA_DEFAULT := $(firstword $(wildcard $(NVHPC_ROOT_DIR)/cuda/12.9) $(wildcard $(NVHPC_ROOT_DIR)/cuda/12.*))
 CUDA_PATH ?= $(NVHPC_CUDA_DEFAULT)
 CUDA_PATH_FLAG := $(if $(CUDA_PATH),--cuda-path=$(CUDA_PATH),)
 
@@ -103,9 +105,8 @@ endif
 # blocked by the run scripts (no source changes per toolchain).
 comma := ,
 # NVHPC without `module load` (a loaded module would also leak its libomp into Clang runs).
-NVHPC_ROOT_DIR ?= $(firstword $(wildcard /opt/nvidia/hpc_sdk/Linux_x86_64/2[0-9].[0-9]*))
 NVHPC_BIN := $(NVHPC_ROOT_DIR)/compilers/bin
-GPU_ARCH_SM_NUM ?= 70
+GPU_ARCH_SM_NUM ?= $(if $(GPU_ARCH_SM),$(GPU_ARCH_SM),70)
 NVHPC_CUDA_SHORT ?= 12.9
 REPO_COMMON := $(abspath $(ROOT_DIR)/../common)
 ifeq ($(TOOLCHAIN),nvhpc)
@@ -121,6 +122,11 @@ else
   CC := $(dir $(CXX))clang
   CFLAGS_APP := -O3 -fopenmp -I$(COMMON_DIR) -I$(REPO_COMMON)
   CXXFLAGS += -I$(REPO_COMMON)
+  # [FIX-OMP-15] clang CPU builds targeted baseline x86-64 (no AVX/AVX-512/FMA) while nvc++ (-tp host) and the OpenCL CPU JITs target the host CPU
+  ifeq ($(DEVICE),cpu)
+    CXXFLAGS += -march=native
+    CFLAGS_APP += -march=native
+  endif
   TC_SUFFIX :=
   RUN_LIBPATH := $(CXX_ROOT)/lib:$(CXX_ROOT)/lib/x86_64-unknown-linux-gnu
 endif

@@ -23,6 +23,10 @@ results/
 *.csv.tmp
 /logs/
 # files the benchmarks write into their working directory
+runtime.txt
+# per-process logs written by the analysis hook library
+mark.[0-9]*
+__pycache__/
 bfs_result.txt
 tdm-gpu-csw.txt
 density.txt
