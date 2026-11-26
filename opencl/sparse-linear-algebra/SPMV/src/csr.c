@@ -14,6 +14,8 @@
 
 #include "../../../include/rdtsc.h"
 #include "../../../include/common_args.h"
+#include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OCL-34] pinned launch configuration */
 //#include "../../../include/common_util.h"
 #include "../inc/common.h"
 #include "../inc/sparse_formats.h"
@@ -49,9 +51,10 @@ static struct option long_options[] = {
 /**
  * Compares N float values and prints error msg if any corresponding entries differ by greater than .001
  */
-void float_array_comp(const float* control, const float* experimental, const unsigned int N, const unsigned int exec_num)
+/* [FIX-OCL-04] now returns the number of mismatching rows (it returned void, so a failed -a check still exited with status 0) */
+unsigned int float_array_comp(const float* control, const float* experimental, const unsigned int N, const unsigned int exec_num)
 {
-	unsigned int j;
+	unsigned int j, bad = 0;
 	float diff,perc;
 	for (j = 0; j < N; j++)
 	{
@@ -60,8 +63,10 @@ void float_array_comp(const float* control, const float* experimental, const uns
 		{
 			perc = fabsf(diff/control[j]) * 100;
 			fprintf(stderr,"Possible error on exec #%u, difference of %.3f (%.1f%% error) [control=%.3f, experimental=%.3f] at row %d \n",exec_num,diff,perc,control[j],experimental[j],j);
+			bad++;
 		}
 	}
+	return bad;
 }
 
 /**
@@ -136,6 +141,7 @@ int main(int argc, char** argv)
 	cl_int err;
 	int num_wg,verbosity = 0,do_print=0,do_affirm=0,do_mem_align=0,opt, option_index=0;
 	unsigned long density_ppm = 500000;
+	int rep; unsigned int spmv_bad = 0; /* common timer repetition index / -a mismatch counter */
 	unsigned int N = 512,num_execs=1,num_matrices,i,ii,iii,j,k,num_wg_sizes=0,num_kernels=0;
 	unsigned long start_time, end_time;
 	struct timeval *tv;
@@ -281,6 +287,8 @@ int main(int argc, char** argv)
 		if(do_print) printf("y[%d] = %6.2f\n",ii,y_host[ii]);
 	}
 
+	dwarf_init("spmv", "sparse-linear-algebra", "opencl");
+	dwarf_set_size(csr[0].num_rows, csr[0].num_nonzeros);
 	if(verbosity) printf("Input Generated.\n");
 
 #ifdef ENABLE_TIMER
@@ -353,8 +361,10 @@ int main(int argc, char** argv)
 			num_wg = global_size / wg_sizes[ii];
 			printf("Executing with WG Size #%d of %d: %d...\n",ii+1,num_wg_sizes,wg_sizes[ii]);
 
-			for(i=0; i<num_execs; i++) //repeat Host-Device transfer, kernel execution, and device-host transfer num_execs times
+			if(num_execs > 1) dwarf_set_repeats((int)num_execs);
+			for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++) //repeat Host-Device transfer, kernel execution, and device-host transfer (warm-ups first)
 			{						//to gather multiple samples of data
+				i = rep < 0 ? 0 : (unsigned int)rep;
 				if(verbosity) printf("Beginning execution #%d of %d\n",i+1,num_execs);
 
 				/* Create command queues, one for each stage in the write-execute-read pipeline */
@@ -372,6 +382,7 @@ int main(int argc, char** argv)
 #ifdef ENABLE_TIMER
 				TIMER_INIT
 #endif
+				dwarf_region_begin();
 
 					for(k=0; k<num_matrices; k++)
 					{
@@ -404,7 +415,10 @@ int main(int argc, char** argv)
 						CHKERR(err, "Failed to set kernel arguments!");
 
 						/* Enqueue Kernel */
-						err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &global_size, &wg_sizes[ii], 1, &y_loc_write[k], &kernel_exec[k]);
+						/* [FIX-OCL-34] was global=num_rows, local=wg_sizes[ii] (device max work-group size, reduced to a divisor of num_rows);
+						 * barrier-free one-row-per-item kernel -> pinned local=DWARF_LS, global=roundup(num_rows) (kernel guards row<num_rows, arg 0) */
+						size_t pinned_global = DWARF_ROUNDUP(global_size), pinned_local = DWARF_LS;
+						err = clEnqueueNDRangeKernel(commands, kernel, 1, NULL, &pinned_global, &pinned_local, 1, &y_loc_write[k], &kernel_exec[k]);
 						CHKERR(err, "Failed to execute kernel!");
 
 						/* Read back the results from the device to verify the output */
@@ -414,6 +428,7 @@ int main(int argc, char** argv)
 				clFinish(write_queue);
 				clFinish(commands);
 				clFinish(read_queue);
+				dwarf_region_end(rep);
 
 #ifdef ENABLE_TIMER
 				TIMER_STOP
@@ -469,7 +484,7 @@ int main(int argc, char** argv)
 						for(k=0; k<num_matrices; k++)
 						{
 							spmv_csr_cpu(&csr[k],x_host,y_host,host_out);
-							float_array_comp(host_out,device_out[k],csr[k].num_rows,i+1);
+							spmv_bad += float_array_comp(host_out,device_out[k],csr[k].num_rows,i+1);
 						}
 					}
 			}
@@ -520,6 +535,7 @@ int main(int argc, char** argv)
 	free(y_host);
 	if(do_affirm) free(host_out);
 	free_csr(csr,num_matrices);
-	return 0;
+	if(do_affirm) printf("%s: %u rows differ by more than 0.001\n", spmv_bad ? "FAILURE" : "SUCCESS", spmv_bad);
+	return dwarf_report(spmv_bad == 0);
 }
 

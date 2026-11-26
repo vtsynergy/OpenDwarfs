@@ -80,9 +80,11 @@
 #include "kmeans.h"
 #include <malloc.h>
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
 
 #define AOCL_ALIGNMENT 64
 extern double wtime(void);
+extern void releaseCL(void);	/* [FIX-OCL-33] kmeans_opencl.cpp */
 
 
 /*---< usage() >------------------------------------------------------------*/
@@ -242,28 +244,40 @@ int setup(int argc, char **argv) {
 	free(buf);
 
 	/* ============ Initialize OpenCL Environment ============ */
-
 	initCL();
 
-	/* ======================= core of the clustering ===================*/
-
-	//cluster_timing = omp_get_wtime();		/* Total clustering time */
-	cluster_centres = NULL;
-	index = cluster(npoints,				/* number of data points */
-			nfeatures,				/* number of features for each point */
-			features,				/* array: [npoints][nfeatures] */
-			min_nclusters,			/* range of min to max number of clusters */
-			max_nclusters,
-			threshold,				/* loop termination factor */
-			&best_nclusters,			/* return: number between min and max */
-			&cluster_centres,		/* return: [best_nclusters][nfeatures] */  
-			&rmse,					/* Root Mean Squared Error */
-			isRMSE,					/* calculate RMSE */
-			nloops);				/* number of iteration for each number of clusters */		
-
-	//cluster_timing = omp_get_wtime() - cluster_timing;
-    
-
+	/* ======================= core of the clustering ===================
+	 * common timer: the timed region is the whole cluster() call (per (k, loop): device allocation + H2D of the features,
+	 * invert_mapping, every iteration's H2D/kernel/D2H and the host centre update). The random generator is re-seeded
+	 * per repetition so every repetition performs identical work. */
+	dwarf_init("kmeans", "dense-linear-algebra", "opencl");
+	dwarf_set_size(npoints, nfeatures);
+	{
+	int rep;
+	for (rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
+		srand(7);
+		cluster_centres = NULL;
+		dwarf_region_begin();
+		index = cluster(npoints,				/* number of data points */
+				nfeatures,				/* number of features for each point */
+				features,				/* array: [npoints][nfeatures] */
+				min_nclusters,			/* range of min to max number of clusters */
+				max_nclusters,
+				threshold,				/* loop termination factor */
+				&best_nclusters,			/* return: number between min and max */
+				&cluster_centres,		/* return: [best_nclusters][nfeatures] */  
+				&rmse,					/* Root Mean Squared Error */
+				isRMSE,					/* calculate RMSE */
+				nloops);				/* number of iteration for each number of clusters */		
+		dwarf_region_end(rep);
+	}
+	}
+	releaseCL();	/* [FIX-OCL-33] OpenCL objects are released once, after the repeat loop */
+	/* [FIX-OCL-12] validity check (none before): all centre coordinates (and the RMSE, if requested) must be finite */
+	int valid = 1;
+	for (i = 0; i < best_nclusters && cluster_centres; i++)
+		for (j = 0; j < nfeatures; j++) if (!isfinite(cluster_centres[i][j])) valid = 0;
+	if (isRMSE && !isfinite(rmse)) valid = 0;
 	/* =============== Command Line Output =============== */
 
 	/* cluster center coordinates
@@ -316,6 +330,7 @@ int setup(int argc, char **argv) {
 	free(features[0]);
 	free(features);    
 #endif
-	return(0);
+	printf("%s: cluster centres %s\n", valid ? "SUCCESS" : "FAILURE", valid ? "finite" : "contain non-finite values");
+	return dwarf_report(valid);
 }
 

@@ -65,6 +65,7 @@ __kernel void compute_flux(int nelr, __global int* elements_surrounding_elements
 {
 	const float smoothing_coefficient = 0.2f;
 	const int i = get_global_id(0);
+	if (i >= nelr) return;  /* [FIX-OCL-34] guard padded work-items (global = roundup(nelr,256)) */
 
 	int j, nb;
 	float3 normal; float normal_len;
@@ -225,6 +226,7 @@ __kernel void compute_flux_contributions(int nelr, __global float* variables, __
 		__global float* fc_momentum_y, __global float* fc_momentum_z, __global float* fc_density_energy)
 {
 	const int i = get_global_id(0);
+	if (i >= nelr) return;  /* [FIX-OCL-34] guard padded work-items (global = roundup(nelr,256)) */
 
 	float density_i = variables[i + VAR_DENSITY*nelr];
 	float3 momentum_i;
@@ -263,6 +265,7 @@ __kernel void compute_flux_contributions(int nelr, __global float* variables, __
 __kernel void compute_step_factor(int nelr, __global float* variables, __global float* areas, __global float* step_factors)
 {
 	const int i = get_global_id(0);
+	if (i >= nelr) return;  /* [FIX-OCL-34] guard padded work-items (global = roundup(nelr,256)) */
 
 	float density = variables[i + VAR_DENSITY*nelr];
 	float3 momentum;
@@ -284,6 +287,7 @@ __kernel void compute_step_factor(int nelr, __global float* variables, __global 
 __kernel void time_step(int j, int nelr, __global float* old_variables, __global float* variables, __global float* step_factors, __global float* fluxes)
 {
 	const int i = get_global_id(0);
+	if (i >= nelr) return;  /* [FIX-OCL-34] guard padded work-items (global = roundup(nelr,256)) */
 
 	float factor = step_factors[i]/(RK+1-j);
 
@@ -297,6 +301,7 @@ __kernel void time_step(int j, int nelr, __global float* old_variables, __global
 __kernel void initialize_variables(int nelr, __global float* variables, __global float* ff_variable)
 {
 	unsigned int i = get_global_id(0);
+	if (i >= (unsigned int)nelr) return;  /* [FIX-OCL-34] guard padded work-items */
 	for(int j = 0; j < NVAR; j++)
 		variables[i + j*nelr] = ff_variable[j];
 }

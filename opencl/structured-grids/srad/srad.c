@@ -14,6 +14,40 @@
 int  BLOCK_SIZE = 16;
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+static int srad_valid = 1;
+/* [FIX-OCL-09] The app had no correctness check, and its (disabled, #ifdef CPU) host path declared the diffusion
+ * coefficient array as int (`int *c`), truncating every coefficient to 0 or 1. This independent serial float
+ * implementation (same equations, clamped borders) replaces it as the reference for the device result. */
+static void srad_reference(float *J, int rows, int cols, int r1, int r2, int c1, int c2, float lambda, int niter)
+{
+	int size_I = rows * cols, size_R = (r2 - r1 + 1) * (c2 - c1 + 1), i, j, k, iter;
+	float *dN = (float*)malloc(sizeof(float)*size_I), *dS = (float*)malloc(sizeof(float)*size_I),
+	      *dW = (float*)malloc(sizeof(float)*size_I), *dE = (float*)malloc(sizeof(float)*size_I), *cf = (float*)malloc(sizeof(float)*size_I);
+	for (iter = 0; iter < niter; iter++) {
+		float sum = 0, sum2 = 0, tmp, meanROI, varROI, q0sqr;
+		for (i = r1; i <= r2; i++) for (j = c1; j <= c2; j++) { tmp = J[i*cols+j]; sum += tmp; sum2 += tmp*tmp; }
+		meanROI = sum / size_R; varROI = (sum2 / size_R) - meanROI*meanROI; q0sqr = varROI / (meanROI*meanROI);
+		for (i = 0; i < rows; i++) for (j = 0; j < cols; j++) {
+			float Jc, G2, L, num, den, qsqr, c;
+			int iN = i == 0 ? 0 : i-1, iS = i == rows-1 ? rows-1 : i+1, jW = j == 0 ? 0 : j-1, jE = j == cols-1 ? cols-1 : j+1;
+			k = i*cols + j; Jc = J[k];
+			dN[k] = J[iN*cols+j] - Jc; dS[k] = J[iS*cols+j] - Jc; dW[k] = J[i*cols+jW] - Jc; dE[k] = J[i*cols+jE] - Jc;
+			G2 = (dN[k]*dN[k] + dS[k]*dS[k] + dW[k]*dW[k] + dE[k]*dE[k]) / (Jc*Jc);
+			L = (dN[k] + dS[k] + dW[k] + dE[k]) / Jc;
+			num = (0.5f*G2) - ((1.0f/16.0f)*(L*L)); den = 1 + (.25f*L); qsqr = num/(den*den);
+			den = (qsqr-q0sqr) / (q0sqr * (1+q0sqr)); c = 1.0f / (1.0f+den);
+			cf[k] = c < 0 ? 0 : (c > 1 ? 1 : c);
+		}
+		for (i = 0; i < rows; i++) for (j = 0; j < cols; j++) {
+			float cN, cS, cW, cE, D; int iS = i == rows-1 ? rows-1 : i+1, jE = j == cols-1 ? cols-1 : j+1;
+			k = i*cols + j; cN = cf[k]; cS = cf[iS*cols+j]; cW = cf[k]; cE = cf[i*cols+jE];
+			D = cN*dN[k] + cS*dS[k] + cW*dW[k] + cE*dE[k];
+			J[k] = J[k] + 0.25f*lambda*D;
+		}
+	}
+	free(dN); free(dS); free(dW); free(dE); free(cf);
+}
 
 //If GPU is defined in srad.h the C implementation runs, otherwise the OpenCL one.
 
@@ -40,7 +74,7 @@ main( int argc, char** argv)
 	ocd_init(&argc, &argv, NULL);	
 	runTest( argc, argv);
 	ocd_finalize();
-	return EXIT_SUCCESS;
+	return dwarf_report(srad_valid) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 
@@ -128,7 +162,7 @@ runTest( int argc, char** argv)
    
      char* kernel_files;
      int num_kernels = 1;
-     kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+     kernel_files = (char*) malloc(256); /* [FIX-OCL-02] was malloc(sizeof(char*)*num_kernels): 8 bytes for a 10-20 char name -> heap overflow (caught by glibc _FORTIFY_SOURCE) */
 	 strcpy(kernel_files,"srad_kernel");
         
      clProgram=ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
@@ -141,7 +175,7 @@ runTest( int argc, char** argv)
 #endif
 
 	unsigned int r1, r2, c1, c2;
-	int *c;
+	float *c; /* [FIX-OCL-09] was int *c: the diffusion coefficient array truncated to 0/1 in the CPU path */
 
 
 
@@ -171,11 +205,11 @@ runTest( int argc, char** argv)
 
 	I = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I );
 	J = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I );
-	c  = (int*) memalign(AOCL_ALIGNMENT, sizeof(int)*size_I) ;
+	c  = (float*) memalign(AOCL_ALIGNMENT, sizeof(float)*size_I) ;
 
       /*  I = (float*) malloc(sizeof(float)*size_I );
 	J = (float*) malloc(sizeof(float)*size_I );
-	c  = (int*) malloc(sizeof(int)*size_I) ;
+	c  = (float*) malloc(sizeof(float)*size_I) ;
       */
      
 
@@ -236,6 +270,16 @@ runTest( int argc, char** argv)
 		J[k] = (float)exp(I[k]) ;
 	}
 	printf("Start the SRAD main loop\n");
+	/* common timer: repetitions around the whole iteration loop (host ROI statistics + J transfers + both kernels) */
+	float *J0 = (float*) malloc(sizeof(float)*size_I);
+	memcpy(J0, J, sizeof(float)*size_I);
+	dwarf_init("srad", "structured-grids", "opencl");
+	dwarf_set_size(rows, cols);
+	int rep;
+	for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+	memcpy(J, J0, sizeof(float)*size_I);
+	dwarf_region_begin();
 	for (iter=0; iter< niter; iter++){     
 		sum=0; sum2=0;
 		for (i=r1; i<=r2; i++) {
@@ -310,6 +354,8 @@ runTest( int argc, char** argv)
 		int block_x = cols/BLOCK_SIZE ;
 		int block_y = rows/BLOCK_SIZE ;
 
+		/* [FIX-OCL-34] algorithmic work-group: 16x16 tile (BLOCK_SIZE=16, 256 items) is part of the kernel's index arithmetic; kept, and the OpenMP tree
+		 * launches the same ceil(rows*cols/256)=block_x*block_y teams x 256 threads. rows/cols are multiples of 16, so no padding/guard is needed. */
 		size_t localWorkSize[2] = {BLOCK_SIZE, BLOCK_SIZE};
 		size_t globalWorkSize[2] = {block_x*localWorkSize[0], block_y*localWorkSize[1]};
 
@@ -369,6 +415,20 @@ runTest( int argc, char** argv)
 
 	clFinish(commands);
 
+#endif
+	dwarf_region_end(rep);
+	}
+
+#ifdef GPU
+	{
+		float *Jr = (float*) malloc(sizeof(float)*size_I); long bad = 0;
+		memcpy(Jr, J0, sizeof(float)*size_I);
+		srad_reference(Jr, rows, cols, r1, r2, c1, c2, lambda, niter);
+		for (k = 0; k < size_I; k++) { float d = fabsf(Jr[k]-J[k]), m = fmaxf(1.0f, fmaxf(fabsf(Jr[k]), fabsf(J[k]))); if (!(d/m <= 1e-3f)) bad++; }
+		printf("%s: %ld pixels differ from the serial host reference (rel. tol 1e-3)\n", bad ? "FAILURE" : "SUCCESS", bad);
+		srad_valid = (bad == 0);
+		free(Jr);
+	}
 #endif
 
 #ifdef OUTPUT

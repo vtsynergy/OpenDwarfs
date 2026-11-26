@@ -20,6 +20,7 @@
 #include "OpenCLNodePlatformContainer.h"
 #include "MultiNodeContainer.h"
 #include "support.h"
+#include "dwarf_timer.h"
 #include "ResultDatabase.h"
 #include "OptionParser.h"
 #include "InvalidArgValue.h"
@@ -247,5 +248,5 @@ int main(int argc, char *argv[])
 	MPI_Finalize();
 #endif
 	ocd_finalize();
-	return ret;
+	{ extern int fft_valid; if (ret == 0) return dwarf_report(fft_valid); return ret; }
 }

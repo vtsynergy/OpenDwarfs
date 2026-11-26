@@ -589,7 +589,9 @@ __kernel void fft1D_256(__global T2 *in)
 	trans_s(a, Local_store, 40, Local_load, 8, 8,128, 0);
 	FFT4S(a);
 	FFT4S(a+4);
-	globalStores8_r(a, in, 32);
+	/* [FIX-OCL-25] only the jj == 0 row of work-items loads data (OpenDwarfs runs one transform per group); the other rows
+	 * still executed this store with `in` un-offset and uninitialised registers, overwriting the result of row 0 (fft1D_256) */
+	if( jj == 0 ) globalStores8_r(a, in, 32);
 }
 #endif
 
@@ -630,7 +632,8 @@ __kernel void fft1D_128(__global T2 *in)
 	trans_s(a, Local_store, 40, Local_load, 8, 8, 48, -144);
 	FFT4S(a);
 	FFT4S(a+4);
-	globalStores8_r(a, in, 16);
+	/* [FIX-OCL-25] as in fft1D_256: rows jj != 0 must not store (their `in` is un-offset and their data uninitialised) */
+	if( jj == 0 ) globalStores8_r(a, in, 16);
 }
 #endif
 

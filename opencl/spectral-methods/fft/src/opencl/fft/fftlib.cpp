@@ -317,7 +317,9 @@ init(OptionParser& op, bool _do_dp, int fftn)
 	string args = " -cl-mad-enable ";
 
 	char opt[400];
-	sprintf(opt,"-D FFT_%d -D fftn1=%d -D pow1=%d", fftn, fftn, fftn/16, log2(fftn));
+	/* [FIX-OCL-24] pow1 was passed as fftn/16 (the argument list even carried log2(fftn) as an unused fourth value); the kernels use
+	 * pow1 as a shift count (log2 of the size), so e.g. 4096 gave a shift of 256. */
+	sprintf(opt,"-D FFT_%d -D fftn1=%d -D pow1=%d", fftn, fftn, (int)log2((double)fftn));
 	args += opt;
 	err = clBuildProgram(fftProg, 0, NULL, args.c_str(), NULL, NULL);
 #ifdef ENABLE_DEBUG

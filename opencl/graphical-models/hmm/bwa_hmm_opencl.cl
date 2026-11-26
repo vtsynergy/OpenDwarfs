@@ -282,7 +282,9 @@ __kernel void s_dot_kernel_naive(int n,                        /* number of elem
 	unsigned int totalThreads = get_num_groups(0) * SDOT_BLOCK_SIZE;
 	unsigned int offset = SDOT_BLOCK_SIZE * get_group_id(0);
 
-	for(i = offset + tid; i < n; i += totalThreads)
+	/* [FIX-OCL-34] pinned launch (global = roundup(n,256), local 256): grid-stride over the global range (one element per work-item);
+	   was offset/stride built from SDOT_BLOCK_SIZE=128 / 80 blocks */
+	for(i = get_global_id(0); i < n; i += get_global_size(0))
 	{ 
 		partialSum_d[i] = paramA[offsetA + i] * paramB[offsetB + i];
 	}
@@ -315,7 +317,8 @@ __kernel void mvm_non_kernel_naive(int m,
 		m_size = n;
 	}
 
-	for(i = offset + tid; i < m_size; i += totalThreads)
+	/* [FIX-OCL-34] pinned launch (global = roundup(m_size,256), local 256): one row per work-item (was 128 x 64 grid-stride) */
+	for(i = get_global_id(0); i < m_size; i += get_global_size(0))
 	{
 		sum = 0.f;
 		for(j = 0; j < n_size; j++)
@@ -354,7 +357,8 @@ __kernel void mvm_trans_kernel_naive(int m,
 		m_size = n;
 	}
 
-	for(i = offset + tid; i < m_size; i += totalThreads)
+	/* [FIX-OCL-34] pinned launch (global = roundup(m_size,256), local 256): one row per work-item (was 128 x 64 grid-stride) */
+	for(i = get_global_id(0); i < m_size; i += get_global_size(0))
 	{
 		sum = 0.f;
 		for(j = 0; j < n_size; j++)

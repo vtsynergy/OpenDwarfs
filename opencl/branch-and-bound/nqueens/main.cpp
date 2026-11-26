@@ -10,6 +10,7 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
 #include "nqueen_cpu.h"
 #include "nqueen_cl.h"
 #include <iostream>
@@ -112,11 +113,13 @@ int main(int argc, char** argv)
 	}
 
 	clock_t start_time, end_time;
+	dwarf_init("nqueens", "branch-and-bound", "opencl");
+	dwarf_set_size(board_size, 0);
 	long long solutions = 0;
 	long long unique_solutions = 0;
 	if(force_cpu) {
 		start_time = std::clock();
-		solutions = nqueen_cpu(board_size, &unique_solutions);
+		for(int rep = dwarf_first_rep(); rep < dwarf_reps(); rep++) { dwarf_region_begin(); solutions = nqueen_cpu(board_size, &unique_solutions); dwarf_region_end(rep); }
 		end_time = std::clock();
 	}
 	else {
@@ -225,7 +228,8 @@ int main(int argc, char** argv)
 			}
 
 			//start_time = std::clock();
-			solutions = nqueen.Compute(board_size, &unique_solutions);
+			/* common timer: Compute() = host enumeration + device buffer creation/uploads + kernels + result reads */
+			for(int rep = dwarf_first_rep(); rep < dwarf_reps(); rep++) { dwarf_region_begin(); solutions = nqueen.Compute(board_size, &unique_solutions); dwarf_region_end(rep); }
 			//end_time = std::clock();
 
 			//if(profiling) {
@@ -239,10 +243,10 @@ int main(int argc, char** argv)
 			if(x.GetErrorNo() == 1) {
 				std::cerr << "1 OpenCL kernel execution failed\n";
 			}
-			if(x.GetErrorNo() == 2) {
+			else if(x.GetErrorNo() == 2) {
 				std::cerr << "2 OpenCL kernel execution failed\n";
 			}
-			if(x.GetErrorNo() == 3) {
+			else if(x.GetErrorNo() == 3) {
 				std::cerr << "3 OpenCL kernel execution failed\n";
 			}
 			else {
@@ -257,5 +261,10 @@ int main(int argc, char** argv)
 	//std::cerr << "Time used: " << std::setprecision(3) << static_cast<double>(end_time - start_time) / CLOCKS_PER_SEC << "s\n";
 
 	ocd_finalize();
-	return 0;
+	/* [FIX-OCL-14] the app had no correctness check (and the error-reporting chain `if,if,if,else` printed the generic message
+	 * after errors 1 and 2 as well). Added: comparison with the original single-threaded CPU solver, run untimed. */
+	long long ref_unique = 0, ref_sol = nqueen_cpu(board_size, &ref_unique);
+	bool ok = (ref_sol == solutions && ref_unique == unique_solutions);
+	std::cout << (ok ? "SUCCESS" : "FAILURE") << ": " << solutions << "/" << unique_solutions << " vs CPU reference " << ref_sol << "/" << ref_unique << "\n";
+	return dwarf_report(ok);
 }

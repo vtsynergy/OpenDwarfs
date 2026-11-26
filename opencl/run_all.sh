@@ -2,7 +2,7 @@
 # =============================================================================
 # Run every OpenCL benchmark once (or REPEATS times) and log results.
 #
-#   ./run_all.sh [--vendor nvidia|pocl] [--size small|medium] [--repeats N]
+#   ./run_all.sh [--vendor nvidia|pocl|intel] [--size small|medium] [--repeats N]
 #                [--only app1,app2] [--build] [--outdir DIR]
 #
 # Environment: GPU_INDEX (default 0, see toolchains/env.sh), OCL_PREFIX.
@@ -62,6 +62,9 @@ for a in $APPS; do
     t0=$(date +%s.%N)
     make -C "$HERE/$d" run OCL_VENDOR=$VENDOR GPU_INDEX=$GPU_INDEX OCL_PREFIX=$OCL_PREFIX RUN_ARGS="$args" >"$OUT/$a.$VENDOR.$SIZE.$r.log" 2>&1
     rc=$?; t1=$(date +%s.%N)
-    echo "$a,$VENDOR,$SIZE,$r,$([ $rc = 0 ] && echo OK || echo FAIL:$rc),$(echo "$t1 - $t0" | bc -l | xargs printf %.3f)" | tee -a "$OUT/summary.csv"
+    # guard: the implementation must be the one asked for (a CPU run must not land on the GPU platform or vice versa)
+    dev=$(grep -a -m1 'Device Chosen' "$OUT/$a.$VENDOR.$SIZE.$r.log")
+    if [ $VENDOR != nvidia ]; then echo "$dev" | grep -q -i 'NVIDIA' && rc=97; else echo "$dev" | grep -q -i 'NVIDIA' || rc=97; fi
+    echo "$a,$VENDOR,$SIZE,$r,$([ $rc = 0 ] && echo OK || { [ $rc = 97 ] && echo WRONG_DEVICE || echo FAIL:$rc; }),$(echo "$t1 - $t0" | bc -l | xargs printf %.3f)" | tee -a "$OUT/summary.csv"
   done
 done

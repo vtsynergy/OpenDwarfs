@@ -8,6 +8,7 @@
 #include "../../include/common_args.h"
 #include "common.h"
 #include "dwarf_timer.h"
+static int lud_valid = 1;
 
 //#define USEGPU 1
 int BLOCK_SIZE = 16;
@@ -116,7 +117,7 @@ main ( int argc, char *argv[] )
  	char* kernel_files;
 	int num_kernels = 1;
 	sprintf(arg,"-D BLOCK_SIZE=%d", (int)BLOCK_SIZE);
-	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	kernel_files = (char*) malloc(256); /* [FIX-OCL-02] was malloc(sizeof(char*)*num_kernels): 8 bytes for a 10-20 char name -> heap overflow (caught by glibc _FORTIFY_SOURCE) */
 	strcpy(kernel_files,"lud_kernel");
 
 	clProgram = ocdBuildProgramFromFile(context,device_id,kernel_files,arg);
@@ -168,7 +169,7 @@ main ( int argc, char *argv[] )
 
 			errcode = clEnqueueNDRangeKernel(commands, clKernel_diagonal, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
-		    printf("max Work-item Size2: %d\n",(int)max_worksize[0]);	
+		    /* [FIX-OCL-28] removed a debug printf inside the block loop (one line per 16-row block, flooding the output) */
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Diagonal Kernels", ocdTempTimer)
 				END_TIMER(ocdTempTimer)
 				CHKERR(errcode, "Failed to enqueue kernel!");
@@ -240,8 +241,14 @@ main ( int argc, char *argv[] )
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
 
+	/* [FIX-OCL-32] validity check on every run (previously only with -v, which also prints the whole matrices): quiet L*U check */
+	{
+		int mism = lud_check(m_orig, m, matrix_dim);
+		printf("%s: %d differences beyond the size-scaled tolerance\n", mism ? "FAILURE" : "SUCCESS", mism);
+		lud_valid = (mism == 0);
+	}
 	free(m);
 	free(m_orig);
 	ocd_finalize();
-	return dwarf_report(1) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+	return dwarf_report(lud_valid) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }				/* ----------  end of function main  ---------- */

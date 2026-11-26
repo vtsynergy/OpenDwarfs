@@ -12,6 +12,8 @@
 #include "gem.h"
 
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+extern int gem_valid;
 
 using namespace std;
 //extern int n_platform, n_device;
@@ -158,5 +160,5 @@ int main (int argc, char **argv)
 			);
 	}
 	ocd_finalize();
-	return 0;
+	return dwarf_report(gem_valid);
 }

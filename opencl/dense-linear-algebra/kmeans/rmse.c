@@ -59,6 +59,8 @@ int find_nearest_point(float  *pt,          /* [nfeatures] */
 }
 
 /*----< rms_err(): calculates RMSE of clustering >-------------------------------------*/
+/* [FIX-OCL-13] `sum_euclid +=` inside the parallel loop had no reduction clause (a data race whenever this file is built with
+ * -fopenmp; the OpenCL build ignores the pragma, so the bug was latent). */
 float rms_err	(float **feature,         /* [npoints][nfeatures] */
                  int     nfeatures,
                  int     npoints,
@@ -75,6 +77,7 @@ float rms_err	(float **feature,         /* [npoints][nfeatures] */
                 shared(feature,cluster_centres) \
                 firstprivate(npoints,nfeatures,nclusters) \
                 private(i, nearest_cluster_index) \
+                reduction(+ : sum_euclid) \
                 schedule (static)	
     for (i=0; i<npoints; i++) {
         nearest_cluster_index = find_nearest_point(feature[i], 

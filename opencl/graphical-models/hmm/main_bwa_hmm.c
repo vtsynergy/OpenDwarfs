@@ -8,6 +8,9 @@
 #include <malloc.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+#include "dwarf_launch.h"  /* [FIX-OCL-34] */
+static int g_rep = 0, hmm_valid = 1; /* common timer repetition index / validation result */
 
 #ifdef __FPGA__ 
     #include "cl_ext.h"
@@ -46,7 +49,7 @@ if ( err == NULL) \
 #define N           60          /* Number of static states */
 #define ITERATIONS  1           /* Number of iterations */
 
-#define MAX_THREADS_PER_BLOCK 256
+#define MAX_THREADS_PER_BLOCK DWARF_LS  /* [FIX-OCL-34] pinned work-group size 256 (was literal 256) for the 1-D kernels */
 #define BLOCK_DIM 16
 #define EXIT_ERROR 1
 
@@ -95,6 +98,9 @@ size_t LoadProgramSource(const char *filename, const char **progSrc)
 /* Simple init the openCL platform */
 void init_cl() 
 {
+	static int cl_ready = 0;
+	if(cl_ready) return;   /* device/program/kernels are created once and reused by all timed repetitions */
+	cl_ready = 1;
 	cl_int errNum;
 	size_t progLen;
 	const char *progSrc;
@@ -138,7 +144,8 @@ void init_cl()
 
 
 
-    cl_program _cl_program;
+    /* [FIX-OCL-15] a local `cl_program _cl_program;` used to shadow the global of the same name, leaving the global uninitialised
+     * and making the later clReleaseProgram(_cl_program) release garbage. */
     _cl_program = ocdBuildProgramFromFile(context,device_id,"bwa_hmm_opencl",NULL);
 
 	/* create the kernels from the program */
@@ -321,8 +328,9 @@ float dot_production(int n, cl_mem paramA, int offsetA, cl_mem paramB, int offse
 	errNum |= clSetKernelArg(_cl_kernel_s_dot_kernel_naive, 5, sizeof(cl_mem), &partialSum_d);
 	CHKERR(errNum, "setting kernel _cl_kernel_s_dot_kernel_naive arguments");
 
-	size_t globalWorkSize[1] = { blocks * threads };
-	size_t localWorkSize[1]  = { threads };
+	/* [FIX-OCL-34] pinned launch: local = DWARF_LS = 256, global = roundup(n,256) (was SDOT_BLOCK_NUM(80) x 128 grid-stride) */
+	size_t globalWorkSize[1] = { DWARF_ROUNDUP(n) };
+	size_t localWorkSize[1]  = { DWARF_LS };
 
 	errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_s_dot_kernel_naive, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
@@ -386,8 +394,9 @@ void mat_vec_mul(char trans, int m, int n, cl_mem A, int lda, cl_mem x, int offs
 		errNum |= clSetKernelArg(_cl_kernel_sgemvt_kernel_naive, 7, sizeof(int), &offsetY);
 		CHKERR(errNum, "setting kernel _cl_kernel_sgemvt_kernel_naive arguments");
 
-		size_t globalWorkSize[1] = { MVMUL_BLOCK_NUM * MVMUL_BLOCK_SIZE };
-		size_t localWorkSize[1]  = { MVMUL_BLOCK_SIZE };
+		/* [FIX-OCL-34] pinned launch: local 256, global = roundup(m_size,256) with m_size as computed in the kernel (was 64 x 128 grid-stride) */
+		size_t globalWorkSize[1] = { DWARF_ROUNDUP((lda == m) ? m : n) };
+		size_t localWorkSize[1]  = { DWARF_LS };
 
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_sgemvt_kernel_naive, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
@@ -423,8 +432,9 @@ void mat_vec_mul(char trans, int m, int n, cl_mem A, int lda, cl_mem x, int offs
 		errNum |= clSetKernelArg(_cl_kernel_sgemvn_kernel_naive, 7, sizeof(int), &offsetY);
 		CHKERR(errNum, "setting kernel _cl_kernel_sgemvn_kernel_naive arguments");
 
-		size_t globalWorkSize[1] = { MVMUL_BLOCK_NUM * MVMUL_BLOCK_SIZE };
-		size_t localWorkSize[1]  = { MVMUL_BLOCK_SIZE };
+		/* [FIX-OCL-34] pinned launch: local 256, global = roundup(m_size,256) with m_size as computed in the kernel (was 64 x 128 grid-stride) */
+		size_t globalWorkSize[1] = { DWARF_ROUNDUP((lda == m) ? m : n) };
+		size_t localWorkSize[1]  = { DWARF_LS };
 
 		errNum = clEnqueueNDRangeKernel(commands, _cl_kernel_sgemvn_kernel_naive, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
@@ -974,6 +984,7 @@ float run_hmm_bwa(  Hmm *hmm,
 	/* init the opencl context and kernels */
 
 	init_cl();
+	dwarf_region_begin();   /* common timer: allocation + uploads + all iterations + downloads (build/JIT is in init_cl) */
 
 	/* Initialize HMM values */
 	a = hmm->a;
@@ -996,8 +1007,9 @@ float run_hmm_bwa(  Hmm *hmm,
 	a_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * nstates, NULL, NULL);
 	b_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates * nsymbols, NULL, NULL);
 	pi_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates, NULL, NULL);
-	alpha_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates * length, NULL, NULL);
-	beta_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * length, NULL, NULL);
+	alpha_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates * (length + 1), NULL, NULL);
+	/* [FIX-OCL-16] alpha_d/beta_d get one extra row: est_a_dev reads alpha_d/beta_d[length*nstates + idy], one row past the old allocation */
+	beta_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * (length + 1), NULL, NULL);
 	gamma_sum_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates, NULL, NULL);
 	xi_sum_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_1_ALTERA, sizeof(float) * nstates * nstates, NULL, NULL);
 	c_d = clCreateBuffer(context, CL_MEM_READ_WRITE|CL_MEM_BANK_2_ALTERA, sizeof(float) * nstates, NULL, NULL);
@@ -1036,7 +1048,7 @@ float run_hmm_bwa(  Hmm *hmm,
 
 	/* Initialize ones array */
 	threads_per_block = MAX_THREADS_PER_BLOCK;
-	nblocks = (nstates + threads_per_block - 1) / threads_per_block;
+	nblocks = (nsymbols + threads_per_block - 1) / threads_per_block;  /* [FIX-OCL-34] kernel guards idx < nsymbols (was sized by nstates: left ones_s_d tail unset if nsymbols > nstates; OpenMP loops over nsymbols) */
 	size_t globalWorkSize[1] = { nblocks * threads_per_block };
 	size_t localWorkSize[1]  = { threads_per_block };
 
@@ -1112,6 +1124,7 @@ float run_hmm_bwa(  Hmm *hmm,
 	CHKERR(errNum, "Error reading buffer pi_d");
 
 	clFinish(commands);
+	dwarf_region_end(g_rep);
 	/* Free memory */
 	free(scale);
 
@@ -1126,6 +1139,14 @@ float run_hmm_bwa(  Hmm *hmm,
 	clReleaseMemObject(ones_n_d);
 	clReleaseMemObject(ones_s_d);
 
+
+
+	return new_log_lik;
+}
+
+/* kernels/program/queue/context are released once, after the last repetition */
+static void release_cl(void)
+{
 	clReleaseKernel(_cl_kernel_init_ones_dev);
 	clReleaseKernel(_cl_kernel_init_alpha_dev);
 	clReleaseKernel(_cl_kernel_calc_alpha_dev);
@@ -1146,8 +1167,33 @@ float run_hmm_bwa(  Hmm *hmm,
 	clReleaseProgram(_cl_program);
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
+}
 
-	return new_log_lik;
+/* Repetitions for the common timer. run_hmm_bwa() overwrites a, b and pi with the estimated model, so each repetition
+ * restarts from a pristine copy. Returns the log-likelihood of the last repetition. */
+static float run_hmm_bwa_reps(Hmm *hmm, Obs *in_obs, int iterations, float threshold)
+{
+	int ns = hmm->nstates, nsym = hmm->nsymbols, rep;
+	float *a0 = (float*) malloc(sizeof(float)*ns*ns), *b0 = (float*) malloc(sizeof(float)*ns*nsym), *pi0 = (float*) malloc(sizeof(float)*ns);
+	float ll = 0;
+	memcpy(a0, hmm->a, sizeof(float)*ns*ns); memcpy(b0, hmm->b, sizeof(float)*ns*nsym); memcpy(pi0, hmm->pi, sizeof(float)*ns);
+	dwarf_init("hmm", "graphical-models", "opencl");
+	dwarf_set_size(ns, in_obs->length);
+	for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+		memcpy(hmm->a, a0, sizeof(float)*ns*ns); memcpy(hmm->b, b0, sizeof(float)*ns*nsym); memcpy(hmm->pi, pi0, sizeof(float)*ns);
+		g_rep = rep;
+		ll = run_hmm_bwa(hmm, in_obs, iterations, threshold);
+	}
+	free(a0); free(b0); free(pi0);
+	/* [FIX-OCL-17] validity check (none before): the uniform HMM with an all-zero observation sequence has the closed-form
+	 * log10-likelihood  length * log10(1/nsymbols). */
+	{
+		float expect = (float)in_obs->length * log10f(1.0f / (float)nsym);
+		hmm_valid = fabsf(ll - expect) <= 1e-3f * fabsf(expect) + 1e-3f;
+		printf("%s: log-likelihood %f vs analytic %f\n", hmm_valid ? "SUCCESS" : "FAILURE", ll, expect);
+	}
+	return ll;
 }
 
 static struct option size_opts[] = 
@@ -1182,7 +1228,7 @@ int main(int argc, char *argv[])
 	ocd_init(&argc, &argv, NULL);
 
 	int opt, opt_index = 0;
-	char v_model;
+	char v_model = 0; /* [FIX-OCL-18] was uninitialised: running without -v read an indeterminate value */
 	while((opt = getopt_long(argc, argv, "::n:s:t:v:", size_opts, &opt_index)) != -1)
 	{
 		//printf("here");
@@ -1256,7 +1302,7 @@ int main(int argc, char *argv[])
 		/* Run the BWA on the observation sequence */
 
 		tic(&timer);
-		log_lik = run_hmm_bwa(hmm, obs, ITERATIONS, 0);
+		log_lik = run_hmm_bwa_reps(hmm, obs, ITERATIONS, 0);
 		printf("Observations\tTime (s)\tLog_likelihood\n");
 		printf("%i\t", n);
 		toc(&timer);
@@ -1316,7 +1362,7 @@ int main(int argc, char *argv[])
 		/* Run the BWA on the observation sequence */
 
 		tic(&timer);
-		log_lik = run_hmm_bwa(hmm, obs, ITERATIONS, 0);
+		log_lik = run_hmm_bwa_reps(hmm, obs, ITERATIONS, 0);
 		printf("Observations\tTime (s)\tLog_likelihood\n");
 		printf("%i\t", s);
 		toc(&timer);
@@ -1377,7 +1423,7 @@ int main(int argc, char *argv[])
 		/* Run the BWA on the observation sequence */
 
 		tic(&timer);
-		log_lik = run_hmm_bwa(hmm, obs, ITERATIONS, 0);
+		log_lik = run_hmm_bwa_reps(hmm, obs, ITERATIONS, 0);
 		printf("Observations\tTime (s)\tLog_likelihood\n");
 		printf("%i\t", t);
 		toc(&timer);
@@ -1393,5 +1439,8 @@ int main(int argc, char *argv[])
 	}
 
 	ocd_finalize();//KK
-	return;
+	release_cl();
+	if(v_model != 'n' && v_model != 's' && v_model != 't') { fprintf(stderr, "-v n|s|t is required\n"); return EXIT_FAILURE; }
+	/* [FIX-OCL-18] `return;` in int main() returned an indeterminate status */
+	return dwarf_report(hmm_valid);
 }

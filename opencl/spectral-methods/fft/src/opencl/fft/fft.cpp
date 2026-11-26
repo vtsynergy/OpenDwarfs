@@ -4,12 +4,15 @@
 #include <math.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <algorithm>
 #include <time.h>
 #include "support.h"
 #include "ResultDatabase.h"
 #include "Event.h"
 #include "OptionParser.h"
 #include "Timer.h"
+#include "dwarf_timer.h"
+int fft_valid = 1;   /* result of the 1-D validation, read by main() */
 
 #include "fftlib.h"
 using namespace std;
@@ -223,12 +226,21 @@ void dump1D(OptionParser& op)
 	allocHostBuffer((void**)&source, used_bytes);
 	allocHostBuffer((void**)&result, used_bytes);
 
+	/* [FIX-OCL-26] the input came from rand() without a seed. The OpenCL runtimes (NVIDIA driver, PoCL, ...) may consume rand()
+	 * themselves while loading, so the "random" input differed between implementations and runs and the result could never be
+	 * compared or checked. Seed explicitly right before generating the data. */
+	srand(1);
 	// init host memory...
 	for (i = 0; i < N; i++) {
 		source[i].x = (rand()/(float)RAND_MAX)*2-1;
 		source[i].y = (rand()/(float)RAND_MAX)*2-1;
 	}
 
+	/* common timer: alloc + H2D + forward transform + D2H per repetition (JIT is in init() above) */
+	dwarf_init("fft", "spectral-methods", "opencl");
+	dwarf_set_size(fftn, 1);
+	for (int rep = dwarf_first_rep(); rep < dwarf_reps(); rep++) {
+	dwarf_region_begin();
 	// alloc device memory
 	allocDeviceBuffer(&work, used_bytes);
 	allocDeviceBuffer(&temp, used_bytes);
@@ -238,11 +250,37 @@ void dump1D(OptionParser& op)
 	forward(work, temp, n_ffts, fftn);
 
 	copyFromDevice(result, work, used_bytes);
+	dwarf_region_end(rep);
+	if (rep != dwarf_reps() - 1) { freeDeviceBuffer(work); freeDeviceBuffer(temp); }
+	}
 #ifdef PRINT_RESULT
 	for (i = 0; i < N; i++) {
 		fprintf(stdout, "data[%d] (%g, %g)\n", i, result[i].x, result[i].y);
 	}
 #endif
+	/* [FIX-OCL-27] no validation existed. Added: the transform of this very input in double precision (naive DFT); the SHOC
+	 * kernels emit the spectrum in a radix-permuted order and with swapped real/imaginary parts, so the check compares the
+	 * sorted magnitudes (permutation- and swap-insensitive), relative RMS error < 1e-3. */
+	{
+		double *ref = (double*) malloc(sizeof(double) * fftn), *got = (double*) malloc(sizeof(double) * fftn);
+		for (int k = 0; k < fftn; k++) {
+			double sr = 0, si = 0;
+			for (int t = 0; t < fftn; t++) {
+				double ang = -2.0 * M_PI * (double)((long)k * t % fftn) / fftn;
+				sr += source[t].x * cos(ang) - source[t].y * sin(ang);
+				si += source[t].x * sin(ang) + source[t].y * cos(ang);
+			}
+			ref[k] = sqrt(sr * sr + si * si);
+			got[k] = sqrt((double)result[k].x * result[k].x + (double)result[k].y * result[k].y);
+		}
+		std::sort(ref, ref + fftn); std::sort(got, got + fftn);
+		double e = 0, nrm = 0;
+		for (int k = 0; k < fftn; k++) { e += (ref[k] - got[k]) * (ref[k] - got[k]); nrm += ref[k] * ref[k]; }
+		double rel = sqrt(e / nrm);
+		fft_valid = (rel < 1e-3) && (rel == rel);
+		printf("%s: sorted-magnitude relative RMS error vs the double-precision DFT of the input: %.3g\n", fft_valid ? "SUCCESS" : "FAILURE", rel);
+		free(ref); free(got);
+	}
 	freeDeviceBuffer(work);
 	freeDeviceBuffer(temp);
 	freeHostBuffer(source);

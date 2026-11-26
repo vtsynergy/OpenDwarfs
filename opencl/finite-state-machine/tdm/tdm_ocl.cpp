@@ -16,6 +16,8 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OCL-34] pinned launch config */
 #define AOCL_ALIGNMENT 64
 unsigned int numCandidates;
 int episodesCulled = 0;
@@ -64,7 +66,7 @@ FILE* dumpFile;
 float* temporalConstraint;
 unsigned int temporalConstraintSize;
 
-void runTest( int argc, char** argv);
+int runTest( int argc, char** argv);
 
 void loadCandidateEpisodes(char* filename, int& level)
 {
@@ -233,12 +235,12 @@ void setupGpu()
 
 int main( int argc, char** argv) 
 {
-	runTest( argc, argv);
+	return runTest( argc, argv);
 
 }
 
 
-void runTest( int argc, char** argv) {
+int runTest( int argc, char** argv) {
 	
 
 	//****************************************
@@ -261,7 +263,7 @@ void runTest( int argc, char** argv) {
 	
 	if ( argc != 5 ) {
 		printf("Usage: tdm_ocl <data path> <intervals path> <episodes path> <threads>\n");
-		return;
+		return 1;
 	}
 
  	clProgram = ocdBuildProgramFromFile(context,device_id,"tdm_ocl_kernel", NULL);
@@ -303,6 +305,13 @@ void runTest( int argc, char** argv) {
 
 	ubyte start = eventType == EVENT_26 ? 'A' : '!';
 
+	/* common timer: repetitions around the episode loop (per episode: H2D of the start records, countCandidates / writeCandidates
+	 * per level, the host prefix sums, D2H of the final records). The one-time upload of the event stream is not repeated. */
+	dwarf_init("tdm", "finite-state-machine", "opencl");
+	dwarf_set_size(eventSize, numCandidates);
+	for(int rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+	dwarf_region_begin();
 	for ( unsigned int idx = 0; idx < numCandidates; idx++ ) {
 
 		ubyte* currentEpisode = &h_episodeCandidates[idx*maxLevel];
@@ -314,15 +323,14 @@ void runTest( int argc, char** argv) {
 		CHKERR(errcode, "Failed to enqueue write buffer!");
 
 		h_foundCount = h_eventCounts[currentEpisode[maxLevel-1]-start];
-		localWorkSize[0] = num_threads;
+		localWorkSize[0] = DWARF_LS; /* [FIX-OCL-34] was CLI num_threads (128); pinned work-group = 256, kernels guard tid<recordCount */
 		localWorkSize[1] = 1;
 		localWorkSize[2] = 1;
 
 		for ( int level = 2; level <= maxLevel; level++ ) {
 			int idx = maxLevel - level;                // Index instead of level
 
-			uint blockCount = (h_foundCount/num_threads)+(h_foundCount % num_threads == 0 ? 0 : 1);
-			globalWorkSize[0]=blockCount*num_threads;
+			globalWorkSize[0]=DWARF_ROUNDUP(h_foundCount); /* [FIX-OCL-34] pinned global = ceil(n/256)*256 (was based on CLI num_threads) */
 			globalWorkSize[1]=1;
 			globalWorkSize[2]=1;
 
@@ -350,14 +358,14 @@ void runTest( int argc, char** argv) {
 			buff1=(unsigned int*) memalign (AOCL_ALIGNMENT,sizeof(unsigned int)*(h_foundCount));			
 			if(buff1==NULL){
 				printf("Failed to allocate memory\n");
-				return;
+				return 1;
 			}
 			
 			buff2=(unsigned int*) memalign (AOCL_ALIGNMENT,sizeof(unsigned int)*(h_foundCount+1));
 //buff2=(unsigned int*)malloc(sizeof(unsigned int)*(h_foundCount+1));
 			if(buff2==NULL){
 				printf("Failed to allocate memory\n");
-				return;
+				return 1;
 			}
 			
 			errcode = clEnqueueReadBuffer(commands, d_recCount, CL_TRUE, 0, (h_foundCount)*sizeof(uint), (void *) buff1, 0, NULL, &ocdTempEvent);
@@ -397,6 +405,8 @@ void runTest( int argc, char** argv) {
 			END_TIMER(ocdTempTimer)
 
 			h_foundCount=buff2[h_foundCount];
+			/* [FIX-OCL-21] h_startRecords/h_foundRecords/d_*Records hold MaxRecords entries; a larger frontier overflowed them silently */
+			if(h_foundCount > MaxRecords) { printf("FAILURE: %u records exceed MaxRecords (%u)\n", h_foundCount, MaxRecords); exit(1); }
 			
 			free(buff1);
 			free(buff2);
@@ -419,6 +429,8 @@ void runTest( int argc, char** argv) {
 
 	}
 
+	dwarf_region_end(rep);
+	}
 	saveResult( dumpFile, maxLevel, numCandidates, h_episodeSupport, h_episodeCandidates, h_episodeIntervals, eventType );
 	
 	/*printf("Total Count:            %d\n", resultCount );
@@ -443,5 +455,10 @@ void runTest( int argc, char** argv) {
 	clReleaseContext(context);
 
 	ocd_finalize();
+	{
+		int ok = numCandidates > 0;   /* [FIX-OCL-22] no validity indication before; the support table is the reference for comparisons */
+		printf("%s: %u candidate episodes of size %d mined\n", ok ? "SUCCESS" : "FAILURE", numCandidates, maxLevel);
+		return dwarf_report(ok);
+	}
 
 }

@@ -7,6 +7,8 @@
 #include <sys/time.h>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+static int nw_valid = 1;
 #include <malloc.h>
 #define AOCL_ALIGNMENT 64
 
@@ -76,7 +78,7 @@ main( int argc, char** argv)
 	ocd_initCL();
 	runTest( argc, argv);
 	ocd_finalize();
-	return EXIT_SUCCESS;
+	return dwarf_report(nw_valid) == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
 }
 
 void usage(int argc, char **argv)
@@ -172,7 +174,7 @@ void runTest( int argc, char** argv)
 	size_t kernelLength;
     char* kernel_files;
     int num_kernels = 1;
-    kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+    kernel_files = (char*) malloc(256); /* [FIX-OCL-02] was malloc(sizeof(char*)*num_kernels): 8 bytes for a 10-20 char name -> heap overflow (caught by glibc _FORTIFY_SOURCE) */
 	strcpy(kernel_files,"needle_kernel");
     clProgram = ocdBuildProgramFromFile(context,device_id, kernel_files, NULL);
 
@@ -187,6 +189,14 @@ void runTest( int argc, char** argv)
 	matrix_cuda = clCreateBuffer(context, CL_MEM_READ_WRITE, sizeof(int)*size, NULL, &errcode);
 	CHKERR(errcode, "Failed to create buffer!");
 
+	/* common timer: repetitions around the whole H2D -> wavefront kernels -> D2H pipeline (build/JIT is above).
+	 * input_itemsets is never modified, so every repetition starts from the same state. */
+	dwarf_init("nw", "dynamic-programming", "opencl");
+	dwarf_set_size(max_cols - 1, penalty);
+	int rep;
+	for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+	dwarf_region_begin();
 	errcode = clEnqueueWriteBuffer(commands, referrence_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) referrence, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "NW Reference Copy", ocdTempTimer)
@@ -251,18 +261,34 @@ void runTest( int argc, char** argv)
 		CHKERR(errcode, "Failed to enqueue kernel!");
 	}
 
-	errcode = clEnqueueReadBuffer(commands, matrix_cuda, CL_TRUE, 0, sizeof(float)*size, (void *) output_itemsets, 0, NULL, &ocdTempEvent);
+	/* [FIX-OCL-06] was sizeof(float)*size: same width as int on all supported targets, but the buffer holds ints */
+	errcode = clEnqueueReadBuffer(commands, matrix_cuda, CL_TRUE, 0, sizeof(int)*size, (void *) output_itemsets, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "NW Item Set Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
 	CHKERR(errcode, "Failed to enqueue read buffer!");
+	dwarf_region_end(rep);
+	}
+
+	/* [FIX-OCL-07] the app had no correctness check. Added: serial fill of the same recurrence compared cell by cell. */
+	{
+		int *ref = (int *)malloc(sizeof(int) * size); long bad = 0;
+		memcpy(ref, input_itemsets, sizeof(int) * size);
+		for (i = 1; i < max_rows; i++)
+			for (j = 1; j < max_cols; j++)
+				ref[i*max_cols+j] = maximum(ref[(i-1)*max_cols + j-1] + referrence[i*max_cols+j], ref[i*max_cols + j-1] - penalty, ref[(i-1)*max_cols + j] - penalty);
+		for (i = 0; i < size; i++) if (ref[i] != output_itemsets[i]) bad++;
+		printf("%s: %ld cells differ from serial Needleman-Wunsch\n", bad ? "FAILURE" : "SUCCESS", bad);
+		nw_valid = (bad == 0);
+		free(ref);
+	}
 
 
 //#ifdef TRACE
 
 	printf("print traceback value GPU:\n");
 
-	for (i = max_rows - 2,  j = max_rows - 2; i>=0, j>=0;){
+	for (i = max_rows - 2,  j = max_rows - 2; i>=0 && j>=0;){ /* [FIX-OCL-08] was `i>=0, j>=0` (comma operator: only j>=0 was tested) */
 
 		int nw, n, w, traceback;
 

@@ -1,3 +1,4 @@
+#include "dwarf_launch.h"  /* [FIX-OCL-34] */
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -70,7 +71,7 @@ void initCL()
 
     char* kernel_files;
 	int num_kernels = 50;
-	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	kernel_files = (char*) malloc(256); /* [FIX-OCL-02] was malloc(sizeof(char*)*num_kernels): 8 bytes for a 10-20 char name -> heap overflow (caught by glibc _FORTIFY_SOURCE) */
 	strcpy(kernel_files,"kmeans_opencl_kernel");
                
     clProgram = ocdBuildProgramFromFile(context,device_id,kernel_files,NULL);
@@ -132,8 +133,10 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 	errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &npoints);
 	errcode |= clSetKernelArg(clKernel_invert_mapping, arg++, sizeof(int), (void *) &nfeatures);
 	CHKERR(errcode, "Failed to set kernel arg!");
-	globalWorkSize = num_blocks*num_threads;
-	localWorkSize = num_threads;
+	/* [FIX-OCL-34] pinned launch (free-size, barrier-free, one point per work-item): local = DWARF_LS = 256,
+	   global = roundup(npoints,256) (was num_blocks*num_threads with num_blocks rounded up to a square); kernel guards point_id < npoints */
+	globalWorkSize = DWARF_ROUNDUP(npoints);
+	localWorkSize = DWARF_LS;
 
 	errcode = clEnqueueNDRangeKernel(commands, clKernel_invert_mapping, 1, NULL, &globalWorkSize, &localWorkSize, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
@@ -183,13 +186,21 @@ void deallocateMemory()
 #ifdef BLOCK_DELTA_REDUCE
 	clReleaseMemObject(block_deltas_d);
 #endif
+}
+/* -------------- deallocateMemory() end ------------------- */
+
+/* [FIX-OCL-33] kernels, program, queue and context were released inside deallocateMemory(), which runs at the end of every
+ * cluster() call; with the common timer's warm-up/repeat loop the 2nd cluster() call then used released kernels and crashed in
+ * clSetKernelArg (segfault on PoCL and NVIDIA). They are now released once, after the repeat loop (releaseCL). */
+	extern "C"
+void releaseCL()
+{
 	clReleaseKernel(clKernel_invert_mapping);
 	clReleaseKernel(clKernel_kmeansPoint);
 	clReleaseProgram(clProgram);
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
 }
-/* -------------- deallocateMemory() end ------------------- */
 
 
 
@@ -276,8 +287,10 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 	/* setup execution parameters.
 	   changed to 2d (source code on NVIDIA CUDA Programming Guide) */
-	size_t localWorkSize[2] = {num_threads_perdim*num_threads_perdim, 1};
-	size_t globalWorkSize[2] = {num_blocks_perdim*localWorkSize[0], num_blocks_perdim*localWorkSize[1]};
+	/* [FIX-OCL-34] pinned launch: 1-D, local = DWARF_LS = 256, global = roundup(npoints,256) (was 2-D (nbpd*256) x nbpd, local (256,1));
+	   kmeansPoint computes point_id = block_id*256 + local_id with block_id = group_id(0) when group_id(1)==0, and guards point_id < npoints */
+	size_t localWorkSize[1] = {DWARF_LS};
+	size_t globalWorkSize[1] = {DWARF_ROUNDUP(npoints)};
 
 	unsigned int arg = 0;
 	errcode = clSetKernelArg(clKernel_kmeansPoint, arg++, sizeof(cl_mem), (void *) &feature_d);
@@ -297,7 +310,7 @@ kmeansCuda(float  **feature,				/* in: [npoints][nfeatures] */
 
 	/* execute the kernel */
 
-	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 2, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
+	errcode = clEnqueueNDRangeKernel(commands, clKernel_kmeansPoint, 1, NULL, globalWorkSize, localWorkSize, 0, NULL, &ocdTempEvent);
 	CHKERR(errcode, "Failed to enqueue kernel!");
 	errcode = clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "Point Kernel", ocdTempTimer)

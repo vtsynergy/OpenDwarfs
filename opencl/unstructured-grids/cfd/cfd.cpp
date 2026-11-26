@@ -6,6 +6,11 @@
 #include <iostream>
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+#include "dwarf_launch.h"
+#include <cmath>
+/* host copies of the mesh, kept so every timed repetition can re-upload it */
+static float *g_areas = 0, *g_normals = 0; static int *g_ese = 0;
 #include <malloc.h>
 
 #define AOCL_ALIGNMENT 64
@@ -188,6 +193,7 @@ int main(int argc, char** argv)
 
 	size_t global_size;
 	size_t local_size;
+	size_t wg_query_unused;
 
 	cl_program program;
 	cl_kernel kernel_compute_flux;
@@ -318,7 +324,9 @@ int main(int argc, char** argv)
 			{
 				// duplicate the last element
 				h_elements_surrounding_elements[i + j*nelr] = h_elements_surrounding_elements[last + j*nelr];
-				for(int k = 0; k < NDIM; k++) h_normals[last + (j + k*NNB)*nelr] = h_normals[last + (j + k*NNB)*nelr];
+				/* [FIX-OCL-10] was h_normals[last + ...] = h_normals[last + ...] (a self-assignment): the padded elements nel..nelr-1 kept
+				 * uninitialised normals although the comment says "duplicate the last element" */
+				for(int k = 0; k < NDIM; k++) h_normals[i + (j + k*NNB)*nelr] = h_normals[last + (j + k*NNB)*nelr];
 			}
 		}
 
@@ -331,14 +339,12 @@ int main(int argc, char** argv)
 		normals = alloc<float>(context, nelr*NDIM*NNB);
 		upload<float>(commands, normals, h_normals, nelr*NDIM*NNB);
 
-		delete[] h_areas;
-		delete[] h_elements_surrounding_elements;
-		delete[] h_normals;
+		g_areas = h_areas; g_ese = h_elements_surrounding_elements; g_normals = h_normals;  // kept for the timed re-uploads
 	}
 
 	char* kernel_files;
 	int num_kernels = 20;
-	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	kernel_files = (char*) malloc(256); /* [FIX-OCL-02] was malloc(sizeof(char*)*num_kernels): 8 bytes for a 10-20 char name -> heap overflow (caught by glibc _FORTIFY_SOURCE) */
 
 	strcpy(kernel_files,"cfd_kernel");
       
@@ -370,11 +376,11 @@ int main(int argc, char** argv)
 	err |= clSetKernelArg(kernel_initialize_variables, 2, sizeof(cl_mem),&ff_variable);
 	CHKERR(err, "Failed to set kernel arguments!");
 	// Get the maximum work group size for executing the kernel on the device
-	//err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
+	//err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &wg_query_unused, NULL);  /* [FIX-OCL-34] result unused: local size is pinned to DWARF_LS */
 	CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
 	local_size = 1;//std::min(local_size, (size_t)nelr);
-	global_size = nelr;
-	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
+	global_size = DWARF_ROUNDUP(nelr); local_size = DWARF_LS;  /* [FIX-OCL-34] pinned launch: local 256, global roundup(nelr,256) (was NULL local) */
+	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
 	err = clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
@@ -398,9 +404,9 @@ int main(int argc, char** argv)
 	err |= clSetKernelArg(kernel_initialize_variables, 2, sizeof(cl_mem),&ff_variable);
 	CHKERR(err, "Failed to set kernel arguments!");
 	// Get the maximum work group size for executing the kernel on the device
-	err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
+	err = clGetKernelWorkGroupInfo(kernel_initialize_variables, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &wg_query_unused, NULL);  /* [FIX-OCL-34] result unused: local size is pinned to DWARF_LS */
 	CHKERR(err, "Failed to retrieve kernel_initialize_variables work group info!");
-	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
+	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
@@ -411,10 +417,10 @@ int main(int argc, char** argv)
 	err |= clSetKernelArg(kernel_initialize_variables, 2, sizeof(cl_mem),&ff_variable);
 	CHKERR(err, "Failed to set kernel arguments!");
 	// Get the maximum work group size for executing the kernel on the device
-	err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
+	err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &wg_query_unused, NULL);  /* [FIX-OCL-34] result unused: local size is pinned to DWARF_LS */
 	CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
 
-	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
+	err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Init Kernels", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
@@ -433,6 +439,32 @@ int main(int argc, char** argv)
 	// these need to be computed the first time in order to compute time step
 	std::cout << "Starting..." << std::endl;
 
+	/* common timer: repetitions around [mesh upload, variable initialisation, the solver iterations, download of the
+	 * solution]; JIT/build is above, writing the output files is below. */
+	dwarf_init("cfd", "unstructured-grids", "opencl");
+	dwarf_set_size(nel, nelr);
+	float *h_result = (float*) malloc(sizeof(float) * nelr * NVAR);
+	for(int rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+	dwarf_region_begin();
+	upload<float>(commands, areas, g_areas, nelr);
+	upload<int>(commands, elements_surrounding_elements, g_ese, nelr*NNB);
+	upload<float>(commands, normals, g_normals, nelr*NDIM*NNB);
+	{
+		cl_mem targets[3] = { variables, old_variables, fluxes };
+		for(int t = 0; t < 3; t++)
+		{
+			err = clSetKernelArg(kernel_initialize_variables, 0, sizeof(int), &nelr);
+			err |= clSetKernelArg(kernel_initialize_variables, 1, sizeof(cl_mem), &targets[t]);
+			err |= clSetKernelArg(kernel_initialize_variables, 2, sizeof(cl_mem), &ff_variable);
+			CHKERR(err, "Failed to set kernel arguments!");
+			err = clEnqueueNDRangeKernel(commands, kernel_initialize_variables, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
+			clFinish(commands);
+			CHKERR(err, "Failed to execute kernel [kernel_initialize_variables] (repetition)");
+		}
+		upload<float>(commands, step_factors, temp, nelr);   // step_factors = 0
+	}
+
 
 	// Begin iterations
 	for(int i = 0; i < iterations; i++)
@@ -447,9 +479,9 @@ int main(int argc, char** argv)
 		err |= clSetKernelArg(kernel_compute_step_factor, 3, sizeof(cl_mem), &step_factors);
 		CHKERR(err, "Failed to set kernel arguments!");
 		// Get the maximum work group size for executing the kernel on the device
-		err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
+		err = clGetKernelWorkGroupInfo(kernel_compute_step_factor, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &wg_query_unused, NULL);  /* [FIX-OCL-34] result unused: local size is pinned to DWARF_LS */
 		CHKERR(err, "Failed to retrieve kernel_compute_step_factor work group info!");
-		err = clEnqueueNDRangeKernel(commands, kernel_compute_step_factor, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
+		err = clEnqueueNDRangeKernel(commands, kernel_compute_step_factor, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Step Factor Kernel", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
@@ -465,9 +497,9 @@ int main(int argc, char** argv)
 			err |= clSetKernelArg(kernel_compute_flux_contributions, 5, sizeof(cl_mem), &fc_density_energy);
 			CHKERR(err, "Failed to set kernel arguments!");
 			// Get the maximum work group size for executing the kernel on the device
-			err = clGetKernelWorkGroupInfo(kernel_compute_flux_contributions, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
+			err = clGetKernelWorkGroupInfo(kernel_compute_flux_contributions, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &wg_query_unused, NULL);  /* [FIX-OCL-34] result unused: local size is pinned to DWARF_LS */
 			CHKERR(err, "Failed to retrieve kernel_compute_flux_contributions work group info!");
-			err = clEnqueueNDRangeKernel(commands, kernel_compute_flux_contributions, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
+			err = clEnqueueNDRangeKernel(commands, kernel_compute_flux_contributions, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Flux Contribution Kernel", ocdTempTimer)
 			//compute_flux_contributions(nelr, variables, fc_momentum_x, fc_momentum_y, fc_momentum_z, fc_density_energy);
@@ -490,9 +522,9 @@ int main(int argc, char** argv)
 			err |= clSetKernelArg(kernel_compute_flux, 13, sizeof(cl_mem), &ff_fc_density_energy);
 			CHKERR(err, "Failed to set kernel arguments!");
 			// Get the maximum work group size for executing the kernel on the device
-			err = clGetKernelWorkGroupInfo(kernel_compute_flux, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
+			err = clGetKernelWorkGroupInfo(kernel_compute_flux, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &wg_query_unused, NULL);  /* [FIX-OCL-34] result unused: local size is pinned to DWARF_LS */
 			CHKERR(err, "Failed to retrieve kernel_compute_flux work group info!");
-			err = clEnqueueNDRangeKernel(commands, kernel_compute_flux, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
+			err = clEnqueueNDRangeKernel(commands, kernel_compute_flux, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Flux Kernel", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
@@ -506,9 +538,9 @@ int main(int argc, char** argv)
 			err |= clSetKernelArg(kernel_time_step, 5, sizeof(cl_mem), &fluxes);
 			CHKERR(err, "Failed to set kernel arguments!");
 			// Get the maximum work group size for executing the kernel on the device
-			err = clGetKernelWorkGroupInfo(kernel_time_step, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &local_size, NULL);
+			err = clGetKernelWorkGroupInfo(kernel_time_step, device_id, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), (void *) &wg_query_unused, NULL);  /* [FIX-OCL-34] result unused: local size is pinned to DWARF_LS */
 			CHKERR(err, "Failed to retrieve kernel_time_step work group info!");
-			err = clEnqueueNDRangeKernel(commands, kernel_time_step, 1, NULL, &global_size, NULL, 0, NULL, &ocdTempEvent);
+			err = clEnqueueNDRangeKernel(commands, kernel_time_step, 1, NULL, &global_size, &local_size, 0, NULL, &ocdTempEvent);
 			clFinish(commands);
 			START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "CFD Time Step Kernel", ocdTempTimer)
 			END_TIMER(ocdTempTimer)
@@ -517,6 +549,9 @@ int main(int argc, char** argv)
 	}
 
 	clFinish(commands);
+	download<float>(commands, h_result, variables, nelr*NVAR);
+	dwarf_region_end(rep);
+	}
 	std::cout << "Finished" << std::endl;
 	std::cout << "Saving solution..." << std::endl;
 	dump(commands, variables, nel, nelr);
@@ -547,5 +582,11 @@ int main(int argc, char** argv)
 
 	std::cout << "Done..." << std::endl;
 	ocd_finalize();
-	return 0;
+	/* [FIX-OCL-11] validity check (none before): the solution must be finite with positive density */
+	{
+		long bad = 0;
+		for(int i = 0; i < nel; i++) { float d = h_result[i + VAR_DENSITY*nelr]; if(!(std::isfinite(d) && d > 0.0f)) bad++; }
+		printf("%s: %ld cells with non-finite or non-positive density\n", bad ? "FAILURE" : "SUCCESS", bad);
+		return dwarf_report(bad == 0);
+	}
 }

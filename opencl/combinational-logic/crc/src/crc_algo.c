@@ -13,6 +13,8 @@
 #include <math.h>
 #include "../../../include/rdtsc.h"
 #include "../../../include/common_args.h"
+#include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OCL-34] pinned launch configuration */
 #include "../inc/crc_formats.h"
 #include "../inc/eth_crc32_lut.h"
 
@@ -124,8 +126,17 @@ void enqueueCRCDevice(unsigned int* h_num, unsigned int* h_answer, size_t global
 	err = clSetKernelArg(kernel_compute, 3, sizeof(cl_mem), &d_output);
 	CHKERR(err, "Failed to set kernel argument 3!");
 
-	if(verbosity >=2) printf("enqueueCRCDevice(): global_size=%zd - local_size=%zd\n",global_size,local_size);
-	err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &global_size, &local_size, 1, write_page, kernel_exec);
+	/* [FIX-OCL-34] was NDRange {global_size=pages} local {wg_sizes[k] (default 1, or largest divisor)}; barrier-free one-page-per-item kernel
+	 * -> pinned: local = DWARF_LS, global = roundup(pages); the kernel guards gid >= num_items (arg 4). */
+	{
+		unsigned int num_items = (unsigned int)global_size;
+		size_t pinned_global = DWARF_ROUNDUP(global_size), pinned_local = DWARF_LS;
+		(void)local_size;
+		err = clSetKernelArg(kernel_compute, 4, sizeof(unsigned int), &num_items);
+		CHKERR(err, "Failed to set kernel argument 4!");
+		if(verbosity >=2) printf("enqueueCRCDevice(): items=%zd global=%zd local=%zd\n",global_size,pinned_global,pinned_local);
+		err = clEnqueueNDRangeKernel(commands, kernel_compute, 1, NULL, &pinned_global, &pinned_local, 1, write_page, kernel_exec);
+	}
 	CHKERR(err, "Failed to enqueue compute kernel!");
 
 	// Read back the results from the device to verify the output
@@ -179,6 +190,7 @@ int main(int argc, char** argv)
 	char* file=NULL,*optptr;
 	char** kernel_files=NULL;
 	int c;
+	int rep; unsigned int crc_bad = 0; /* common timer: repetition index; serial-check mismatch counter */
 	struct timeval start,end;
 
 	//Does NOT use ocd_init() because we use TIMER_INIT (the 3rd thing in ocd_init) MANY TIMES in LOOOP! (nz-ocl)
@@ -302,6 +314,9 @@ int main(int argc, char** argv)
 		kernel_files[0] = "crc_kernel";
 	}
 
+	dwarf_init("crc", "combinational-logic", "opencl");
+	dwarf_set_size(num_pages, page_size);
+	if(num_execs > 1) dwarf_set_repeats((int)num_execs);
 	for(h=0; h<num_block_sizes; h++)
 	{
 		if(verbosity) printf("Executing with block size #%u of %u: %u\n",h+1,num_block_sizes,num_parallel_crcs[h]);
@@ -340,13 +355,16 @@ int main(int argc, char** argv)
 			{
 				if(verbosity) printf("Executing with Workgroup size #%u of %u: %zu\n",k+1,num_wg_sizes,wg_sizes[k]);
 
-				for(ii=0; ii<num_execs; ii++)
+				/* common timer: repetitions (warm-ups first); the timed region is the H2D/kernel/D2H pipeline below */
+				for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
 				{
+					ii = rep < 0 ? 0 : (unsigned int)rep;
 					if(verbosity) printf("Beginning execution #%u of %u...\n",ii+1,num_execs);
 
 #ifdef ENABLE_TIMER
 					TIMER_INIT
 #endif
+					dwarf_region_begin();
 						for(i=0; i<num_blocks; i++)
 						{
 							if(verbosity >= 2) printf("\tEnqueuing commmands for block #%d of %d...\n",i+1,num_blocks);
@@ -372,6 +390,7 @@ int main(int argc, char** argv)
 					clFinish(write_queue);
 					clFinish(commands);
 					clFinish(read_queue);
+					dwarf_region_end(rep);
 
 #ifdef ENABLE_TIMER
 					TIMER_STOP
@@ -419,7 +438,12 @@ int main(int argc, char** argv)
 								cpu_remainder = crc32_8bytes(&h_num[i*num_words], page_size);
 								if(verbosity >= 3) printf("CPU - Slice-by-8 Computation: '%X'\n", cpu_remainder);
 								if(cpu_remainder != ocl_remainders[i])
+								{
+									/* [FIX-OCL-01] mismatches were only printed to stderr and the exit status was always 0; they are now counted
+									 * and reported as SUCCESS/FAILURE (and in the DWARF_RESULT valid= field). */
+									crc_bad++;
 									fprintf(stderr,"ERROR: OCL and CPU Slice-by-8 remainders for page %u differ [OCL: '%X', CPU: '%X']\n",i+1,ocl_remainders[i],cpu_remainder);
+								}
 							}
 							gettimeofday(&end,NULL);
 							printf("CPU Slice-by-8 CRC Time: ");
@@ -446,5 +470,6 @@ int main(int argc, char** argv)
 	clReleaseContext(context);
 	free(h_num);
 
-	return 0;
+	if(run_serial) printf("%s: %u pages differ from serial slice-by-8\n", crc_bad ? "FAILURE" : "SUCCESS", crc_bad);
+	return dwarf_report(crc_bad == 0);
 }

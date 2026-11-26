@@ -17,6 +17,9 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OCL-34] pinned launch configuration */
+static int bfs_valid = 1;
 
 #include <utility>
 #define __NO_STD_VECTOR // Use cl::vector and cl::string and 
@@ -74,7 +77,7 @@ int main(int argc, char** argv)
 	edge_list_size = 0;
 	BFSGraph(argc, argv);
 	ocd_finalize();	
-	return 0;
+	return dwarf_report(bfs_valid);
 }
 
 /******************************************************************************
@@ -240,7 +243,7 @@ void BFSGraph(int argc, char ** argv)
 	char* kernel_files;
 	int num_kernels = 20;
 
-	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	kernel_files = (char*) malloc(256); /* [FIX-OCL-02] was malloc(sizeof(char*)*num_kernels): 8 bytes for a 10-20 char name -> heap overflow (caught by glibc _FORTIFY_SOURCE) */
     strcpy(kernel_files,"bfs_kernel");
 
     cl_program kernel1Program = ocdBuildProgramFromFile(context,device_id,kernel_files, NULL);
@@ -276,14 +279,33 @@ void BFSGraph(int argc, char ** argv)
 	err = clGetDeviceInfo(device_id,CL_DEVICE_MAX_WORK_ITEM_SIZES,sizeof(size_t)*3,&maxThreads, NULL);
 	CHKERR(err, "Error checking for work item sizes\n");
 
-	maxThreads[0] = no_of_nodes < 256? no_of_nodes: 256; //maxThreads[0];
+	/* [FIX-OCL-34] was local = min(no_of_nodes,256), global = no_of_nodes rounded up to it; pinned: local = DWARF_LS, global = roundup(no_of_nodes);
+	 * both kernels already guard tid < no_of_nodes */
+	maxThreads[0] = DWARF_LS;
 
 	//size_t WorkSize[1] = {no_of_nodes + (no_of_nodes%maxThreads[0])}; // one dimensional Range
-	size_t WorkSize[1] = {(no_of_nodes/maxThreads[0])*maxThreads[0] + ((no_of_nodes%maxThreads[0])==0?0:maxThreads[0])}; // one dimensional Range
+	size_t WorkSize[1] = {DWARF_ROUNDUP(no_of_nodes)}; // one dimensional Range ([FIX-OCL-34])
 
 	size_t localWorkSize[1] = {maxThreads[0]};
 	printf("maxThreads[0]=%d WorkSize[0]=%d localWorkSize[0]=%d\n", maxThreads[0], WorkSize[0], localWorkSize[0]);
 	cl_event syncEvent;
+	/* common timer: the timed region is the six H2D uploads + the level loop + the final cost D2H (JIT/build above is excluded).
+	 * Host arrays are never modified by the device except h_cost (overwritten by the read-back), so a pristine copy is kept. */
+	dwarf_init("bfs", "graph-traversal", "opencl");
+	dwarf_set_size(no_of_nodes, edge_list_size);
+	int *h_cost_init = (int*) malloc(sizeof(int) * no_of_nodes);
+	memcpy(h_cost_init, h_cost, sizeof(int) * no_of_nodes);
+	int rep;
+	for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+	k = 0;
+	dwarf_region_begin();
+	clEnqueueWriteBuffer(commands, d_graph_nodes, CL_TRUE, 0, sizeof(Node) * no_of_nodes, h_graph_nodes, 0, NULL, NULL);
+	clEnqueueWriteBuffer(commands, d_graph_edges, CL_TRUE, 0, sizeof(int) * edge_list_size, h_graph_edges, 0, NULL, NULL);
+	clEnqueueWriteBuffer(commands, d_graph_mask, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_graph_mask, 0, NULL, NULL);
+	clEnqueueWriteBuffer(commands, d_updating_graph_mask, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_updating_graph_mask, 0, NULL, NULL);
+	clEnqueueWriteBuffer(commands, d_graph_visited, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_graph_visited, 0, NULL, NULL);
+	clEnqueueWriteBuffer(commands, d_cost, CL_TRUE, 0, sizeof(int) * no_of_nodes, h_cost_init, 0, NULL, NULL);
 	do
 	{
 		stop = 0;
@@ -325,6 +347,8 @@ void BFSGraph(int argc, char ** argv)
 	clFinish(commands);
 	START_TIMER(ocdTempEvent, OCD_TIMER_D2H, "BFS Cost Copy", ocdTempTimer)
 	END_TIMER(ocdTempTimer)
+	dwarf_region_end(rep);
+	}
 
 	//Store the result into a file
 	FILE* fpo = fopen("bfs_result.txt", "w");
@@ -332,6 +356,25 @@ void BFSGraph(int argc, char ** argv)
 		fprintf(fpo, "%d) cost:%d\n", i, h_cost[i]);
 	fclose(fpo);
 	printf("Result stored in bfs_result.txt\n");
+
+	/* [FIX-OCL-05] the app had no correctness check. Added: serial level-synchronous BFS from the same source,
+	 * compared with the device cost array (the kernels are deterministic per level, so the costs must be identical). */
+	{
+		int *ref = (int*) malloc(sizeof(int) * no_of_nodes), *q = (int*) malloc(sizeof(int) * no_of_nodes);
+		unsigned int qh = 0, qt = 0, bad = 0;
+		for(unsigned int i = 0; i < no_of_nodes; i++) ref[i] = -1;
+		ref[source] = 0; q[qt++] = source;
+		while(qh < qt)
+		{
+			int u = q[qh++];
+			for(int e = h_graph_nodes[u].starting; e < h_graph_nodes[u].starting + h_graph_nodes[u].no_of_edges; e++)
+				if(ref[h_graph_edges[e]] < 0) { ref[h_graph_edges[e]] = ref[u] + 1; q[qt++] = h_graph_edges[e]; }
+		}
+		for(unsigned int i = 0; i < no_of_nodes; i++) if(ref[i] != h_cost[i]) bad++;
+		printf("%s: %u cost mismatches vs serial BFS\n", bad ? "FAILURE" : "SUCCESS", bad);
+		bfs_valid = (bad == 0);
+		free(ref); free(q);
+	}
 
 	//cleanup memory
 	//Free Host memory

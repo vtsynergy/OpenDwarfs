@@ -3,6 +3,7 @@
 // adapted for OpenDwarfs
 
 
+#include "dwarf_launch.h"  /* [FIX-OCL-34] */
 #include <fstream>
 #include <sstream>
 #include <ctime>
@@ -138,7 +139,7 @@ void NQueenSolver::InitKernels(int i, int block_size)
 		}
 	}
 
-	if(m_bForceNoAtomics || m_SolverInfo[i].m_bCPU) {
+	if(m_bForceNoAtomics) {	/* [FIX-OCL-35] CPU devices also run the persistent-thread atomics kernel (was a different FORCE_CPU algorithm) */
 		m_SolverInfo[i].m_bEnableAtomics = false;
 	}
 
@@ -169,11 +170,20 @@ void NQueenSolver::InitKernels(int i, int block_size)
 	if(block_size != 0) {
 		m_SolverInfo[i].m_nMaxWorkItems = block_size * (m_SolverInfo[i].m_bEnableVectorize ? (m_bForceVec4 ? 4 : 2) : 1);
 	}
+	else {
+		/* [FIX-OCL-34] algorithmic work-group (WORK_ITEMS local arrays + barrier): pin to DWARF_LS = 256 on every device (same as OpenMP thread_limit 256) */
+		m_SolverInfo[i].m_nMaxWorkItems = DWARF_WG_ALG;
+	}
 
     if(_deviceType == 3) max_size = (max_size+1)/4096;
 	int block_multiplier = (max_size + 255) / 256;
 
 
+	if(m_SolverInfo[i].m_nThreads == 0) {
+		/* [FIX-OCL-34] algorithmic persistent-thread count, identical in both trees: 61440 = 256 x 80 x 3 (the OpenMP tree's S.nThreads);
+		   was derived from CL_DEVICE_MAX_COMPUTE_UNITS (differs per device: H100 132 CUs, pocl 64) */
+		m_SolverInfo[i].m_nThreads = 61440;
+	}
 	if(m_SolverInfo[i].m_nThreads == 0) {
 		if(m_SolverInfo[i].m_bEnableAtomics) {
 			m_SolverInfo[i].m_nThreads = m_SolverInfo[i].m_nMaxWorkItems * units * (block_multiplier == 1 ? 1 : block_multiplier - 1);
@@ -229,14 +239,11 @@ void NQueenSolver::BuildProgram(int i, const std::string& program, int vector_wi
 
 	settings << "-D WORK_ITEMS=" << work_items;
 
-	if(m_SolverInfo[i].m_bCPU) {
-		settings << " -D FORCE_CPU";
-	}
-	else if(m_bForceLocal) {
+	if(m_bForceLocal) {	/* [FIX-OCL-35] no -D FORCE_CPU: same kernel source path on every device */
 		settings << " -D FORCE_LOCAL";
 	}
 
-	if(m_SolverInfo[i].m_bEnableAtomics && !m_SolverInfo[i].m_bCPU) {
+	if(m_SolverInfo[i].m_bEnableAtomics) {
 		settings << " -D USE_ATOMICS";
 	}
 

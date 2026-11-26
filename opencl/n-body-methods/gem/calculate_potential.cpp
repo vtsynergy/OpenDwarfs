@@ -30,6 +30,9 @@
 
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OCL-34] pinned launch config */
+int gem_valid = 1;   /* set by calc_potential_single_step: all potentials finite */
 #define AOCL_ALIGNMENT 64
 
 #ifdef __FPGA__
@@ -176,7 +179,7 @@ void calc_potential_single_step(residue *residues,
 	char* kernel_files;
 	int num_kernels = 1;
     std::string kernel_file_name;
-	kernel_files = (char*) malloc(sizeof(char*)*num_kernels);
+	kernel_files = (char*) malloc(256); /* [FIX-OCL-02] was malloc(sizeof(char*)*num_kernels): 8 bytes for a 10-20 char name -> heap overflow (caught by glibc _FORTIFY_SOURCE) */
     kernel_file_name = "calculate_potential";
 			
 	
@@ -479,15 +482,15 @@ void calc_potential_single_step(residue *residues,
 			(void*)maxWorkItemSizes,
 			NULL);
 
-	while(BLOCK_DIM_X*BLOCK_DIM_X>maxWorkItemSizes[0])
-		BLOCK_DIM_X = BLOCK_DIM_X/2;
-	BLOCK_DIM_Y = BLOCK_DIM_X;
+	/* [FIX-OCL-34] pinned launch: work-group = DWARF_LS = 256 (16x16 work-items per group, 1-D in effect), BLOCKS=120 work-groups per
+	 * launch (= OpenMP num_teams(120) thread_limit(256)); was halved according to a device query. The kernel guards eye >= nvert. */
+	BLOCK_DIM_X = 16; BLOCK_DIM_Y = 16;
 
 
 	//cl_int   status;
 	cl_uint maxDims;
-	size_t globalThreads[2] = { BLOCK_DIM_X * BLOCK_DIM_Y, BLOCKS };
-	size_t localThreads[2]  = { BLOCK_DIM_X * BLOCK_DIM_Y, 1 };
+	size_t globalThreads[2] = { DWARF_WG_ALG, BLOCKS }; /* [FIX-OCL-34] pinned: 256 x 120 work-items, local 256 */
+	size_t localThreads[2]  = { DWARF_WG_ALG, 1 }; /* [FIX-OCL-34] pinned work-group = 256 */
 	size_t maxWorkGroupSize;
 
 
@@ -517,6 +520,80 @@ void calc_potential_single_step(residue *residues,
 	}
 
 
+	/* common timer: repetitions around [all buffer uploads, the vertex-block kernel loop, the download of the potentials];
+	 * the uploads in front of the kernel-argument setup above are the first (untimed) copy of the same data. */
+	dwarf_init("gem", "n-body-methods", "opencl");
+	dwarf_set_size(nvert, natoms);
+	int eye0 = eye, step0 = step_size, rep;
+	for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+	eye = eye0; step_size = step0;
+	dwarf_region_begin();
+	clEnqueueWriteBuffer ( commands, res_c_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_c,        0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, res_x_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_x,        0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, res_y_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_y,        0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, res_z_s       , CL_TRUE, 0, sizeof(cl_float)*nres,   res_z,        0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Res Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, at_c_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_c,         0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, at_x_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_x,         0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, at_y_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_y,         0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, at_z_s        , CL_TRUE, 0, sizeof(cl_float)*natoms, at_z,         0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Atom Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, vert_c_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_c,       0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, vert_x_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x,       0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, vert_y_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y,       0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, vert_z_s      , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z,       0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, vert_x_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_x_p,     0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, vert_y_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_y_p,     0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, vert_z_p_s    , CL_TRUE, 0, sizeof(cl_float)*nvert,  vert_z_p,     0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Vertex Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, atom_addrs_s  , CL_TRUE, 0, sizeof(cl_int)*nres,     atom_addrs,   0, NULL, &ocdTempEvent);
+	clFinish(commands);
+	START_TIMER(ocdTempEvent, OCD_TIMER_H2D, "Address Copy", ocdTempTimer)
+	END_TIMER(ocdTempTimer)
+	clEnqueueWriteBuffer ( commands, atom_lengths_s, CL_TRUE, 0, sizeof(cl_int)*nres,     atom_lengths, 0, NULL, &ocdTempEvent);
 	for (;  eye/*+((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS)*/ < bound; eye+=((BLOCK_DIM_X*BLOCK_DIM_Y)*BLOCKS))
 		//for(it=0; it<3; it++)
 	{
@@ -595,12 +672,16 @@ void calc_potential_single_step(residue *residues,
 	}
 
 	clFinish(commands);
+	dwarf_region_end(rep);
+	}
 	printf("runtime:%llu\n", get_time());
 
 
+	gem_valid = 1;
 	for(it = 0; it < nvert; it++)
 	{
 		vert[it].potential = vert_c[it];
+		if(!(vert_c[it] == vert_c[it]) || vert_c[it] > 1e30f || vert_c[it] < -1e30f) gem_valid = 0;   /* [FIX-OCL-23] no validity check before: NaN/Inf potentials */
 	}
 
 	*i = eye;

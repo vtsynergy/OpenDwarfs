@@ -1,4 +1,5 @@
 #include "global.h"
+#include "dwarf_launch.h" /* [FIX-OCL-34] pinned launch config */
 #include "functions.h"
 #include "timeRec.h"
 #ifdef __APPLE__
@@ -8,6 +9,7 @@
 #endif
 #include "../../include/rdtsc.h"
 #include "../../include/common_args.h"
+#include "dwarf_timer.h"
 #define AOCL_ALIGNMENT 64
 
 /*************************************************************
@@ -340,6 +342,17 @@ int main(int argc, char ** argv)
 	int DPMatrixSize;
 	int seq1Pos, seq2Pos, nOffset, startPos;
 
+	/* common timer: repetitions over the whole database scan; only the device work of each sequence (zeroing, uploads,
+	 * matrix fill, trace-back, downloads) is accumulated into the timed region; file reads, preprocessing and printing are not. */
+	dwarf_init("swat", "dynamic-programming", "opencl");
+	dwarf_set_size(querySize, 0);
+	int rep;
+	for(rep = dwarf_first_rep(); rep < dwarf_reps(); rep++)
+	{
+	int quiet = (rep != dwarf_first_rep());   /* print the alignments once */
+	fseek(pDBLenFile, 0, SEEK_SET); fseek(pDBDataFile, 0, SEEK_SET);
+	fread(&subSequenceNum, sizeof(int), 1, pDBLenFile);
+	dwarf_acc_reset();
 	for (subSequenceNo = 0; subSequenceNo < subSequenceNum; subSequenceNo++)
 	{
 		//record time
@@ -385,67 +398,69 @@ int main(int argc, char ** argv)
 		timerEnd();
 		strTime.preprocessingTime += elapsedTime();
 
+		dwarf_acc_begin();
 		//record time
 		timerStart();
 
 		//use a kernel to initialize the matrix
+		size_t dwarfLocal = DWARF_LS; /* [FIX-OCL-34] pinned work-group size for the free-size setZero kernel */
 		arraySize = DPMatrixSize * sizeof(char);
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+		setZeroThreadNum = DWARF_ROUNDUP(arraySize); /* [FIX-OCL-34] free-size setZero: pinned global=roundup(n,256), local=256 (kernel guards index<arraySize) */
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&pathFlagD);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
 		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+				&dwarfLocal, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&extFlagD);
 		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+				&dwarfLocal, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT DP Matrix Init", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(err, "Initialize flag matrice");
 
 		arraySize = matrixIniNum * sizeof(float);
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+		setZeroThreadNum = DWARF_ROUNDUP(arraySize); /* [FIX-OCL-34] free-size setZero: pinned global=roundup(n,256), local=256 (kernel guards index<arraySize) */
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&nGapDistD);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
 		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+				&dwarfLocal, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&hGapDistD);
 		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+				&dwarfLocal, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		err |= clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&vGapDistD);
 		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+				&dwarfLocal, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Distance Matrix Init", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(err, "Initialize dist matrice");
 
 		arraySize = sizeof(MAX_INFO) * mfThreadNum;
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+		setZeroThreadNum = DWARF_ROUNDUP(arraySize); /* [FIX-OCL-34] free-size setZero: pinned global=roundup(n,256), local=256 (kernel guards index<arraySize) */
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&maxInfoD);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
 		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+				&dwarfLocal, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Max Info Matrix Init", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
 		CHKERR(err, "Initialize max info");
 
 		arraySize = sizeof(int);
-		setZeroThreadNum = ((arraySize - 1) / blockSize + 1) * blockSize;
+		setZeroThreadNum = DWARF_ROUNDUP(arraySize); /* [FIX-OCL-34] free-size setZero: pinned global=roundup(n,256), local=256 (kernel guards index<arraySize) */
 		err  = clSetKernelArg(hSetZeroKernel, 0, sizeof(cl_mem), (void *)&mutexMem);
 		err |= clSetKernelArg(hSetZeroKernel, 1, sizeof(int), (void *)&arraySize);
 		err |= clEnqueueNDRangeKernel(commands, hSetZeroKernel, 1, NULL, &setZeroThreadNum,
-				&blockSize, 0, NULL, &ocdTempEvent);
+				&dwarfLocal, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
 		START_TIMER(ocdTempEvent, OCD_TIMER_KERNEL, "SWAT Mutex Init", ocdTempTimer)
 		END_TIMER(ocdTempTimer)
@@ -500,6 +515,7 @@ int main(int argc, char ** argv)
 		//err |= clSetKernelArg(hMatchStringKernel, 17, maxLocalSize, NULL);
 		CHKERR(err, "Set match string argument error!");
 
+		/* [FIX-OCL-34] ALGORITHMIC: MatchStringGPUSync keeps blockNum x blockSize = 14 x 64 resident workers (per-worker max tracking, lock-based global barrier); same numbers as omp/ */
 		err = clEnqueueNDRangeKernel(commands, hMatchStringKernel, 1, NULL, &mfThreadNum,
 				&blockSize, 0, NULL, &ocdTempEvent);
 		clFinish(commands);
@@ -560,11 +576,13 @@ int main(int argc, char ** argv)
 		CHKERR(err, "Read output sequence error!");
 		//record time
 		clFinish(commands);
+		dwarf_acc_end();
 		gettimeofday(&t2, NULL);
 		timerEnd();
 		strTime.copyTimeDeviceToHost += elapsedTime();
 
 		//call the print function to print the match result
+		if(!quiet) {
 		printf("============================================================\n");
 		printf("Sequence pair %d:\n", subSequenceNo);
 		int nlength = maxInfo->noutputlen;
@@ -580,14 +598,17 @@ int main(int argc, char ** argv)
 				querySize, subSequenceSize);
 
 		printf("Max position, seq1 = %d, seq2 = %d\n", maxInfo->nposi, maxInfo->nposj);
+		}
+	}
+	dwarf_acc_commit(rep);
 	}
 	tmpTime = 1000.0 * (t2.tv_sec - t1.tv_sec) + (t2.tv_usec - t1.tv_usec) / 1000.0;
-	pfile = fopen("../kernelTime.txt", "at");
-	fprintf(pfile, "verOpencl4:\t%.3f\n", tmpTime);
-	fclose(pfile);
+	/* [FIX-OCL-19] removed: appended to ../kernelTime.txt through an unchecked fopen (NULL dereference when the parent directory
+	 * is not writable) and polluted the parent directory of whoever ran the program. */
 
 	//print time
 	printTime_toStandardOutput();
+	float swat_best = maxInfo->fmaxscore;   /* read before maxInfo is freed below */
 	printTime_toFile();
 
 	fclose(pDBLenFile);
@@ -634,6 +655,12 @@ int main(int argc, char ** argv)
 	clReleaseCommandQueue(commands);
 	clReleaseContext(context);
 	ocd_finalize();
-	return 0;
+	/* [FIX-OCL-20] validity check (none before): the best score of the last pair must be positive; alignment text is the
+	 * reference for comparisons across implementations. */
+	{
+		int ok = swat_best > 0.0f;
+		printf("%s: best score of the last pair %.1f\n", ok ? "SUCCESS" : "FAILURE", swat_best);
+		return dwarf_report(ok);
+	}
 }
 
