@@ -13,6 +13,7 @@
 #include <string.h>
 #include <omp.h>
 #include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OMP-13] pinned launch configuration */
 
 struct Node {
   int starting;     // index where the edges of the node start
@@ -24,7 +25,8 @@ static unsigned int no_of_nodes, edge_list_size;
 /* kernel1 of bfs_kernel.cl: expand the frontier */
 static void kernel1(const Node *nodes, const int *edges, int *mask, int *updating, const int *visited, int *cost,
                     int n) {
-#pragma omp target teams distribute parallel for thread_limit(256)
+/* [FIX-OMP-13] was thread_limit(256) only; pinned: num_teams=ceil(n/256), thread_limit=num_threads=256 (same as the OpenCL NDRange) */
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(n)
   for (int tid = 0; tid < n; tid++) {
     if (mask[tid] != 0) {
       mask[tid] = 0;
@@ -42,7 +44,8 @@ static void kernel1(const Node *nodes, const int *edges, int *mask, int *updatin
 
 /* kernel2 of bfs_kernel.cl: promote updated nodes to the next frontier, raise the "over" flag */
 static void kernel2(int *mask, int *updating, int *visited, int *over, int n) {
-#pragma omp target teams distribute parallel for thread_limit(256)
+/* [FIX-OMP-13] was thread_limit(256) only; pinned: num_teams=ceil(n/256), thread_limit=num_threads=256 (same as the OpenCL NDRange) */
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(n)
   for (int tid = 0; tid < n; tid++) {
     if (updating[tid] == 1) {
       mask[tid] = 1;
@@ -94,6 +97,8 @@ int main(int argc, char **argv) {
 
   dwarf_init("bfs", "graph-traversal", "omp");
   dwarf_set_size(n, E);
+  /* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+#pragma omp target enter data map(alloc : nodes[0 : n], edges[0 : E], mask[0 : n], updating[0 : n], visited[0 : n], cost[0 : n], stop)
   for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
     /* untimed host initialisation (identical to the OpenCL host code) */
     for (int i = 0; i < n; i++) { mask[i] = 0; updating[i] = 0; visited[i] = 0; cost[i] = -1; }
@@ -101,18 +106,19 @@ int main(int argc, char **argv) {
     levels = 0;
 
     dwarf_region_begin();
-#pragma omp target enter data map(to : nodes[0 : n], edges[0 : E], mask[0 : n], updating[0 : n], visited[0 : n], cost[0 : n])
+#pragma omp target update to(nodes[0 : n], edges[0 : E], mask[0 : n], updating[0 : n], visited[0 : n], cost[0 : n])
     do {
       stop = 0;
-#pragma omp target enter data map(to : stop)  /* copy stop to device */
+#pragma omp target update to(stop)  /* copy stop to device */
       kernel1(nodes, edges, mask, updating, visited, cost, n);
       kernel2(mask, updating, visited, &stop, n);
-#pragma omp target exit data map(from : stop) /* copy stop from device */
+#pragma omp target update from(stop) /* copy stop from device */
       levels++;
     } while (stop == 1);
-#pragma omp target exit data map(from : cost[0 : n]) map(delete : nodes[0 : n], edges[0 : E], mask[0 : n], updating[0 : n], visited[0 : n])
+#pragma omp target update from(cost[0 : n])
     dwarf_region_end(rep);
   }
+#pragma omp target exit data map(delete : nodes[0 : n], edges[0 : E], mask[0 : n], updating[0 : n], visited[0 : n], cost[0 : n], stop)
   printf("Kernel Executed %d times\n", levels);
 
   FILE *fpo = fopen("bfs_result.txt", "w");

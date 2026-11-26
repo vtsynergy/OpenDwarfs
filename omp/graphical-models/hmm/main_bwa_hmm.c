@@ -28,6 +28,7 @@
 #include <omp.h>
 #include "ocd_compat.h"
 #include "dwarf_timer.h"
+#include "dwarf_launch.h"  /* [FIX-OMP-13] */
 
 #define T           1000        /* Number of static observations */
 #define S           2           /* Number of static symbols */
@@ -53,15 +54,18 @@ static size_t LA, LB;  /* element counts of a_d / b_d (square) and alpha_d / bet
 
 #define ALPHA_LEN ((size_t)nstates * (length + 1))
 #define MAPS(p, n) map(present, alloc : p[0 : (n)])
+/* [FIX-OMP-13] pinned launch. 1-D kernels: DWARF_LAUNCH(n) = 256 threads x ceil(n/256) teams (= OpenCL local 256, global roundup(n,256)).
+ * 2-D kernels (16x16 work-groups in OpenCL, 256 work-items, no barriers): teams = gridx*gridy, expressed as DWARF_LAUNCH of the padded 16x16-tile area. */
+#define TILE16(a, b) ((((size_t)(a) + 15) / 16 * 16) * (((size_t)(b) + 15) / 16 * 16))
 
 /* ======================= kernels of bwa_hmm_opencl.cl (one parallel iteration = one work-item) ===== */
 static void k_init_ones(float *ones_s, int nsym) {
-#pragma omp target teams distribute parallel for MAPS(ones_s, nsym)
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(nsym) MAPS(ones_s, nsym)
   for (int idx = 0; idx < nsym; idx++) ones_s[idx] = 1.0f;
 }
 static void k_init_alpha(float *b, float *pi, int ns, float *alpha, float *ones_n, int obs_t, int nsym) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : b[0 : (size_t)ns * nsym], pi[0 : ns], alpha[0 : al], ones_n[0 : ns])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(ns) map(present, alloc : b[0 : (size_t)ns * nsym], pi[0 : ns], alpha[0 : al], ones_n[0 : ns])
   for (int idx = 0; idx < ns; idx++) {
     alpha[idx] = pi[idx] * b[(obs_t * ns) + idx];
     ones_n[idx] = 1.0f;
@@ -69,62 +73,62 @@ static void k_init_alpha(float *b, float *pi, int ns, float *alpha, float *ones_
 }
 static void k_calc_alpha(int ns, float *alpha, int offset, float *b, int obs_t, int nsym) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : alpha[0 : al], b[0 : (size_t)ns * nsym])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(ns) map(present, alloc : alpha[0 : al], b[0 : (size_t)ns * nsym])
   for (int idx = 0; idx < ns; idx++) alpha[offset + idx] = alpha[offset + idx] * b[(obs_t * ns) + idx];
 }
 static void k_scale_alpha(int ns, float *alpha, int offset, float sc) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : alpha[0 : al])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(ns) map(present, alloc : alpha[0 : al])
   for (int idx = 0; idx < ns; idx++) alpha[offset + idx] = alpha[offset + idx] / sc;
 }
 static void k_init_beta(int ns, float *beta, int offset, float sc) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : beta[0 : al])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(ns) map(present, alloc : beta[0 : al])
   for (int idx = 0; idx < ns; idx++) beta[offset + idx] = 1.0f / sc;
 }
 static void k_calc_beta(float *beta, float *b, float scale_t, int ns, int obs_t, int t, int nsym) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : beta[0 : al], b[0 : (size_t)ns * nsym])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(ns) map(present, alloc : beta[0 : al], b[0 : (size_t)ns * nsym])
   for (int idx = 0; idx < ns; idx++) beta[(t * ns) + idx] = beta[((t + 1) * ns) + idx] * b[(obs_t * ns) + idx] / scale_t;
 }
 static void k_calc_gamma(float *gamma_sum, float *alpha, float *beta, int ns, int t) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : gamma_sum[0 : ns], alpha[0 : al], beta[0 : al])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(ns) map(present, alloc : gamma_sum[0 : ns], alpha[0 : al], beta[0 : al])
   for (int idx = 0; idx < ns; idx++) gamma_sum[idx] += alpha[(t * ns) + idx] * beta[(t * ns) + idx];
 }
 static void k_calc_xi(float *xi_sum, float *a, float *b, float *alpha, float *beta, float sum_ab, int ns, int obs_t, int t, int nsym) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for collapse(2) map(present, alloc : xi_sum[0 : (size_t)ns * ns], a[0 : (size_t)ns * ns], b[0 : (size_t)ns * nsym], alpha[0 : al], beta[0 : al])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(TILE16(ns, ns)) collapse(2) map(present, alloc : xi_sum[0 : (size_t)ns * ns], a[0 : (size_t)ns * ns], b[0 : (size_t)ns * nsym], alpha[0 : al], beta[0 : al])
   for (int idy = 0; idy < ns; idy++)
     for (int idx = 0; idx < ns; idx++)
       xi_sum[(idy * ns) + idx] += alpha[(t * ns) + idy] * a[(idy * ns) + idx] * b[(obs_t * ns) + idx] * beta[((t + 1) * ns) + idx] / sum_ab;
 }
 static void k_est_a(float *a, float *alpha, float *beta, float *xi_sum, float *gamma_sum, float sum_ab, int ns, int len) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for collapse(2) map(present, alloc : a[0 : (size_t)ns * ns], alpha[0 : al], beta[0 : al], xi_sum[0 : (size_t)ns * ns], gamma_sum[0 : ns])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(TILE16(ns, ns)) collapse(2) map(present, alloc : a[0 : (size_t)ns * ns], alpha[0 : al], beta[0 : al], xi_sum[0 : (size_t)ns * ns], gamma_sum[0 : ns])
   for (int idy = 0; idy < ns; idy++)
     for (int idx = 0; idx < ns; idx++)
       a[(idy * ns) + idx] = xi_sum[(idy * ns) + idx] / (gamma_sum[idy] - alpha[(len * ns) + idy] * beta[(len * ns) + idy] / sum_ab);
 }
 static void k_scale_a(float *a, float *c, int ns) {
-#pragma omp target teams distribute parallel for collapse(2) map(present, alloc : a[0 : (size_t)ns * ns], c[0 : ns])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(TILE16(ns, ns)) collapse(2) map(present, alloc : a[0 : (size_t)ns * ns], c[0 : ns])
   for (int idy = 0; idy < ns; idy++)
     for (int idx = 0; idx < ns; idx++) a[(idy * ns) + idx] = a[(idy * ns) + idx] / c[idy];
 }
 static void k_acc_b(float *b, float *alpha, float *beta, float sum_ab, int ns, int nsym, int obs_t, int t) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for collapse(2) map(present, alloc : b[0 : (size_t)ns * nsym], alpha[0 : al], beta[0 : al])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(TILE16(ns, nsym)) collapse(2) map(present, alloc : b[0 : (size_t)ns * nsym], alpha[0 : al], beta[0 : al])
   for (int idy = 0; idy < nsym; idy++)
     for (int idx = 0; idx < ns; idx++)
       if (obs_t == idy) b[(idy * ns) + idx] += alpha[(t * ns) + idx] * beta[(t * ns) + idx] / sum_ab;
 }
 static void k_est_b(float *b, float *gamma_sum, int ns, int nsym) {
-#pragma omp target teams distribute parallel for collapse(2) map(present, alloc : b[0 : (size_t)ns * nsym], gamma_sum[0 : ns])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(TILE16(ns, nsym)) collapse(2) map(present, alloc : b[0 : (size_t)ns * nsym], gamma_sum[0 : ns])
   for (int idy = 0; idy < nsym; idy++)
     for (int idx = 0; idx < ns; idx++) b[(idy * ns) + idx] = b[(idy * ns) + idx] / gamma_sum[idx];
 }
 static void k_scale_b(float *b, float *c, int ns, int nsym) {
-#pragma omp target teams distribute parallel for collapse(2) map(present, alloc : b[0 : (size_t)ns * nsym], c[0 : ns])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(TILE16(ns, nsym)) collapse(2) map(present, alloc : b[0 : (size_t)ns * nsym], c[0 : ns])
   for (int idy = 0; idy < nsym; idy++)
     for (int idx = 0; idx < ns; idx++) {
       if (b[(idy * ns) + idx] == 0) b[(idy * ns) + idx] = 1e-10;
@@ -133,13 +137,13 @@ static void k_scale_b(float *b, float *c, int ns, int nsym) {
 }
 static void k_est_pi(float *pi, float *alpha, float *beta, float sum_ab, int ns) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : pi[0 : ns], alpha[0 : al], beta[0 : al])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(ns) map(present, alloc : pi[0 : ns], alpha[0 : al], beta[0 : al])
   for (int idx = 0; idx < ns; idx++) pi[idx] = alpha[idx] * beta[idx] / sum_ab;
 }
 /* s_dot_kernel_naive: element-wise products into partialSum (grid-stride loop == one pass over i) */
 static void k_sdot(int n, float *A, int offA, float *B, int offB, float *partial) {
   size_t al = ALPHA_LEN;
-#pragma omp target teams distribute parallel for map(present, alloc : A[0 : (size_t)(offA + n > 0 ? offA + n : 1)], B[0 : (size_t)(offB + n > 0 ? offB + n : 1)], partial[0 : n])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(n) map(present, alloc : A[0 : (size_t)(offA + n > 0 ? offA + n : 1)], B[0 : (size_t)(offB + n > 0 ? offB + n : 1)], partial[0 : n])
   for (int i = 0; i < n; i++) partial[i] = A[offA + i] * B[offB + i];
   (void)al;
 }
@@ -148,14 +152,14 @@ static void k_mvm(int trans, int m, int n, float *A, int lda, float *x, int offX
   int n_size, m_size;
   if (lda == m) { n_size = n; m_size = m; } else { n_size = m; m_size = n; }
   if (!trans) {
-#pragma omp target teams distribute parallel for map(present, alloc : A[0 : alen], x[0 : xylen], y[0 : xylen])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(m_size) map(present, alloc : A[0 : alen], x[0 : xylen], y[0 : xylen])
     for (int i = 0; i < m_size; i++) {
       float sum = 0.f;
       for (int j = 0; j < n_size; j++) sum += A[i * n_size + j] * x[j + offX];
       y[i + offY] = sum;
     }
   } else {
-#pragma omp target teams distribute parallel for map(present, alloc : A[0 : alen], x[0 : xylen], y[0 : xylen])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(m_size) map(present, alloc : A[0 : alen], x[0 : xylen], y[0 : xylen])
     for (int i = 0; i < m_size; i++) {
       float sum = 0.f;
       for (int j = 0; j < n_size; j++) sum += A[j * n_size + i] * x[j + offX];

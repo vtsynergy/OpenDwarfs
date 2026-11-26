@@ -18,6 +18,7 @@
 #include <string.h>
 #include <math.h>
 #include <omp.h>
+#include "dwarf_launch.h" /* [FIX-OMP-13] pinned launch configuration */
 #include "srad.h"
 #include "dwarf_timer.h"
 
@@ -236,12 +237,14 @@ static inline void srad2_item(const float *E_C, const float *W_C, const float *N
 static void run_kernels(float *E_C, float *W_C, float *N_C, float *S_C, float *J, float *C, int cols, int rows,
                         float lambda, float q0sqr, size_t n) {
   int nbx = cols / BS, nby = rows / BS;
-#pragma omp target teams distribute parallel for collapse(4) map(present, alloc : E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n], J[0 : n], C[0 : n])
+/* [FIX-OMP-13] algorithmic 16x16 tile (= 256 threads) in the OpenCL tree; here ceil(rows*cols/256) = nbx*nby teams x 256 threads: identical launch */
+#pragma omp target teams distribute parallel for collapse(4) DWARF_LAUNCH((size_t)rows * cols) map(present, alloc : E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n], J[0 : n], C[0 : n])
   for (int by = 0; by < nby; by++)
     for (int bx = 0; bx < nbx; bx++)
       for (int ty = 0; ty < BS; ty++)
         for (int tx = 0; tx < BS; tx++) srad1_item(E_C, W_C, N_C, S_C, J, C, cols, rows, q0sqr, bx, by, tx, ty, nbx, nby);
-#pragma omp target teams distribute parallel for collapse(4) map(present, alloc : E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n], J[0 : n], C[0 : n])
+/* [FIX-OMP-13] algorithmic 16x16 tile (= 256 threads) in the OpenCL tree; here ceil(rows*cols/256) = nbx*nby teams x 256 threads: identical launch */
+#pragma omp target teams distribute parallel for collapse(4) DWARF_LAUNCH((size_t)rows * cols) map(present, alloc : E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n], J[0 : n], C[0 : n])
   for (int by = 0; by < nby; by++)
     for (int bx = 0; bx < nbx; bx++)
       for (int ty = 0; ty < BS; ty++)
@@ -287,19 +290,20 @@ int main(int argc, char **argv) {
   printf("Start the SRAD main loop\n");
   dwarf_init("srad", "structured-grids", "omp");
   dwarf_set_size(rows, cols);
+/* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+#pragma omp target enter data map(alloc : J[0 : n], C[0 : n], E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n])
   for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
     memcpy(J, J0, sizeof(float) * size_I); /* untimed */
     dwarf_region_begin();
-#pragma omp target enter data map(alloc : J[0 : n], C[0 : n], E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n])
     for (iter = 0; iter < niter; iter++) {
       roi_q0(J, cols, r1, r2, c1, c2, size_R, &q0sqr);
 #pragma omp target update to(J[0 : n])
       run_kernels(E_C, W_C, N_C, S_C, J, C, cols, rows, lambda, q0sqr, n);
 #pragma omp target update from(J[0 : n])
     }
-#pragma omp target exit data map(delete : J[0 : n], C[0 : n], E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n])
     dwarf_region_end(rep);
   }
+#pragma omp target exit data map(delete : J[0 : n], C[0 : n], E_C[0 : n], W_C[0 : n], N_C[0 : n], S_C[0 : n])
   printf("Computation Done\n");
 
   /* validation: serial evaluation of the same kernels on the host */

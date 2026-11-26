@@ -12,8 +12,7 @@
  * Not translated: the two-dimensional path (--2D; kernels fft1/fft2 and the runtime -D tuning of
  * setGlobalOption), the inverse transform and the check kernel of the original SHOC benchmark (the OpenDwarfs
  * app does not use them).
- * Quirk preserved from the OpenCL host: it passes -D pow1=<fftn/16> (a log2 was intended), which the kernels
- * turn into out-of-range shifts; with GPU shift semantics these give 0, reproduced by ocl_shr/ocl_shl.
+ * pow1 is log2(fftn) (FIX-OMP-06); the OpenCL host passed fftn/16 by mistake (FIX-OCL-24).
  * Input: rand() with the default seed, as in the OpenCL app. Timed region: allocation + H2D + forward FFT + D2H.
  * Validation (added): double-precision DFT of the same input.
  */
@@ -628,7 +627,8 @@ static void fft1D_256(T2 *in, T *smem, int local_id, int group_id, int fftn1, in
 	trans_s(a, Local_store, 40, Local_load, 8, 8,128, 0);
 	FFT4S(a);
 	FFT4S(a+4);
-	globalStores8_r(a, in, 32);
+	/* [FIX-OMP-05] only the jj == 0 row stores (FIX-OCL-25) */
+	if( jj == 0 ) globalStores8_r(a, in, 32);
 }
 #endif
 
@@ -669,7 +669,8 @@ static void fft1D_128(T2 *in, T *smem, int local_id, int group_id, int fftn1, in
 	trans_s(a, Local_store, 40, Local_load, 8, 8, 48, -144);
 	FFT4S(a);
 	FFT4S(a+4);
-	globalStores8_r(a, in, 16);
+	/* [FIX-OMP-05] only the jj == 0 row stores (FIX-OCL-25) */
+	if( jj == 0 ) globalStores8_r(a, in, 16);
 }
 #endif
 
@@ -976,7 +977,7 @@ static int local_size_1d(int n) {  /* getLocalDimension(): num_item_per_wg for n
 
 static void forward(T2 *work, T2 *temp, int fftn, int *bad) {
   size_t n = (size_t)fftn;
-  int pow1 = fftn / 16; /* quirk of the OpenCL host code, see header */
+  int pow1 = 0; while ((1 << pow1) < fftn) pow1++; /* log2(fftn): [FIX-OMP-06] the OpenCL host passed fftn/16 (FIX-OCL-24) */
   if (fftn <= 2048) {
     int L = local_size_1d(fftn);
     switch (fftn) {
@@ -1012,6 +1013,7 @@ int main(int argc, char **argv) {
   fprintf(stdout, "used_bytes=%lu, N=%g\n", used_bytes, N);
   T2 *source = (T2 *)malloc(used_bytes), *result = (T2 *)malloc(used_bytes);
   T2 *work = (T2 *)malloc(used_bytes), *temp = (T2 *)malloc(used_bytes);
+  srand(1); /* [FIX-OMP-07] explicit seed, as FIX-OCL-26 */
   for (int i = 0; i < N; i++) {
     source[i].x = (rand() / (float)RAND_MAX) * 2 - 1;
     source[i].y = (rand() / (float)RAND_MAX) * 2 - 1;
@@ -1038,11 +1040,9 @@ int main(int argc, char **argv) {
 #endif
   if (bad[0]) { fprintf(stderr, "FAILURE: the toolchain did not provide one thread per work-item in a team\n"); return 4; }
 
-  /* validation: double-precision DFT; find which output convention the SHOC kernels produce */
-  static const char *names[8] = {"natural", "swap", "conj", "swap-conj", "natural-bitrev", "swap-bitrev", "conj-bitrev", "swap-conj-bitrev"};
-  double err[8]; int bits = 0; while ((1 << bits) < fftn) bits++;
-  double *rr = (double *)malloc(sizeof(double) * fftn), *ri = (double *)malloc(sizeof(double) * fftn);
-  double norm = 0;
+  /* validation (FIX-OCL-27): sorted magnitudes of the output vs the double-precision DFT of the same input (insensitive to the
+   * radix-permuted output order and to swapped real/imaginary parts), relative RMS error < 1e-3. */
+  double *refm = (double *)malloc(sizeof(double) * fftn), *gotm = (double *)malloc(sizeof(double) * fftn);
   for (int k = 0; k < fftn; k++) {
     double sr = 0, si = 0;
     for (int t = 0; t < fftn; t++) {
@@ -1050,29 +1050,15 @@ int main(int argc, char **argv) {
       sr += source[t].x * cos(ang) - source[t].y * sin(ang);
       si += source[t].x * sin(ang) + source[t].y * cos(ang);
     }
-    rr[k] = sr; ri[k] = si; norm += sr * sr + si * si;
+    refm[k] = sqrt(sr * sr + si * si);
+    gotm[k] = sqrt((double)result[k].x * result[k].x + (double)result[k].y * result[k].y);
   }
-  norm = sqrt(norm / fftn);
-  for (int m = 0; m < 8; m++) {
-    double e = 0;
-    for (int k = 0; k < fftn; k++) {
-      int idx = k;
-      if (m >= 4) { idx = 0; for (int b = 0; b < bits; b++) if (k & (1 << b)) idx |= 1 << (bits - 1 - b); }
-      double gx = result[idx].x, gy = result[idx].y;
-      if (m & 1) { double t = gx; gx = gy; gy = t; }
-      if (m & 2) gy = -gy;
-      e += (gx - rr[k]) * (gx - rr[k]) + (gy - ri[k]) * (gy - ri[k]);
-    }
-    err[m] = sqrt(e / fftn) / norm;
-  }
-  int best = 0;
-  for (int m = 1; m < 8; m++) if (err[m] < err[best]) best = m;
-  /* The OpenCL app's own output is not a correct FFT (NVIDIA and PoCL disagree with each other and with the
-   * DFT by up to O(1) element-wise, 1-12% in sorted magnitudes; sizes 128/256 read uninitialised registers),
-   * so the DFT distance is reported for information only. The run is valid if every value is finite. */
-  int ok = 1;
-  for (int k = 0; k < fftn; k++) if (!isfinite(result[k].x) || !isfinite(result[k].y)) ok = 0;
-  printf("%s: output %s; closest DFT convention '%s', relative RMS distance %.3g (informational: the upstream kernel is not an exact FFT)\n",
-         ok ? "SUCCESS" : "FAILURE", ok ? "finite" : "contains non-finite values", names[best], err[best]);
+  qsort(refm, fftn, sizeof(double), [](const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return (x > y) - (x < y); });
+  qsort(gotm, fftn, sizeof(double), [](const void *a, const void *b) { double x = *(const double *)a, y = *(const double *)b; return (x > y) - (x < y); });
+  double e = 0, nrm = 0;
+  for (int k = 0; k < fftn; k++) { e += (refm[k] - gotm[k]) * (refm[k] - gotm[k]); nrm += refm[k] * refm[k]; }
+  double rel = sqrt(e / nrm);
+  int ok = (rel < 1e-3) && (rel == rel);
+  printf("%s: sorted-magnitude relative RMS error vs the double-precision DFT of the input: %.3g\n", ok ? "SUCCESS" : "FAILURE", rel);
   return dwarf_report(ok);
 }

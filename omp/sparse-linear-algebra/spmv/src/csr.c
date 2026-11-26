@@ -18,6 +18,7 @@
 #include "../inc/common.h"
 #include "../inc/sparse_formats.h"
 #include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OMP-13] pinned launch configuration */
 
 static struct option long_options[] = {{"verbose", 0, NULL, 'v'}, {"input_file", 1, NULL, 'i'}, {"print", 0, NULL, 'p'},
                                        {"affirm", 0, NULL, 'a'}, {"repeat", 1, NULL, 'r'}, {"kernel_file", 1, NULL, 'k'},
@@ -52,7 +53,9 @@ static void spmv_csr_cpu(const csr_matrix *csr, const float *x, const float *y, 
 /* The OpenCL kernel `csr`: one work-item per row. wg = work-group size (-> thread_limit). */
 static void csr_kernel(const unsigned int num_rows, const unsigned int *Ap, const unsigned int *Aj, const float *Ax,
                        const float *x, float *y, unsigned int nnz, unsigned int ncols, int wg) {
-#pragma omp target teams distribute parallel for thread_limit(wg) \
+  (void)wg;
+/* [FIX-OMP-13] was thread_limit(wg) (-w / device max); pinned to the OpenCL launch: 256 threads, ceil(rows/256) teams (wg now unused) */
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(num_rows) \
     map(to : Ap[0 : num_rows + 1], Aj[0 : nnz], Ax[0 : nnz], x[0 : ncols]) map(tofrom : y[0 : num_rows])
   for (unsigned int row = 0; row < num_rows; row++) {
     float sum = y[row];
@@ -133,13 +136,23 @@ int main(int argc, char **argv) {
     printf("Executing with WG Size #%d of %d: %d...\n", ii + 1, num_wg_sizes, (int)wg_sizes[ii]);
     /* -r N : same data N times (the OpenCL host code's repeat loop); DWARF_REPEATS overrides if larger */
     if (num_execs > 1) dwarf_set_repeats((int)num_execs);
+    /* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+    for (k = 0; k < num_matrices; k++) {
+      const unsigned int *Ap = csr[k].Ap, *Aj = csr[k].Aj; const float *Ax = csr[k].Ax; float *yk = device_out[k];
+      const size_t nr = csr[k].num_rows, nz = csr[k].num_nonzeros, nc = csr[k].num_cols;
+#pragma omp target enter data map(alloc : Ap[0 : nr + 1], Aj[0 : nz], Ax[0 : nz], x_host[0 : nc], yk[0 : nr])
+    }
     for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
       for (k = 0; k < num_matrices; k++) memcpy(device_out[k], y_host, sizeof(float) * csr[k].num_rows); /* untimed */
       dwarf_region_begin();
       for (k = 0; k < num_matrices; k++) {
         if (verbosity >= 2) printf("Enqueuing Matrix #%d of %d into pipeline...\n", k + 1, num_matrices);
+        const unsigned int *Ap = csr[k].Ap, *Aj = csr[k].Aj; const float *Ax = csr[k].Ax; float *yk = device_out[k];
+        const size_t nr = csr[k].num_rows, nz = csr[k].num_nonzeros, nc = csr[k].num_cols;
+#pragma omp target update to(Ap[0 : nr + 1], Aj[0 : nz], Ax[0 : nz], x_host[0 : nc], yk[0 : nr])
         csr_kernel(csr[k].num_rows, csr[k].Ap, csr[k].Aj, csr[k].Ax, x_host, device_out[k], csr[k].num_nonzeros,
                    csr[k].num_cols, (int)wg_sizes[ii]);
+#pragma omp target update from(yk[0 : nr])
       }
       dwarf_region_end(rep);
       if (rep >= 0 || 1) {
@@ -155,6 +168,11 @@ int main(int argc, char **argv) {
           }
         }
       }
+    }
+    for (k = 0; k < num_matrices; k++) {
+      const unsigned int *Ap = csr[k].Ap, *Aj = csr[k].Aj; const float *Ax = csr[k].Ax; float *yk = device_out[k];
+      const size_t nr = csr[k].num_rows, nz = csr[k].num_nonzeros, nc = csr[k].num_cols;
+#pragma omp target exit data map(delete : Ap[0 : nr + 1], Aj[0 : nz], Ax[0 : nz], x_host[0 : nc], yk[0 : nr])
     }
   }
   if (do_affirm) printf("%s: %u rows differ by more than 0.001\n", bad_total ? "FAILURE" : "SUCCESS", bad_total);

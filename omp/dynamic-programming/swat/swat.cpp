@@ -24,12 +24,20 @@
 #include "timeRec.h"
 #include <omp.h>
 #include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OMP-13] pinned launch config */
+/* [FIX-OMP-13] k_match is ALGORITHMIC: 14 teams x 64 threads (= OpenCL blockNum x blockSize); only on the GPU build */
+#if defined(DWARF_USE_TARGET) && DWARF_USE_TARGET
+#define SWAT_MATCH_LAUNCH(total) num_teams((total) / 64) thread_limit(64) num_threads(64)
+#else
+#define SWAT_MATCH_LAUNCH(total)
+#endif
 
 #define MIN(a, b) (a < b ? a : b)
 
 /* ---- kernel setZero (byte-wise) ---- */
 static void k_setzero(char *a, int arraySize, size_t cap) {
-#pragma omp target teams distribute parallel for map(present, alloc : a[0 : cap])
+/* [FIX-OMP-13] free-size setZero: pinned 256 x ceil(n/256) */
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(arraySize) map(present, alloc : a[0 : cap])
   for (int index = 0; index < arraySize; index++) a[index] = 0;
 }
 
@@ -38,7 +46,7 @@ static void k_match(char *pathFlag, char *extFlag, float *nGapDist, float *hGapD
                     int *threadNum, char *seq1, char *seq2, int blosumWidth, float openPenalty, float extensionPenalty,
                     MAX_INFO *maxInfo, float *blosum62D, int launchNo, int indexi1, int indexj1, int startPos,
                     int totalThreadNum, size_t mElems, size_t tabLen) {
-#pragma omp target teams distribute parallel for map(present, alloc : pathFlag[0 : mElems], extFlag[0 : mElems], nGapDist[0 : mElems], hGapDist[0 : mElems], vGapDist[0 : mElems], diffPos[0 : tabLen], threadNum[0 : tabLen], seq1[0 : MAX_LEN], seq2[0 : MAX_LEN], maxInfo[0 : totalThreadNum], blosum62D[0 : 23 * 23])
+#pragma omp target teams distribute parallel for SWAT_MATCH_LAUNCH(totalThreadNum) map(present, alloc : pathFlag[0 : mElems], extFlag[0 : mElems], nGapDist[0 : mElems], hGapDist[0 : mElems], vGapDist[0 : mElems], diffPos[0 : tabLen], threadNum[0 : tabLen], seq1[0 : MAX_LEN], seq2[0 : MAX_LEN], maxInfo[0 : totalThreadNum], blosum62D[0 : 23 * 23])
   for (int threadid = 0; threadid < totalThreadNum; threadid++) {
     for (int tid = threadid; tid < threadNum[launchNo]; tid += totalThreadNum) {
       int indexi = indexi1 - tid;

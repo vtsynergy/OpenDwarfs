@@ -18,6 +18,7 @@
 #include "ocd_compat.h"
 #include "../inc/crc_formats.h"
 #include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OMP-13] pinned launch configuration */
 
 /* the lookup table must exist on the device as well (OpenCL: __constant) */
 #pragma omp declare target
@@ -78,7 +79,8 @@ static void crc_block(const unsigned int *h_num, unsigned int *h_answer, size_t 
                       unsigned int page_size, unsigned int num_words) {
   size_t nbytes_words = (size_t)num_words * global_size;
   (void)local_size;
-#pragma omp target teams distribute parallel for map(to : h_num[0 : nbytes_words]) map(from : h_answer[0 : global_size])
+/* [FIX-OMP-13] was no team/thread clauses; pinned: 256 threads, ceil(pages/256) teams (same as the OpenCL NDRange) */
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(global_size) map(to : h_num[0 : nbytes_words]) map(from : h_answer[0 : global_size])
   for (size_t gid = 0; gid < global_size; gid++) h_answer[gid] = crc_item(h_num, page_size, num_words, gid);
 }
 
@@ -142,6 +144,12 @@ int main(int argc, char **argv) {
     if (verbosity) printf("Num Pages: %u - Num Parallel CRCs: %u - Num blocks = %u\n", num_pages, num_parallel_crcs[h], num_blocks);
     for (unsigned int k = 0; k < num_wg_sizes; k++) {
       if (num_execs > 1) dwarf_set_repeats((int)num_execs);
+      /* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+      for (unsigned int i = 0; i < num_blocks; i++) {
+        const unsigned int *in = &h_num[(size_t)i * num_parallel_crcs[h] * num_words]; unsigned int *ans = &remainders[(size_t)i * num_parallel_crcs[h]];
+        const size_t cnt = (i == num_blocks - 1) ? num_pages_last_block : num_parallel_crcs[h], nw_ = (size_t)num_words * cnt;
+#pragma omp target enter data map(alloc : in[0 : nw_], ans[0 : cnt])
+      }
       for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
         dwarf_region_begin();
         for (unsigned int i = 0; i < num_blocks; i++) {
@@ -157,8 +165,11 @@ int main(int argc, char **argv) {
             global_size = num_parallel_crcs[h];
             local_size = wg_sizes[k];
           }
-          crc_block(&h_num[(size_t)i * num_parallel_crcs[h] * num_words], &remainders[(size_t)i * num_parallel_crcs[h]],
-                    global_size, local_size, page_size, num_words);
+          const unsigned int *in = &h_num[(size_t)i * num_parallel_crcs[h] * num_words]; unsigned int *ans = &remainders[(size_t)i * num_parallel_crcs[h]];
+          const size_t nw_ = (size_t)num_words * global_size;
+#pragma omp target update to(in[0 : nw_])
+          crc_block(in, ans, global_size, local_size, page_size, num_words);
+#pragma omp target update from(ans[0 : global_size])
         }
         dwarf_region_end(rep);
         if (run_serial) {
@@ -172,6 +183,11 @@ int main(int argc, char **argv) {
             }
           }
         }
+      }
+      for (unsigned int i = 0; i < num_blocks; i++) {
+        const unsigned int *in = &h_num[(size_t)i * num_parallel_crcs[h] * num_words]; unsigned int *ans = &remainders[(size_t)i * num_parallel_crcs[h]];
+        const size_t cnt = (i == num_blocks - 1) ? num_pages_last_block : num_parallel_crcs[h], nw_ = (size_t)num_words * cnt;
+#pragma omp target exit data map(delete : in[0 : nw_], ans[0 : cnt])
       }
     }
   }

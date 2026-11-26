@@ -73,12 +73,7 @@ float rms_err	(float **feature,         /* [npoints][nfeatures] */
     float  ret;						/* return value */
     
     /* calculate and sum the sqaure of euclidean distance*/	
-    #pragma omp parallel for \
-                shared(feature,cluster_centres) \
-                firstprivate(npoints,nfeatures,nclusters) \
-                private(i, nearest_cluster_index) \
-                reduction(+ : sum_euclid) \
-                schedule (static)	
+    /* [FIX-OMP-16] serial, as in the OpenCL tree (the OpenCL build ignores the former pragma) */
     for (i=0; i<npoints; i++) {
         nearest_cluster_index = find_nearest_point(feature[i], 
 													nfeatures, 

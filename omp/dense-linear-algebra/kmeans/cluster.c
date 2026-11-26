@@ -74,6 +74,7 @@
 #include <omp.h>
 
 #include "kmeans.h"
+#include "dwarf_timer.h"	/* [FIX-KMEANS-RMSE] */
 
 extern double wtime(void);
 float	min_rmse_ref = FLT_MAX;			/* reference min_rmse value */
@@ -131,11 +132,13 @@ int cluster(int      npoints,				/* number of data points */
 			/* find the number of clusters with the best RMSE */
 			if(isRMSE)
 			{
+				dwarf_exclude_begin();	/* [FIX-KMEANS-RMSE] the RMSE quality metric is not part of the timed work */
 				rmse = rms_err(features,
 						nfeatures,
 						npoints,
 						tmp_cluster_centres,
 						nclusters);
+				dwarf_exclude_end();
 
 				if(rmse < min_rmse_ref){
 					min_rmse_ref = rmse;			//update reference min RMSE

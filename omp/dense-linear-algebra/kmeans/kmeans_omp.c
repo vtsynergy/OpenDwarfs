@@ -18,6 +18,7 @@
 #include <omp.h>
 #include "kmeans.h"
 #include "ocd_compat.h"
+#include "dwarf_launch.h"  /* [FIX-OMP-13] */
 
 #define THREADS_PER_DIM 16
 #define BLOCKS_PER_DIM 16
@@ -70,8 +71,9 @@ void allocateMemory(int npoints, int nfeatures, int nclusters, float **features)
 
   /* invert_mapping kernel: output[point + npoints*i] = input[point*nfeatures + i]
    * global size = num_blocks*num_threads work-items, guarded by point_id < npoints */
-  size_t global = (size_t)num_blocks * num_threads;
-#pragma omp target teams distribute parallel for map(present, alloc : ff[0 : NP * NF], fd[0 : NP * NF])
+  /* [FIX-OMP-13] pinned launch: trip count = roundup(npoints,256) (= OpenCL global), 256 threads/team, guarded by point_id < NP */
+  size_t global = DWARF_ROUNDUP(NP);
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(global) map(present, alloc : ff[0 : NP * NF], fd[0 : NP * NF])
   for (size_t point_id = 0; point_id < global; point_id++) {
     if (point_id < NP)
       for (size_t i = 0; i < NF; i++) fd[point_id + NP * i] = ff[point_id * NF + i];
@@ -112,8 +114,9 @@ int kmeansCuda(float **feature,       /* in: [npoints][nfeatures] */
   /* kmeansPoint kernel: one work-item per point. The OpenCL global range is
    * (num_blocks_perdim*256) x num_blocks_perdim with local size (256,1); point_id =
    * block_id*256 + local_id covers [0, num_blocks*256) and is guarded by point_id < npoints. */
-  size_t total = (size_t)num_blocks * num_threads;
-#pragma omp target teams distribute parallel for map(present, alloc : fd[0 : NP * NF], cd[0 : NC * NF], md[0 : NP])
+  /* [FIX-OMP-13] pinned launch: trip count = roundup(npoints,256) (= OpenCL global), 256 threads/team */
+  size_t total = DWARF_ROUNDUP(NP);
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(total) map(present, alloc : fd[0 : NP * NF], cd[0 : NC * NF], md[0 : NP])
   for (size_t point_id = 0; point_id < total; point_id++) {
     int index = -1;
     if (point_id < NP) {

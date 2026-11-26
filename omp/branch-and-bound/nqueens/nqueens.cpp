@@ -30,6 +30,7 @@
 #include <omp.h>
 #include "nqueen_cpu.h"
 #include "dwarf_timer.h"
+#include "dwarf_launch.h"  /* [FIX-OMP-13] */
 
 typedef unsigned int uint;
 #define PREDICATED
@@ -453,15 +454,17 @@ static void nqueen1_item(int idx, int board_size, int level, int threads, int pi
 
 static inline int bit_scan_h(unsigned int x) { return bit_scan(x); }
 
-/* One launch of nqueen / nqueen1 over `work_dim` work-items (work-groups of 256 -> flat loop: the
+/* [FIX-OMP-13] thread_limit(256) replaced by DWARF_LAUNCH(work_dim): 256 threads/team, ceil(work_dim/256) teams = the OpenCL NDRange
+ * {work_dim} local {256} (work_dim = nThreads or the tail rounded up to 256; the OpenCL kernels use local memory + barrier so 256 is algorithmic).
+ * One launch of nqueen / nqueen1 over `work_dim` work-items (work-groups of 256 -> flat loop: the
  * kernels use no barriers or local memory in this configuration). */
 __attribute__((noinline)) static void launch(bool first_row_zero, int work_dim, int board_size, int level, int threads, int pitch, uint *params,
                    uint *results, uint *forbidden, int *gindex, size_t nparams, size_t nres) {
 	if (first_row_zero) {
-#pragma omp target teams distribute parallel for thread_limit(256) map(present, alloc : params[0 : nparams], results[0 : nres], forbidden[0 : 32], gindex[0 : 1])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(work_dim) map(present, alloc : params[0 : nparams], results[0 : nres], forbidden[0 : 32], gindex[0 : 1])
 		for (int idx = 0; idx < work_dim; idx++) nqueen1_item(idx, board_size, level, threads, pitch, params, results, forbidden, gindex);
 	} else {
-#pragma omp target teams distribute parallel for thread_limit(256) map(present, alloc : params[0 : nparams], results[0 : nres], forbidden[0 : 32], gindex[0 : 1])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(work_dim) map(present, alloc : params[0 : nparams], results[0 : nres], forbidden[0 : 32], gindex[0 : 1])
 		for (int idx = 0; idx < work_dim; idx++) nqueen_item(idx, board_size, level, threads, pitch, params, results, forbidden, gindex);
 	}
 }

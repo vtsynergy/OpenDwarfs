@@ -46,6 +46,12 @@ create_matrix_from_random(float **mp, int size);
 func_ret_t
 lud_verify(float *m, float *lu, int size);
 
+int
+lud_check(const float *m, const float *lu, int matrix_dim);
+
+float
+lud_tolerance(float v, int dim);
+
 void
 matrix_multiply(float *inputa, float *inputb, float *output, int size);
 

@@ -20,6 +20,7 @@
 #include <malloc.h>
 #include <omp.h>
 #include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OMP-13] pinned launch config */
 #include "calculations.h"
 #include "defines.h"
 
@@ -27,6 +28,9 @@ int gem_valid = 1;
 
 #define BLOCK_DIM_X_C 16
 #define BLOCK_DIM_Y_C 16
+#if BLOCK_DIM_X_C * BLOCK_DIM_Y_C != 256
+#error "gem tile must be 16x16"
+#endif
 #define BLOCKS 120   /* multiple of 30 */
 
 #pragma omp declare target
@@ -62,7 +66,8 @@ static void run_kernel_block(int nres, int nvert, float A, float proj_len, float
                              float *vert_c_s, float *vert_x_s, float *vert_y_s, float *vert_z_s, float *vert_x_p_s,
                              float *vert_y_p_s, float *vert_z_p_s, int natoms) {
   const int gsize0 = BLOCK_DIM_X_C * BLOCK_DIM_Y_C, gsize1 = BLOCKS;
-#pragma omp target teams distribute parallel for collapse(2) map(present, alloc : atom_addrs[0 : nres], atom_lengths[0 : nres], at_c_s[0 : natoms], at_x_s[0 : natoms], at_y_s[0 : natoms], at_z_s[0 : natoms], vert_c_s[0 : nvert], vert_x_s[0 : nvert], vert_y_s[0 : nvert], vert_z_s[0 : nvert], vert_x_p_s[0 : nvert], vert_y_p_s[0 : nvert], vert_z_p_s[0 : nvert])
+/* [FIX-OMP-13] free-size: trip count 256*120 -> 120 teams x 256 threads = OpenCL global {256,120} local {256,1} */
+#pragma omp target teams distribute parallel for collapse(2) DWARF_LAUNCH(gsize0 * gsize1) map(present, alloc : atom_addrs[0 : nres], atom_lengths[0 : nres], at_c_s[0 : natoms], at_x_s[0 : natoms], at_y_s[0 : natoms], at_z_s[0 : natoms], vert_c_s[0 : nvert], vert_x_s[0 : nvert], vert_y_s[0 : nvert], vert_z_s[0 : nvert], vert_x_p_s[0 : nvert], vert_y_p_s[0 : nvert], vert_z_p_s[0 : nvert])
   for (int gid1 = 0; gid1 < gsize1; gid1++) {
     for (int gid0 = 0; gid0 < gsize0; gid0++) {
       int eye = eye_base + gsize0 * gid1 + gid0;
@@ -309,11 +314,13 @@ void calc_potential_single_step(residue *residues, int nres, vertx *vert, int nv
   dwarf_init("gem", "n-body-methods", "omp");
   dwarf_set_size(nvert, natoms);
   int eye0 = eye, step0 = step_size;
+  /* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+#pragma omp target enter data map(alloc : res_c[0 : nres], res_x[0 : nres], res_y[0 : nres], res_z[0 : nres], at_c[0 : natoms], at_x[0 : natoms], at_y[0 : natoms], at_z[0 : natoms], vert_c[0 : nvert], vert_x[0 : nvert], vert_y[0 : nvert], vert_z[0 : nvert], vert_x_p[0 : nvert], vert_y_p[0 : nvert], vert_z_p[0 : nvert], atom_addrs[0 : nres], atom_lengths[0 : nres])
   for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
     eye = eye0; step_size = step0;
     memset(vert_c, 0, sizeof(float) * nvert);
     dwarf_region_begin();
-#pragma omp target enter data map(to : res_c[0 : nres], res_x[0 : nres], res_y[0 : nres], res_z[0 : nres], at_c[0 : natoms], at_x[0 : natoms], at_y[0 : natoms], at_z[0 : natoms], vert_c[0 : nvert], vert_x[0 : nvert], vert_y[0 : nvert], vert_z[0 : nvert], vert_x_p[0 : nvert], vert_y_p[0 : nvert], vert_z_p[0 : nvert], atom_addrs[0 : nres], atom_lengths[0 : nres])
+#pragma omp target update to(res_c[0 : nres], res_x[0 : nres], res_y[0 : nres], res_z[0 : nres], at_c[0 : natoms], at_x[0 : natoms], at_y[0 : natoms], at_z[0 : natoms], vert_c[0 : nvert], vert_x[0 : nvert], vert_y[0 : nvert], vert_z[0 : nvert], vert_x_p[0 : nvert], vert_y_p[0 : nvert], vert_z_p[0 : nvert], atom_addrs[0 : nres], atom_lengths[0 : nres])
     for (; eye < bound; eye += BLOCK_DIM_X_C * BLOCK_DIM_Y_C * BLOCKS) {
       if (rep == dwarf_first_rep()) fprintf(stdout, "finished first %d of %d\n", eye, nvert);
       run_kernel_block(nres, nvert, A, proj_len, diel_int, diel_ext, sal, ion_exc_rad, phiType, eye, step_size, atom_addrs,
@@ -322,9 +329,10 @@ void calc_potential_single_step(residue *residues, int nres, vertx *vert, int nv
       if (eye + step_size > bound) step_size = bound - eye;
     }
     if (eye > bound) eye = bound;
-#pragma omp target exit data map(from : vert_c[0 : nvert]) map(delete : res_c[0 : nres], res_x[0 : nres], res_y[0 : nres], res_z[0 : nres], at_c[0 : natoms], at_x[0 : natoms], at_y[0 : natoms], at_z[0 : natoms], vert_x[0 : nvert], vert_y[0 : nvert], vert_z[0 : nvert], vert_x_p[0 : nvert], vert_y_p[0 : nvert], vert_z_p[0 : nvert], atom_addrs[0 : nres], atom_lengths[0 : nres])
+#pragma omp target update from(vert_c[0 : nvert])
     dwarf_region_end(rep);
   }
+#pragma omp target exit data map(delete : res_c[0 : nres], res_x[0 : nres], res_y[0 : nres], res_z[0 : nres], at_c[0 : natoms], at_x[0 : natoms], at_y[0 : natoms], at_z[0 : natoms], vert_c[0 : nvert], vert_x[0 : nvert], vert_y[0 : nvert], vert_z[0 : nvert], vert_x_p[0 : nvert], vert_y_p[0 : nvert], vert_z_p[0 : nvert], atom_addrs[0 : nres], atom_lengths[0 : nres])
   gem_valid = 1;
   for (it = 0; it < nvert; it++) {
     vert[it].potential = vert_c[it];

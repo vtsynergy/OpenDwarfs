@@ -22,6 +22,7 @@
 #include "global.h"
 #include "dataio.h"
 #include "dwarf_timer.h"
+#include "dwarf_launch.h" /* [FIX-OMP-13] pinned launch config */
 
 typedef struct { unsigned int x, y; } uint2;
 
@@ -169,7 +170,8 @@ uint2* eliminateConflicts(uint2* records, uint recordCount, uint* resultCount) {
 /* ---- kernel countCandidates ---- */
 static void k_count(ubyte targetEvent, float minInterval, float maxInterval, uint2* startRecords, uint* foundRecordsCount,
                     uint recordCount, ubyte* ev, float* tm, size_t nev) {
-#pragma omp target teams distribute parallel for map(present, alloc : startRecords[0 : MaxRecords], foundRecordsCount[0 : MaxRecords], ev[0 : nev], tm[0 : nev])
+/* [FIX-OMP-13] free-size: pinned 256 x ceil(recordCount/256) = OpenCL */
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(recordCount) map(present, alloc : startRecords[0 : MaxRecords], foundRecordsCount[0 : MaxRecords], ev[0 : nev], tm[0 : nev])
   for (uint tid = 0; tid < recordCount; tid++) {
     uint2 ep;  // .x is start, .y is end
     uint myIdx;
@@ -198,7 +200,8 @@ static void k_count(ubyte targetEvent, float minInterval, float maxInterval, uin
 /* ---- kernel writeCandidates ---- */
 static void k_write(ubyte targetEvent, float minInterval, float maxInterval, uint2* startRecords, uint* startOffset,
                     uint2* foundRecords, uint recordCount, ubyte* ev, float* tm, size_t nev) {
-#pragma omp target teams distribute parallel for map(present, alloc : startRecords[0 : MaxRecords], startOffset[0 : MaxRecords], foundRecords[0 : MaxRecords], ev[0 : nev], tm[0 : nev])
+/* [FIX-OMP-13] free-size: pinned 256 x ceil(recordCount/256) = OpenCL */
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(recordCount) map(present, alloc : startRecords[0 : MaxRecords], startOffset[0 : MaxRecords], foundRecords[0 : MaxRecords], ev[0 : nev], tm[0 : nev])
   for (uint tid = 0; tid < recordCount; tid++) {
     uint2 ep;
     uint myIdx, offset;
@@ -264,10 +267,12 @@ int main(int argc, char** argv) {
 
   dwarf_init("tdm", "finite-state-machine", "omp");
   dwarf_set_size(eventSize, numCandidates);
+  /* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+  /* events and times are uploaded once, as in the OpenCL setupGpu() */
+#pragma omp target enter data map(to : dev[0 : nev], dtm[0 : nev]) map(alloc : dstart[0 : MaxRecords], dfound[0 : MaxRecords], dcount[0 : MaxRecords], doff[0 : MaxRecords])
   for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
     d_startRecords = dstart; d_foundRecords = dfound;  // undo the pointer swaps of the previous repetition
     dwarf_region_begin();
-#pragma omp target enter data map(to : dev[0 : nev], dtm[0 : nev]) map(alloc : dstart[0 : MaxRecords], dfound[0 : MaxRecords], dcount[0 : MaxRecords], doff[0 : MaxRecords])
     for (unsigned int idx = 0; idx < numCandidates; idx++) {
       ubyte* currentEpisode = &h_episodeCandidates[idx * maxLevel];
       unsigned int n0 = h_eventCounts[currentEpisode[maxLevel - 1] - start];
@@ -292,6 +297,8 @@ int main(int argc, char** argv) {
 #pragma omp target update to(doff[0 : fc + 1])
         k_write(currentEpisode[eidx], temporalConstraint[0], temporalConstraint[1], srec, doff, frec, h_foundCount, dev, dtm, nev);
         h_foundCount = buff2[h_foundCount];
+        /* [FIX-OMP-03] the record buffers hold MaxRecords entries; a larger frontier overflowed them silently (FIX-OCL-21) */
+        if (h_foundCount > MaxRecords) { printf("FAILURE: %u records exceed MaxRecords (%u)\n", h_foundCount, MaxRecords); return 1; }
         free(buff1);
         free(buff2);
         uint2* temp = d_startRecords;
@@ -306,9 +313,9 @@ int main(int argc, char** argv) {
       uint2* result = eliminateConflicts(h_startRecords, h_foundCount, &h_episodeSupport[idx]);
       free(result);
     }
-#pragma omp target exit data map(delete : dev[0 : nev], dtm[0 : nev], dstart[0 : MaxRecords], dfound[0 : MaxRecords], dcount[0 : MaxRecords], doff[0 : MaxRecords])
     dwarf_region_end(rep);
   }
+#pragma omp target exit data map(delete : dev[0 : nev], dtm[0 : nev], dstart[0 : MaxRecords], dfound[0 : MaxRecords], dcount[0 : MaxRecords], doff[0 : MaxRecords])
   saveResult(dumpFile, maxLevel, numCandidates, h_episodeSupport, h_episodeCandidates, h_episodeIntervals, eventType);
   printf("Cleaning up memory...\n");
   fclose(dumpFile);

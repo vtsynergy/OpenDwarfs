@@ -25,6 +25,7 @@ int BLOCK_SIZE = 16;
 static struct option long_options[] = {
     {"input", 1, NULL, 'i'}, {"verify", 0, NULL, 'v'}, {"no-verify", 0, NULL, 'n'}, {0, 0, 0, 0}};
 
+#if DWARF_USE_TARGET /* GPU path: work-group = team, work-item = thread, real barriers (faithful to the OpenCL kernels) */
 /* ---- kernel 1: lud_diagonal  (OpenCL: global=local=BLOCK_SIZE, 1 work-group) -------------- */
 static void lud_diagonal(float *m, int matrix_dim, int offset, int B) {
   size_t total = (size_t)matrix_dim * matrix_dim;
@@ -107,7 +108,8 @@ static void lud_internal(float *m, int matrix_dim, int offset, int B) {
   size_t total = (size_t)matrix_dim * matrix_dim;
   int G = (matrix_dim - offset) / B - 1;
   if (G <= 0) return;
-#pragma omp target teams distribute collapse(2) map(tofrom : m[0 : total]) firstprivate(matrix_dim, offset, B, G)
+/* [FIX-OMP-13] launch config pinned to the OpenCL NDRange: G x G work-groups (teams) of B x B = 256 work-items (threads) */
+#pragma omp target teams distribute collapse(2) num_teams(G * G) thread_limit(B * B) map(tofrom : m[0 : total]) firstprivate(matrix_dim, offset, B, G)
   for (int gy = 0; gy < G; gy++) {
     for (int gx = 0; gx < G; gx++) {
       int global_row_id = offset + (gy + 1) * B;
@@ -125,35 +127,84 @@ static void lud_internal(float *m, int matrix_dim, int offset, int B) {
   }
 }
 
+#else /* host (DEVICE=cpu) path -- [FIX-OMP-10] */
+/* [FIX-OMP-10] On a host the team/thread emulation of a work-group (nested parallel regions, one per block, with barriers across far more
+ * threads than cores) spent 66% of its time in barrier spin-waits (LUD n=512: 36 ms on 1 thread vs 1056 ms on 48). A work-group is
+ * therefore executed by ONE thread: its phases run in the same order as between the OpenCL barriers, so no barrier is needed, and the
+ * parallelism is across work-groups, as in PoCL. Same arithmetic and same order of operations within a work-group => identical results. */
+static void lud_diagonal(float *m, int matrix_dim, int offset, int B) {
+  int array_offset = offset * matrix_dim + offset;
+  for (int i = 0; i < B; i++) {
+    for (int lid = i + 1; lid < B; lid++) {
+      for (int j = 0; j < i; j++)
+        m[array_offset + lid * matrix_dim + i] -= m[array_offset + lid * matrix_dim + j] * m[array_offset + j * matrix_dim + i];
+      m[array_offset + lid * matrix_dim + i] /= m[array_offset + i * matrix_dim + i];
+    }
+    for (int lid = i + 1; lid < B; lid++) {
+      for (int j = 0; j < i + 1; j++)
+        m[array_offset + (i + 1) * matrix_dim + lid] -= m[array_offset + (i + 1) * matrix_dim + j] * m[array_offset + j * matrix_dim + lid];
+    }
+  }
+}
+
+static void lud_perimeter(float *m, int matrix_dim, int offset, int B) {
+  int groups = (matrix_dim - offset) / B - 1;
+  if (groups <= 0) return;
+#pragma omp parallel for schedule(static)
+  for (int gid = 0; gid < groups; gid++) {
+    int array_offset = offset * matrix_dim + offset;
+    int array_offset_peri = (offset + (gid + 1) * B) * matrix_dim + offset;
+    for (int idx = 0; idx < B; idx++) { /* peri-row work-items */
+      for (int i = 1; i < B; i++)
+        for (int j = 0; j < i; j++)
+          m[array_offset + i * matrix_dim + (gid + 1) * B + idx] -=
+              m[array_offset + i * matrix_dim + j] * m[array_offset + j * matrix_dim + (gid + 1) * B + idx];
+    }
+    for (int idx = 0; idx < B; idx++) { /* peri-col work-items */
+      for (int i = 0; i < B; i++) {
+        for (int j = 0; j < i; j++)
+          m[array_offset_peri + idx * matrix_dim + i] -= m[array_offset_peri + idx * matrix_dim + j] * m[array_offset + j * matrix_dim + i];
+        m[array_offset_peri + idx * matrix_dim + i] /= m[array_offset + i * matrix_dim + i];
+      }
+    }
+  }
+}
+
+static void lud_internal(float *m, int matrix_dim, int offset, int B) {
+  int G = (matrix_dim - offset) / B - 1;
+  if (G <= 0) return;
+#pragma omp parallel for collapse(2) schedule(static)
+  for (int gy = 0; gy < G; gy++) {
+    for (int gx = 0; gx < G; gx++) {
+      int global_row_id = offset + (gy + 1) * B, global_col_id = offset + (gx + 1) * B;
+      for (int ly = 0; ly < B; ly++)
+        for (int lx = 0; lx < B; lx++) {
+          float sum = 0;
+          for (int i = 0; i < B; i++)
+            sum += m[(global_row_id + ly) * matrix_dim + offset + i] * m[(offset + i) * matrix_dim + global_col_id + lx];
+          m[(global_row_id + ly) * matrix_dim + global_col_id + lx] -= sum;
+        }
+    }
+  }
+}
+#endif /* DWARF_USE_TARGET */
+
 /* The offloaded region: H2D, kernel loop of the OpenCL host code, D2H. */
 static void lud_offload(float *m, int matrix_dim, int B) {
   size_t total = (size_t)matrix_dim * matrix_dim;
   int i;
-#pragma omp target enter data map(to : m[0 : total])
+#pragma omp target update to(m[0 : total])
   for (i = 0; i < matrix_dim - B; i += B) {
     lud_diagonal(m, matrix_dim, i, B);
     lud_perimeter(m, matrix_dim, i, B);
     lud_internal(m, matrix_dim, i, B);
   }
   lud_diagonal(m, matrix_dim, i, B);
-#pragma omp target exit data map(from : m[0 : total])
+#pragma omp target update from(m[0 : total])
 }
 
-/* Quiet equivalent of lud_verify() in common.c (same L*U reconstruction and 1e-4 tolerance). */
-static int lud_check(const float *m, const float *lu, int dim) {
-  int mismatches = 0, i, j, k;
-  for (i = 0; i < dim; i++)
-    for (j = 0; j < dim; j++) {
-      float sum = 0, l, u;
-      for (k = 0; k <= MIN(i, j); k++) {
-        l = (i == k) ? 1 : lu[i * dim + k];
-        u = lu[k * dim + j];
-        sum += l * u;
-      }
-      if (fabs(m[i * dim + j] - sum) > 0.0001) mismatches++;
-    }
-  return mismatches;
-}
+/* [FIX-OMP-01] the quiet check lives in common.c (lud_check) with the size-scaled tolerance of FIX-OCL-31; the local copy used the
+ * fixed 1e-4 absolute tolerance, which fails spuriously for large float matrices. */
 
 int main(int argc, char *argv[]) {
   int matrix_dim = 32, opt, option_index = 0, do_verify = 0, quiet_check = 1;
@@ -186,12 +237,16 @@ int main(int argc, char *argv[]) {
   omp_set_max_active_levels(2); /* host fallback: teams -> parallel needs two active levels (work-group -> work-item) */
   dwarf_init("lud", "dense-linear-algebra", "omp");
   dwarf_set_size(matrix_dim, 0);
+  const size_t work_n = (size_t)matrix_dim * matrix_dim;
+/* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+#pragma omp target enter data map(alloc : work[0 : work_n])
   for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
     memcpy(work, mm, sizeof(float) * (size_t)matrix_dim * matrix_dim); /* untimed setup */
     dwarf_region_begin();
     lud_offload(work, matrix_dim, BLOCK_SIZE);
     dwarf_region_end(rep);
   }
+#pragma omp target exit data map(delete : work[0 : work_n])
   memcpy(m, work, sizeof(float) * (size_t)matrix_dim * matrix_dim);
 
   int valid = 1;

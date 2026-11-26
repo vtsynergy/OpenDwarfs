@@ -24,6 +24,7 @@
 #include <vector>
 #include <omp.h>
 #include "dwarf_timer.h"
+#include "dwarf_launch.h"  /* [FIX-OMP-13] */
 
 typedef struct { float x; float y; float z; } float3;
 
@@ -100,7 +101,7 @@ static void compute_flux(int nelr, int *ese, float *normals, float *variables, f
                          float *fc_momentum_y, float *fc_momentum_z, float *fc_density_energy, float *fluxes,
                          float *ff_variable, float3 *ff_fc_momentum_x, float3 *ff_fc_momentum_y,
                          float3 *ff_fc_momentum_z, float3 *ff_fc_density_energy) {
-#pragma omp target teams distribute parallel for KMAP_FLUX
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(nelr) KMAP_FLUX  /* [FIX-OMP-13] pinned launch: 256 threads/team, ceil(nelr/256) teams (= OpenCL local 256, global roundup) */
   for (int i = 0; i < nelr; i++) {
     int *elements_surrounding_elements = ese;
 
@@ -265,7 +266,7 @@ static void compute_flux(int nelr, int *ese, float *normals, float *variables, f
 
 static void compute_flux_contributions(int nelr, float *variables, float *fc_momentum_x, float *fc_momentum_y,
                                        float *fc_momentum_z, float *fc_density_energy) {
-#pragma omp target teams distribute parallel for map(present, alloc : variables[0 : nelr * NVAR], fc_momentum_x[0 : nelr * NDIM], fc_momentum_y[0 : nelr * NDIM], fc_momentum_z[0 : nelr * NDIM], fc_density_energy[0 : nelr * NDIM])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(nelr) map(present, alloc : variables[0 : nelr * NVAR], fc_momentum_x[0 : nelr * NDIM], fc_momentum_y[0 : nelr * NDIM], fc_momentum_z[0 : nelr * NDIM], fc_density_energy[0 : nelr * NDIM])
   for (int i = 0; i < nelr; i++) {
 
 	
@@ -306,7 +307,7 @@ static void compute_flux_contributions(int nelr, float *variables, float *fc_mom
 }
 
 static void compute_step_factor(int nelr, float *variables, float *areas, float *step_factors) {
-#pragma omp target teams distribute parallel for map(present, alloc : variables[0 : nelr * NVAR], areas[0 : nelr], step_factors[0 : nelr])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(nelr) map(present, alloc : variables[0 : nelr * NVAR], areas[0 : nelr], step_factors[0 : nelr])
   for (int i = 0; i < nelr; i++) {
 
 	
@@ -330,7 +331,7 @@ static void compute_step_factor(int nelr, float *variables, float *areas, float 
 }
 
 static void time_step(int j, int nelr, float *old_variables, float *variables, float *step_factors, float *fluxes) {
-#pragma omp target teams distribute parallel for map(present, alloc : old_variables[0 : nelr * NVAR], variables[0 : nelr * NVAR], step_factors[0 : nelr], fluxes[0 : nelr * NVAR])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(nelr) map(present, alloc : old_variables[0 : nelr * NVAR], variables[0 : nelr * NVAR], step_factors[0 : nelr], fluxes[0 : nelr * NVAR])
   for (int i = 0; i < nelr; i++) {
 
 	
@@ -346,7 +347,7 @@ static void time_step(int j, int nelr, float *old_variables, float *variables, f
 }
 
 static void initialize_variables(int nelr, float *variables, float *ff_variable) {
-#pragma omp target teams distribute parallel for map(present, alloc : variables[0 : nelr * NVAR], ff_variable[0 : NVAR])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(nelr) map(present, alloc : variables[0 : nelr * NVAR], ff_variable[0 : NVAR])
   for (int i = 0; i < nelr; i++) {
 
 	
@@ -356,7 +357,7 @@ static void initialize_variables(int nelr, float *variables, float *ff_variable)
 }
 
 static void copy_dd(float *dst, float *src, int N) {  // clEnqueueCopyBuffer device->device
-#pragma omp target teams distribute parallel for map(present, alloc : dst[0 : N], src[0 : N])
+#pragma omp target teams distribute parallel for DWARF_LAUNCH(N) map(present, alloc : dst[0 : N], src[0 : N])
   for (int i = 0; i < N; i++) dst[i] = src[i];
 }
 
@@ -464,7 +465,12 @@ int main(int argc, char **argv) {
     int last = nel - 1;
     for (int i = nel; i < nelr; i++) {
       h_areas[i] = h_areas[last];
-      for (int j = 0; j < NNB; j++) h_ese[i + j * nelr] = h_ese[last + j * nelr];
+      for (int j = 0; j < NNB; j++) {
+        h_ese[i + j * nelr] = h_ese[last + j * nelr];
+        /* [FIX-OMP-02] padded elements duplicate the last element's normals (the OpenCL code intended this but self-assigned; FIX-OCL-10).
+         * Previously they were zero here. */
+        for (int k = 0; k < NDIM; k++) h_normals[i + (j + k * NNB) * nelr] = h_normals[last + (j + k * NNB) * nelr];
+      }
     }
   }
 
@@ -483,24 +489,28 @@ int main(int argc, char **argv) {
   dwarf_init("cfd", "unstructured-grids", "omp");
   dwarf_set_size(nel, nelr);
   std::cout << "Starting..." << std::endl;
+  float *areas = s.areas, *normals = s.normals, *variables = s.variables, *old_variables = s.old_variables,
+        *fluxes = s.fluxes, *step_factors = s.step_factors, *fc_mx = s.fc_mx, *fc_my = s.fc_my, *fc_mz = s.fc_mz,
+        *fc_de = s.fc_de, *ffv = s.ffv;
+  int *ese = s.ese;
+  float3 *ff_mx = s.ff_mx, *ff_my = s.ff_my, *ff_mz = s.ff_mz, *ff_de = s.ff_de;
+  /* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+  /* far-field values are uploaded once, outside the region, as in the OpenCL code */
+#pragma omp target enter data map(to : ffv[0 : NVAR], ff_mx[0 : 1], ff_my[0 : 1], ff_mz[0 : 1], ff_de[0 : 1]) \
+    map(alloc : areas[0 : nelr], ese[0 : (size_t)nelr * NNB], normals[0 : N3 * NNB], step_factors[0 : nelr], variables[0 : NV], old_variables[0 : NV], fluxes[0 : NV], fc_mx[0 : N3], fc_my[0 : N3], fc_mz[0 : N3], fc_de[0 : N3])
   for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
     memset(s.step_factors, 0, nelr * sizeof(float));  // untimed host-side zero source for step_factors
     dwarf_region_begin();
-    float *areas = s.areas, *normals = s.normals, *variables = s.variables, *old_variables = s.old_variables,
-          *fluxes = s.fluxes, *step_factors = s.step_factors, *fc_mx = s.fc_mx, *fc_my = s.fc_my, *fc_mz = s.fc_mz,
-          *fc_de = s.fc_de, *ffv = s.ffv;
-    int *ese = s.ese;
-    float3 *ff_mx = s.ff_mx, *ff_my = s.ff_my, *ff_mz = s.ff_mz, *ff_de = s.ff_de;
-#pragma omp target enter data map(to : areas[0 : nelr], ese[0 : (size_t)nelr * NNB], normals[0 : N3 * NNB], ffv[0 : NVAR], ff_mx[0 : 1], ff_my[0 : 1], ff_mz[0 : 1], ff_de[0 : 1], step_factors[0 : nelr]) \
-    map(alloc : variables[0 : NV], old_variables[0 : NV], fluxes[0 : NV], fc_mx[0 : N3], fc_my[0 : N3], fc_mz[0 : N3], fc_de[0 : N3])
+#pragma omp target update to(areas[0 : nelr], ese[0 : (size_t)nelr * NNB], normals[0 : N3 * NNB])
     initialize_variables(nelr, variables, ffv);
     initialize_variables(nelr, old_variables, ffv);
     initialize_variables(nelr, fluxes, ffv);
+#pragma omp target update to(step_factors[0 : nelr])
     solve(s);
-#pragma omp target exit data map(from : variables[0 : NV]) \
-    map(delete : areas[0 : nelr], ese[0 : (size_t)nelr * NNB], normals[0 : N3 * NNB], ffv[0 : NVAR], ff_mx[0 : 1], ff_my[0 : 1], ff_mz[0 : 1], ff_de[0 : 1], step_factors[0 : nelr], old_variables[0 : NV], fluxes[0 : NV], fc_mx[0 : N3], fc_my[0 : N3], fc_mz[0 : N3], fc_de[0 : N3])
+#pragma omp target update from(variables[0 : NV])
     dwarf_region_end(rep);
   }
+#pragma omp target exit data map(delete : areas[0 : nelr], ese[0 : (size_t)nelr * NNB], normals[0 : N3 * NNB], ffv[0 : NVAR], ff_mx[0 : 1], ff_my[0 : 1], ff_mz[0 : 1], ff_de[0 : 1], step_factors[0 : nelr], variables[0 : NV], old_variables[0 : NV], fluxes[0 : NV], fc_mx[0 : N3], fc_my[0 : N3], fc_mz[0 : N3], fc_de[0 : N3])
   std::cout << "Finished" << std::endl;
   std::cout << "Saving solution..." << std::endl;
   dump(s.variables, nel, nelr);

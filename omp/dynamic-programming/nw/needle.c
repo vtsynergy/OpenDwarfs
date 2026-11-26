@@ -74,6 +74,7 @@ static inline int maximum_d(int a, int b, int c) {
  * work-items separated by barriers. phase 1: tiles on/above the anti-diagonal (i grows),
  * phase 2: tiles below it. A work-group is a team, a work-item a thread (strided over however many
  * threads/teams the runtime grants; both the thread loop and the group loop are barrier-uniform). */
+#if DWARF_USE_TARGET /* GPU path: tile = team, work-item = thread, real barriers */
 static void needle_kernel(const int *referrence, int *matrix, int cols, int penalty, int i, int block_width,
                           int phase, size_t size) {
 #pragma omp target teams num_teams(i) thread_limit(BLOCK_SIZE) map(to : referrence[0 : size]) map(tofrom : matrix[0 : size])
@@ -111,6 +112,34 @@ static void needle_kernel(const int *referrence, int *matrix, int cols, int pena
 		}
 	}
 }
+#else /* host (DEVICE=cpu) path -- [FIX-OMP-11] */
+/* [FIX-OMP-11] On a host, one team per tile with BLOCK_SIZE threads and 2*BLOCK_SIZE-1 barriers per tile spent most of its time in barrier
+ * spin-waits (n=1024: 22 ms on 1 thread vs 320 ms on 48). A tile (OpenCL work-group) is now computed by one thread, wavefront by wavefront in the
+ * same order as between the barriers, and the tiles of an anti-diagonal (independent) are distributed over the threads. Identical results. */
+static void needle_kernel(const int *referrence, int *matrix, int cols, int penalty, int i, int block_width, int phase, size_t size) {
+	(void)size;
+#pragma omp parallel for schedule(static)
+	for (int bx = 0; bx < i; bx++) {
+		int b_index_x, b_index_y;
+		if (phase == 1) { b_index_x = bx; b_index_y = i - 1 - bx; }
+		else { b_index_x = bx + block_width - i; b_index_y = block_width - bx - 1; }
+		for (int m = 0; m < BLOCK_SIZE; m++) {
+			for (int tx = 0; tx <= m; tx++) {
+				int index = cols * BLOCK_SIZE * b_index_y + BLOCK_SIZE * b_index_x + tx + (cols + 1);
+				int ref_x = index + (m - tx) * cols;
+				matrix[ref_x] = maximum_d(matrix[ref_x - (cols + 1)] + referrence[ref_x], matrix[ref_x - 1] - penalty, matrix[ref_x - cols] - penalty);
+			}
+		}
+		for (int m = BLOCK_SIZE - 2; m >= 0; m--) {
+			for (int tx = 0; tx <= m; tx++) {
+				int index = cols * BLOCK_SIZE * b_index_y + BLOCK_SIZE * b_index_x + tx + (cols + 1);
+				int ref_x = index + (m - tx) * cols + (cols + 1) * (BLOCK_SIZE - 1 - m);
+				matrix[ref_x] = maximum_d(matrix[ref_x - (cols + 1)] + referrence[ref_x], matrix[ref_x - 1] - penalty, matrix[ref_x - cols] - penalty);
+			}
+		}
+	}
+}
+#endif /* DWARF_USE_TARGET */
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
@@ -198,10 +227,12 @@ void runTest( int argc, char** argv)
 
 	dwarf_init("nw", "dynamic-programming", "omp");
 	dwarf_set_size(max_cols - 1, penalty);
+/* [FIX-OMP-14] OpenCL creates its buffers before the timed region and only transfers inside it: allocate once outside the region, `target update` inside */
+#pragma omp target enter data map(alloc : matrix[0 : size], referrence[0 : size])
 	for (int rep = dwarf_first_rep(); rep < dwarf_reps(); ++rep) {
 		memcpy(matrix, input_itemsets, sizeof(int) * size);   /* untimed: restore initial scores */
 		dwarf_region_begin();
-#pragma omp target enter data map(to : matrix[0 : size], referrence[0 : size])
+#pragma omp target update to(matrix[0 : size], referrence[0 : size])
 		printf("Processing top-left matrix\n");
 		//process top-left matrix: blocks in a wave-front pattern up to the main (block-level) anti-diagonal
 		for(i = 1 ; i <= block_width ; i++)
@@ -210,9 +241,10 @@ void runTest( int argc, char** argv)
 		//process bottom-right matrix: blocks in a wave-front pattern downwards the main anti-diagonal
 		for(i = block_width - 1  ; i >= 1 ; i--)
 			needle_kernel(referrence, matrix, max_cols, penalty, i, block_width, 2, (size_t)size);
-#pragma omp target exit data map(from : matrix[0 : size]) map(delete : referrence[0 : size])
+#pragma omp target update from(matrix[0 : size])
 		dwarf_region_end(rep);
 	}
+#pragma omp target exit data map(delete : matrix[0 : size], referrence[0 : size])
 	memcpy(output_itemsets, matrix, sizeof(int) * size);
 
 	/* validation (not in the OpenCL app): serial fill of the same recurrence */
@@ -229,7 +261,7 @@ void runTest( int argc, char** argv)
 		free(ref);
 		dwarf_set_size(max_cols - 1, penalty);
 		printf("print traceback value GPU:\n");
-		for (i = max_rows - 2,  j = max_rows - 2; i>=0, j>=0;){
+		for (i = max_rows - 2,  j = max_rows - 2; i>=0 && j>=0;){ /* [FIX-OMP-04] was `i>=0, j>=0` (comma operator: only j>=0 was tested; FIX-OCL-08) */
 			int nw, n, w, traceback;
 			if ( i == max_rows - 2 && j == max_rows - 2 )
 				printf("%d ", output_itemsets[ i * max_cols + j]); //print the first element
